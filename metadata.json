@@ -1,0 +1,6 @@
+{
+  "name": "GameTracker Pro",
+  "description": "Track game achievements across multiple platforms in a unified profile dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
