@@ -1,18 +1,26 @@
-export type Platform = 'ps5' | 'steam' | 'xbox' | 'epic' | 'android';
+/** The only two platforms this tracker supports. */
+export type Platform = 'steam' | 'ps5';
+
+export const PLATFORM_IDS: Platform[] = ['steam', 'ps5'];
+
+export const isPlatform = (value: unknown): value is Platform =>
+  value === 'steam' || value === 'ps5';
+
+/** Card emphasis treatment, chosen in Settings. */
+export type HighlightStyle = 'stroke' | 'fill';
 
 export type GameStatus = 'backlog' | 'playing' | 'completed' | 'mastered' | 'dropped';
 
-export interface GameAchievement {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  unlocked: boolean;
-  unlockedAt?: string;
-}
+export const GAME_STATUSES: GameStatus[] = [
+  'backlog',
+  'playing',
+  'completed',
+  'mastered',
+  'dropped',
+];
 
 export interface UserGame {
-  id: string; // Unique UUID
+  id: string;
   rawgId?: number;
   title: string;
   platform: Platform;
@@ -21,15 +29,16 @@ export interface UserGame {
   releaseDate?: string;
   genres: string[];
   hoursPlayed: number;
-  rating?: number; // 1 to 5 stars or 1 to 10
+  rating?: number;
   achievementsUnlocked: number;
   achievementsTotal: number;
-  achievements?: GameAchievement[];
-  collections: string[]; // collection IDs
+  collections: string[];
   notes?: string;
   lastPlayedAt?: string;
   addedAt: string;
   completedAt?: string;
+  /** Real modification time — drives last-write-wins against the cloud copy. */
+  updatedAt: string;
 }
 
 export interface Collection {
@@ -40,16 +49,19 @@ export interface Collection {
   color?: string;
   isSystem?: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface SidebarConfig {
   showCurrentlyPlaying: boolean;
   showBacklog: boolean;
   showCollections: boolean;
-  showAchievements: boolean; // Trophy & 100% Unlocks
+  showAchievements: boolean;
   showStats: boolean;
   showSearch: boolean;
   navOrder?: string[];
+  /** User-supplied labels for sidebar destinations, keyed by route path. */
+  navNames?: Record<string, string>;
 }
 
 export interface UserProfile {
@@ -58,19 +70,24 @@ export interface UserProfile {
   avatarUrl?: string;
   email?: string;
   sidebarConfig?: SidebarConfig;
+  /** User-defined display names for each status. */
   statusNames?: Partial<Record<GameStatus, string>>;
+  /** Ordering used by the "Platform" sort across every library view. */
   platformOrder?: Platform[];
+  /** How a card signals its status: a coloured stroke, or a filled tint. */
+  highlightStyle?: HighlightStyle;
 }
 
 export interface PlatformConfig {
   id: Platform;
   name: string;
   shortName: string;
+  /** Identity hue — meters, chart fills, overlay tints. */
   color: string;
-  bgColor: string;
-  borderColor: string;
-  textColor: string;
-  iconName: string;
+  /** Low-alpha identity tint layered above the overlay scrim on cover art. */
+  tint: string;
+  /** Token classes for the platform on an ordinary (non-overlay) surface. */
+  surfaceClass: string;
 }
 
 export interface RawgGameResult {

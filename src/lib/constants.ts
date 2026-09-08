@@ -1,86 +1,67 @@
-import { Platform, PlatformConfig, Collection, UserGame, GameStatus } from '../types';
+import { Platform, PlatformConfig, Collection, GameStatus, isPlatform } from '../types';
+
+export const APP_NAME = 'Trophy Tracker';
 
 export const DEFAULT_STATUS_NAMES: Record<GameStatus, string> = {
   backlog: 'Backlog',
-  playing: 'Currently Playing',
+  playing: 'Playing',
   completed: 'Completed',
-  mastered: 'Mastered (100%)',
+  mastered: '100% Mastered',
   dropped: 'Dropped',
 };
 
 export const PLATFORMS: Record<Platform, PlatformConfig> = {
-  ps5: {
-    id: 'ps5',
-    name: 'PlayStation 5',
-    shortName: 'PS5',
-    color: '#0070D1',
-    bgColor: 'rgba(0, 112, 209, 0.15)',
-    borderColor: 'rgba(0, 112, 209, 0.4)',
-    textColor: '#38bdf8',
-    iconName: 'Gamepad2',
-  },
   steam: {
     id: 'steam',
     name: 'Steam',
     shortName: 'Steam',
-    color: '#66C0F4',
-    bgColor: 'rgba(102, 192, 244, 0.15)',
-    borderColor: 'rgba(102, 192, 244, 0.4)',
-    textColor: '#7dd3fc',
-    iconName: 'Flame',
+    color: '#66c0f4',
+    tint: 'rgb(102 192 244 / 0.22)',
+    surfaceClass: 'bg-steam-700/15 text-steam-900',
   },
-  xbox: {
-    id: 'xbox',
-    name: 'Xbox Series X/S',
-    shortName: 'Xbox',
-    color: '#107C10',
-    bgColor: 'rgba(16, 124, 16, 0.15)',
-    borderColor: 'rgba(16, 124, 16, 0.4)',
-    textColor: '#4ade80',
-    iconName: 'Gamepad2',
-  },
-  epic: {
-    id: 'epic',
-    name: 'Epic Games',
-    shortName: 'Epic',
-    color: '#A855F7',
-    bgColor: 'rgba(168, 85, 247, 0.15)',
-    borderColor: 'rgba(168, 85, 247, 0.4)',
-    textColor: '#c084fc',
-    iconName: 'Zap',
-  },
-  android: {
-    id: 'android',
-    name: 'Google Play Store',
-    shortName: 'Android',
-    color: '#10B981',
-    bgColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-    textColor: '#34d399',
-    iconName: 'Smartphone',
+  ps5: {
+    id: 'ps5',
+    name: 'PlayStation 5',
+    shortName: 'PS5',
+    color: '#4d9bf0',
+    tint: 'rgb(0 112 209 / 0.28)',
+    surfaceClass: 'bg-playstation-700/15 text-playstation-900',
   },
 };
 
-/**
- * Default Platform display order
- */
-export const DEFAULT_PLATFORM_SORT_ORDER: Platform[] = [
-  'steam',
-  'ps5',
-  'android',
-  'xbox',
-  'epic',
-];
+/** Default platform display order, overridable per user in Settings. */
+export const DEFAULT_PLATFORM_SORT_ORDER: Platform[] = ['steam', 'ps5'];
 
-export const comparePlatformOrder = (platformA: string, platformB: string, customOrder?: Platform[]): number => {
-  const orderArray = customOrder && customOrder.length > 0 ? customOrder : DEFAULT_PLATFORM_SORT_ORDER;
-  const indexA = orderArray.indexOf(platformA.toLowerCase() as Platform);
-  const indexB = orderArray.indexOf(platformB.toLowerCase() as Platform);
-  
-  const orderA = indexA === -1 ? 99 : indexA;
-  const orderB = indexB === -1 ? 99 : indexB;
-  
-  return orderA - orderB;
+export const comparePlatformOrder = (
+  platformA: string,
+  platformB: string,
+  customOrder?: Platform[],
+): number => {
+  const order = customOrder && customOrder.length > 0 ? customOrder : DEFAULT_PLATFORM_SORT_ORDER;
+  const indexOf = (value: string) => {
+    const idx = order.indexOf(value.toLowerCase() as Platform);
+    return idx === -1 ? order.length : idx;
+  };
+  return indexOf(platformA) - indexOf(platformB);
+};
+
+/** Human-readable summary of an order, e.g. "Steam → PS5". */
+export const describePlatformOrder = (order?: Platform[]): string =>
+  (order && order.length > 0 ? order : DEFAULT_PLATFORM_SORT_ORDER)
+    .map((p) => PLATFORMS[p]?.shortName ?? p)
+    .join(' → ');
+
+/**
+ * Coerces a stored or remote platform value onto the supported set. Legacy
+ * PlayStation spellings map to ps5; anything else is not supported and returns
+ * null so the caller can drop the record.
+ */
+export const normalizePlatform = (value: unknown): Platform | null => {
+  if (typeof value !== 'string') return null;
+  const v = value.toLowerCase().trim();
+  if (isPlatform(v)) return v;
+  if (v === 'playstation' || v === 'ps4' || v === 'ps3' || v === 'playstation5') return 'ps5';
+  return null;
 };
 
 export const DEFAULT_COLLECTIONS: Collection[] = [
@@ -89,7 +70,7 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     name: 'Backlog',
     description: 'Games queued to play',
     icon: 'Clock',
-    color: '#F59E0B',
+    color: '#edaa30',
     isSystem: true,
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -98,231 +79,34 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     name: 'All-Time Favorites',
     description: 'Favorite games',
     icon: 'Heart',
-    color: '#EC4899',
+    color: '#ec5b62',
     isSystem: false,
     createdAt: '2026-01-02T00:00:00.000Z',
   },
   {
     id: 'col-masterpieces',
     name: '100% Platinum Club',
-    description: '100% completed games',
+    description: 'Games finished to 100%',
     icon: 'Trophy',
-    color: '#EAB308',
+    color: '#f2c14e',
     isSystem: false,
     createdAt: '2026-01-03T00:00:00.000Z',
   },
-  {
-    id: 'col-cozy',
-    name: 'Cozy & Chill',
-    description: 'Casual and relaxing games',
-    icon: 'Coffee',
-    color: '#14B8A6',
-    isSystem: false,
-    createdAt: '2026-01-04T00:00:00.000Z',
-  },
 ];
 
-export const INITIAL_GAMES: UserGame[] = [
-  {
-    id: 'game-1',
-    rawgId: 3328,
-    title: 'The Witcher 3: Wild Hunt',
-    platform: 'steam',
-    status: 'mastered',
-    coverImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2015-05-18',
-    genres: ['RPG', 'Open World', 'Adventure'],
-    hoursPlayed: 142,
-    rating: 5,
-    achievementsUnlocked: 78,
-    achievementsTotal: 78,
-    collections: ['col-favorites', 'col-masterpieces'],
-    notes: 'Completed all DLCs. Blood and Wine was absolute cinema!',
-    lastPlayedAt: '2026-08-28T18:30:00Z',
-    addedAt: '2026-01-10T00:00:00Z',
-    completedAt: '2026-08-28T18:30:00Z',
-  },
-  {
-    id: 'game-2',
-    rawgId: 494384,
-    title: 'Elden Ring',
-    platform: 'ps5',
-    status: 'playing',
-    coverImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2022-02-25',
-    genres: ['Action', 'RPG', 'Dark Fantasy'],
-    hoursPlayed: 86,
-    rating: 5,
-    achievementsUnlocked: 34,
-    achievementsTotal: 42,
-    collections: ['col-favorites'],
-    notes: 'Currently exploring Shadow of the Erdtree expansion. Malenia defeated!',
-    lastPlayedAt: '2026-09-03T21:15:00Z',
-    addedAt: '2026-02-01T00:00:00Z',
-  },
-  {
-    id: 'game-3',
-    rawgId: 9767,
-    title: 'Hollow Knight: Silksong',
-    platform: 'steam',
-    status: 'backlog',
-    coverImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2025-11-12',
-    genres: ['Metroidvania', 'Action', 'Indie'],
-    hoursPlayed: 0,
-    rating: 0,
-    achievementsUnlocked: 0,
-    achievementsTotal: 35,
-    collections: ['col-backlog'],
-    notes: 'Saved for upcoming weekend marathon!',
-    addedAt: '2026-08-01T00:00:00Z',
-  },
-  {
-    id: 'game-4',
-    rawgId: 58175,
-    title: 'God of War Ragnarök',
-    platform: 'ps5',
-    status: 'completed',
-    coverImage: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2022-11-09',
-    genres: ['Action', 'Adventure', 'Mythology'],
-    hoursPlayed: 54,
-    rating: 5,
-    achievementsUnlocked: 36,
-    achievementsTotal: 36,
-    collections: ['col-masterpieces'],
-    notes: 'Incredible story, combat felt so punchy.',
-    lastPlayedAt: '2026-07-14T20:00:00Z',
-    addedAt: '2026-03-15T00:00:00Z',
-    completedAt: '2026-07-14T20:00:00Z',
-  },
-  {
-    id: 'game-5',
-    rawgId: 906547,
-    title: 'Balatro',
-    platform: 'steam',
-    status: 'playing',
-    coverImage: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2024-02-20',
-    genres: ['Roguelike', 'Card Game', 'Strategy'],
-    hoursPlayed: 48,
-    rating: 5,
-    achievementsUnlocked: 22,
-    achievementsTotal: 32,
-    collections: ['col-cozy'],
-    notes: 'Just one more run! Gold Stake unlocked on Red Deck.',
-    lastPlayedAt: '2026-09-02T22:30:00Z',
-    addedAt: '2026-05-10T00:00:00Z',
-  },
-  {
-    id: 'game-6',
-    rawgId: 2462,
-    title: 'Genshin Impact',
-    platform: 'android',
-    status: 'playing',
-    coverImage: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2020-09-28',
-    genres: ['Open World', 'Action', 'Gacha'],
-    hoursPlayed: 120,
-    rating: 4.5,
-    achievementsUnlocked: 645,
-    achievementsTotal: 800,
-    collections: [],
-    notes: 'Daily commissions on the phone during commute.',
-    lastPlayedAt: '2026-09-04T08:00:00Z',
-    addedAt: '2026-02-15T00:00:00Z',
-  },
-  {
-    id: 'game-7',
-    rawgId: 3498,
-    title: 'Grand Theft Auto V',
-    platform: 'epic',
-    status: 'completed',
-    coverImage: 'https://images.unsplash.com/photo-1552824796-03c00445d045?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2013-09-17',
-    genres: ['Action', 'Open World', 'Crime'],
-    hoursPlayed: 95,
-    rating: 4,
-    achievementsUnlocked: 45,
-    achievementsTotal: 50,
-    collections: [],
-    notes: 'Claimed free on Epic Games, story completed 100%.',
-    lastPlayedAt: '2026-04-10T14:00:00Z',
-    addedAt: '2026-01-20T00:00:00Z',
-    completedAt: '2026-04-10T14:00:00Z',
-  },
-  {
-    id: 'game-8',
-    rawgId: 452634,
-    title: 'Cyberpunk 2077: Phantom Liberty',
-    platform: 'steam',
-    status: 'completed',
-    coverImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2023-09-26',
-    genres: ['Action', 'RPG', 'Cyberpunk'],
-    hoursPlayed: 110,
-    rating: 5,
-    achievementsUnlocked: 52,
-    achievementsTotal: 57,
-    collections: ['col-favorites'],
-    notes: 'Night City is breathtaking on RTX.',
-    lastPlayedAt: '2026-06-20T19:00:00Z',
-    addedAt: '2026-02-10T00:00:00Z',
-    completedAt: '2026-06-20T19:00:00Z',
-  },
-  {
-    id: 'game-9',
-    rawgId: 58134,
-    title: 'Marvel\'s Spider-Man 2',
-    platform: 'ps5',
-    status: 'backlog',
-    coverImage: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2023-10-20',
-    genres: ['Action', 'Superhero', 'Open World'],
-    hoursPlayed: 0,
-    rating: 0,
-    achievementsUnlocked: 0,
-    achievementsTotal: 42,
-    collections: ['col-backlog'],
-    notes: 'Purchased on PS Store sale, up next after Elden Ring.',
-    addedAt: '2026-08-20T00:00:00Z',
-  },
-  {
-    id: 'game-10',
-    rawgId: 3272,
-    title: 'Halo Infinite',
-    platform: 'xbox',
-    status: 'mastered',
-    coverImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2021-12-08',
-    genres: ['Shooter', 'Sci-Fi', 'Action'],
-    hoursPlayed: 92,
-    rating: 5,
-    achievementsUnlocked: 119,
-    achievementsTotal: 119,
-    collections: ['col-masterpieces'],
-    notes: 'Legendary campaign completed with all skulls. 1000G / 100% unlocked!',
-    lastPlayedAt: '2026-07-22T19:00:00Z',
-    addedAt: '2026-02-14T00:00:00Z',
-    completedAt: '2026-07-22T19:00:00Z',
-  },
-  {
-    id: 'game-11',
-    rawgId: 22509,
-    title: 'The Legend of Zelda: Tears of the Kingdom',
-    platform: 'ps5',
-    status: 'mastered',
-    coverImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80',
-    releaseDate: '2023-05-12',
-    genres: ['Action', 'Adventure', 'Open World'],
-    hoursPlayed: 165,
-    rating: 5,
-    achievementsUnlocked: 50,
-    achievementsTotal: 50,
-    collections: ['col-favorites', 'col-masterpieces'],
-    notes: 'All 152 Shrines and Lightroots completed! 100% Clear Star achieved.',
-    lastPlayedAt: '2026-08-15T22:00:00Z',
-    addedAt: '2026-01-05T00:00:00Z',
-    completedAt: '2026-08-15T22:00:00Z',
-  },
+/**
+ * Accent colours offered when creating a collection. These are stored as data on
+ * the collection row (users pick one), which is why they are literal values
+ * rather than token classes — but the palette itself lives here, once.
+ */
+export const COLLECTION_COLORS = [
+  '#4d9bf0',
+  '#66c0f4',
+  '#52c294',
+  '#f2c14e',
+  '#edaa30',
+  '#ec5b62',
+  '#c8c8cf',
 ];
+
+export const DEFAULT_COLLECTION_COLOR = COLLECTION_COLORS[0];

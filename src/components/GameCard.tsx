@@ -1,342 +1,249 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Clock, MoreVertical, Plus, Minus, Trash2, FolderPlus, Star, Check, Pencil } from 'lucide-react';
-import { UserGame, GameStatus } from '../types';
+import { Clock, MoreVertical, Trash2, Pencil } from 'lucide-react';
+import { UserGame, GameStatus, GAME_STATUSES } from '../types';
 import { PLATFORMS } from '../lib/constants';
+import { statusLabel } from '../lib/status';
 import { useGame } from '../context/GameContext';
 import { PlatformIcon } from './PlatformIcon';
-import { PlatformCompletionBadge } from './PlatformCompletionBadge';
+import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
-import { StarRating } from './StarRating';
+import { RatingValue } from './Rating';
+import { Meter, OverlayBadge } from './ui';
 
 interface GameCardProps {
   game: UserGame;
 }
 
+const FALLBACK_COVER =
+  'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80';
+
+const MENU_STATUSES: GameStatus[] = GAME_STATUSES.filter((s) => s !== 'dropped');
+
 export const GameCard: React.FC<GameCardProps> = ({ game }) => {
-  const { updateGame, deleteGame, collections, profile } = useGame();
+  const { updateGame, deleteGame, profile } = useGame();
   const [showMenu, setShowMenu] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const platformCfg = PLATFORMS[game.platform] || PLATFORMS.steam;
-  const progress = game.achievementsTotal > 0
-    ? Math.min(100, Math.round((game.achievementsUnlocked / game.achievementsTotal) * 100))
-    : 0;
+  const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
+  const progress =
+    game.achievementsTotal > 0
+      ? Math.min(100, Math.round((game.achievementsUnlocked / game.achievementsTotal) * 100))
+      : 0;
 
-  const isMastered = game.status === 'mastered' || (game.achievementsTotal > 0 && game.achievementsUnlocked >= game.achievementsTotal);
+  const isMastered =
+    game.status === 'mastered' ||
+    (game.achievementsTotal > 0 && game.achievementsUnlocked >= game.achievementsTotal);
+
+  // "Achievements"/"Trophies" while there is more to unlock, then the platform's
+  // own completion announcement.
+  const awardLabel = awardProgressLabel(game.platform, isMastered);
+
+  // Stroke draws the status as a coloured edge; fill tints the whole surface.
+  const filled = profile.highlightStyle === 'fill';
+  const highlight = isMastered
+    ? filled
+      ? 'trophy-glow border-trophy-700/60 bg-trophy-100'
+      : 'trophy-glow border-trophy-700 bg-gradient-to-b from-trophy-100/50 to-gray-100 hover:border-trophy-900'
+    : game.status === 'playing'
+      ? filled
+        ? 'border-accent-200 bg-accent-100'
+        : 'border-accent-400 bg-gray-100 hover:border-accent-700'
+      : 'border-gray-200 bg-gray-100 hover:border-gray-300';
 
   useEffect(() => {
     if (!showMenu) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMenu(false);
-      }
+    const onPointerDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowMenu(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [showMenu]);
-
-  const incrementAchievement = () => {
-    if (game.achievementsUnlocked < game.achievementsTotal) {
-      updateGame(game.id, { achievementsUnlocked: game.achievementsUnlocked + 1 });
-    }
-  };
-
-  const decrementAchievement = () => {
-    if (game.achievementsUnlocked > 0) {
-      updateGame(game.id, { achievementsUnlocked: game.achievementsUnlocked - 1 });
-    }
-  };
-
-  const handleStatusChange = (newStatus: GameStatus) => {
-    updateGame(game.id, { status: newStatus });
-    setShowMenu(false);
-  };
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -3, transition: { duration: 0.15 } }}
-      className={`group relative flex flex-col rounded-2xl border transition-all ${
-        showMenu ? 'z-40' : 'z-0'
-      } ${
-        isMastered
-          ? 'bg-gradient-to-b from-amber-950/25 via-zinc-900 to-zinc-900 border-amber-400/80 hover:border-amber-300 shadow-lg shadow-amber-500/10'
-          : game.status === 'playing'
-          ? 'bg-gradient-to-b from-blue-950/25 via-zinc-900 to-zinc-900 border-blue-500/70 hover:border-blue-400 shadow-md shadow-blue-500/10'
-          : game.status === 'backlog'
-          ? 'bg-zinc-900/90 border-zinc-700/80 hover:border-zinc-500 shadow-sm'
-          : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-      }`}
+      className={[
+        'group relative flex flex-col rounded-lg border transition-colors',
+        showMenu ? 'z-40' : 'z-0',
+        highlight,
+      ].join(' ')}
     >
-      {/* Cover Image Header */}
-      <div className="relative h-36 w-full bg-zinc-950 rounded-t-2xl">
-        {/* Isolated image overflow so dropdowns and action elements are never clipped */}
-        <div className="absolute inset-0 overflow-hidden rounded-t-2xl">
+      {/* Cover ------------------------------------------------------------- */}
+      <div className="relative aspect-[16/9] w-full rounded-t-lg bg-gray-25">
+        <div className="absolute inset-0 overflow-hidden rounded-t-lg">
           <img
-            src={game.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80'}
-            alt={game.title}
-            className={`w-full h-full object-cover object-center group-hover:scale-105 transition-all duration-500 ${
+            src={game.coverImage || FALLBACK_COVER}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className={[
+              'h-full w-full object-cover object-center transition-all duration-500',
+              'group-hover:scale-105',
               game.status === 'backlog'
-                ? 'grayscale contrast-95 opacity-85 group-hover:grayscale-0 group-hover:opacity-100'
-                : ''
-            }`}
+                ? 'opacity-80 grayscale group-hover:opacity-100 group-hover:grayscale-0'
+                : '',
+            ].join(' ')}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+          {/* Scrims top and bottom guarantee overlay legibility over any art. */}
+          <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-gray-25/75 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-gray-25 via-gray-25/60 to-transparent" />
+
+          {/* Completion celebration: a slow specular sweep across the art. */}
+          {isMastered && <div aria-hidden className="trophy-sweep" />}
         </div>
 
-        {/* Platform Icon Badge & Status Indicators */}
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
-          <div 
-            className="relative w-8 h-8 rounded-xl border flex items-center justify-center shadow-sm overflow-hidden"
-            style={{ borderColor: platformCfg.borderColor, color: platformCfg.textColor }}
-            title={platformCfg.name}
-          >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-            <div className="absolute inset-0" style={{ backgroundColor: platformCfg.bgColor }} />
-            <div className="relative z-10">
-              <PlatformIcon platform={game.platform} size={16} />
-            </div>
-          </div>
+        {/* Identity + status indicators. Every chip is the same height. */}
+        <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
+          <OverlayBadge square tint={platform.tint} title={platform.name}>
+            <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
+          </OverlayBadge>
 
           {game.status === 'backlog' && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-zinc-800/90 text-zinc-300 border border-zinc-600/70 shadow-sm flex items-center gap-1">
-              <Clock size={10} className="text-zinc-400" />
-              Backlog
-            </span>
+            <OverlayBadge className="text-notice-900">
+              <Clock size={11} />
+              {statusLabel('backlog', profile)}
+            </OverlayBadge>
           )}
 
-          {game.status === 'playing' && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-blue-500/25 text-blue-300 border border-blue-500/60 shadow-sm flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              Playing
-            </span>
+          {game.status === 'playing' && !isMastered && (
+            <OverlayBadge className="text-accent-900">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-900" />
+              {statusLabel('playing', profile)}
+            </OverlayBadge>
           )}
 
+          {/* One completion chip carrying the platform's own trophy artwork. */}
           {isMastered && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-amber-500/25 text-amber-300 border border-amber-400/60 shadow-sm flex items-center gap-1">
-              <Trophy size={10} className="text-amber-400" />
+            <OverlayBadge
+              className="text-trophy-900 ring-trophy-700/50"
+              title={awardLabel}
+            >
+              <TrophyBadge platform={game.platform} size={17} />
               100%
-            </span>
+            </OverlayBadge>
           )}
         </div>
 
-        {/* 100% Completion Badge Showcase in Header & Options Menu */}
-        <div ref={menuRef} className="absolute top-3 right-3 z-30 flex items-center gap-1.5">
-          {isMastered && (
-            <div className="p-1 rounded-xl bg-zinc-900/90 border border-yellow-400/50 backdrop-blur-md shadow-md">
-              <PlatformCompletionBadge platform={game.platform} size={20} />
-            </div>
-          )}
-
+        {/* Options ----------------------------------------------------------- */}
+        <div ref={menuRef} className="absolute right-3 top-3 z-30">
           <button
             type="button"
             onClick={() => setShowMenu(!showMenu)}
-            className="w-8 h-8 rounded-xl bg-zinc-900/85 backdrop-blur-md text-zinc-300 hover:text-white flex items-center justify-center transition-colors border border-white/10 shadow-sm"
-            title="Options"
+            aria-haspopup="menu"
+            aria-expanded={showMenu}
+            aria-label={`Options for ${game.title}`}
+            className="overlay-scrim flex h-7 w-7 items-center justify-center rounded-sm text-gray-900 transition-colors hover:text-gray-1000"
           >
             <MoreVertical size={15} />
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 top-10 w-44 rounded-xl bg-zinc-800 border border-zinc-700 shadow-2xl py-1 z-50 text-xs text-zinc-200">
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-zinc-400">Set Status</div>
-              <button
-                type="button"
-                onClick={() => handleStatusChange('playing')}
-                className="w-full text-left px-3 py-1.5 hover:bg-zinc-700 flex items-center gap-2"
-              >
-                🎮 {profile.statusNames?.playing || 'Playing'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange('backlog')}
-                className="w-full text-left px-3 py-1.5 hover:bg-zinc-700 flex items-center gap-2"
-              >
-                ⏳ {profile.statusNames?.backlog || 'Backlog'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange('completed')}
-                className="w-full text-left px-3 py-1.5 hover:bg-zinc-700 flex items-center gap-2"
-              >
-                🏆 {profile.statusNames?.completed || 'Completed'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange('mastered')}
-                className="w-full text-left px-3 py-1.5 hover:bg-zinc-700 flex items-center gap-2"
-              >
-                👑 {profile.statusNames?.mastered || '100% Mastered'}
-              </button>
+            <div
+              role="menu"
+              className="absolute right-0 top-9 w-48 overflow-hidden rounded-md border border-gray-300 bg-gray-200 py-1 text-75 text-gray-900 shadow-lg"
+            >
+              <div className="px-3 py-1 text-50 font-bold uppercase tracking-wide text-gray-600">
+                Set status
+              </div>
+              {MENU_STATUSES.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    updateGame(game.id, { status });
+                    setShowMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-300"
+                >
+                  {statusLabel(status, profile)}
+                </button>
+              ))}
 
-              <div className="my-1 border-t border-zinc-700/60" />
+              <div className="my-1 border-t border-gray-300" />
 
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => {
                   setIsEditOpen(true);
                   setShowMenu(false);
                 }}
-                className="w-full text-left px-3 py-1.5 text-sky-400 hover:bg-sky-500/20 flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-accent-900 transition-colors hover:bg-accent-100"
               >
                 <Pencil size={13} />
-                Edit Game Details
+                Edit game details
               </button>
 
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => {
                   deleteGame(game.id);
                   setShowMenu(false);
                 }}
-                className="w-full text-left px-3 py-1.5 text-rose-400 hover:bg-rose-500/20 flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-negative-900 transition-colors hover:bg-negative-100"
               >
                 <Trash2 size={13} />
-                Delete Game
+                Delete game
               </button>
             </div>
           )}
         </div>
 
-        {/* Title overlay */}
-        <div className="absolute bottom-2.5 left-3.5 right-3.5 z-10 pointer-events-none">
-          <h3 className="text-base font-bold text-white truncate tracking-tight drop-shadow-md">
-            {game.title}
-          </h3>
-          <div className="flex items-center gap-2 text-xs text-zinc-400 mt-0.5">
+        {/* Title ------------------------------------------------------------ */}
+        <div className="pointer-events-none absolute inset-x-3.5 bottom-2.5 z-10">
+          <h3 className="truncate text-200 font-bold tracking-tight text-gray-1000">{game.title}</h3>
+          <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
             <span className="flex items-center gap-1">
-              <Clock size={12} className="text-zinc-500" />
+              <Clock size={12} />
               {game.hoursPlayed}h played
             </span>
-            {game.rating ? (
-              <span className="flex items-center gap-1 text-amber-400 font-medium">
-                <StarRating value={game.rating} readOnly size="xs" showLabel={false} />
-                <span>{game.rating % 1 === 0 ? game.rating : game.rating.toFixed(1)}/5</span>
-              </span>
-            ) : null}
+            {game.rating ? <RatingValue value={game.rating} size="xs" /> : null}
           </div>
         </div>
       </div>
 
-      {/* Card Content & Achievement Tracker */}
-      <div className="p-3.5 flex flex-col gap-2.5">
-        {/* Achievements Progress */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5 font-medium text-zinc-300">
-              {isMastered ? (
-                <PlatformCompletionBadge platform={game.platform} size={15} />
-              ) : (
-                <Trophy size={14} className="text-zinc-400" />
-              )}
-              <span>{isMastered ? '100% Completed' : 'Achievements'}</span>
+      {/* Progress ---------------------------------------------------------- */}
+      <div className="space-y-2 p-4">
+        {/* The completion announcements are long next to the count, and cards
+            can be as narrow as 17rem, so the count drops to its own line rather
+            than squeezing the label into an ellipsis. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-75">
+          <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-800">
+            {/* The platform's own award, dimmed until it is actually earned. */}
+            <TrophyBadge platform={game.platform} size={16} muted={!isMastered} />
+            <span className="truncate" title={awardLabel}>
+              {awardLabel}
             </span>
-            <span className="font-semibold text-zinc-200">
-              {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
-              <span className="text-zinc-500 font-normal">({progress}%)</span>
-            </span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden relative">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-              className={`h-full rounded-full ${
-                progress === 100
-                  ? 'bg-gradient-to-r from-amber-400 to-yellow-300'
-                  : 'bg-blue-500'
-              }`}
-            />
-          </div>
-
-          {/* Quick Counter Buttons */}
-          <div className="flex items-center justify-between pt-0.5">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={decrementAchievement}
-                disabled={game.achievementsUnlocked <= 0}
-                className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors text-xs"
-                title="Decrease unlocked achievements"
-              >
-                <Minus size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={incrementAchievement}
-                disabled={game.achievementsUnlocked >= game.achievementsTotal}
-                className="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors text-xs shadow-sm"
-                title="Increase unlocked achievements"
-              >
-                <Plus size={13} />
-              </button>
-              <span className="text-[11px] text-zinc-500 ml-1">Log</span>
-            </div>
-
-            {/* Status Pill */}
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 ${
-                game.status === 'playing'
-                  ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
-                  : game.status === 'backlog'
-                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                  : game.status === 'completed'
-                  ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
-              }`}
-            >
-              {profile.statusNames?.[game.status] || (
-                game.status === 'playing' ? 'Playing' :
-                game.status === 'backlog' ? 'Backlog' :
-                game.status === 'completed' ? 'Completed' :
-                game.status === 'mastered' ? 'Mastered' : 'Dropped'
-              )}
-            </span>
-          </div>
+          </span>
+          <span className="shrink-0 font-semibold text-gray-900">
+            {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
+            <span className="font-normal text-gray-600">({progress}%)</span>
+          </span>
         </div>
 
-        {/* Collections Tags & Notes Preview */}
-        {((game.collections && game.collections.length > 0) || Boolean(game.notes)) && (
-          <div className="pt-2 border-t border-zinc-800/80 space-y-1.5">
-            {game.collections && game.collections.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {game.collections.map(colId => {
-                  const col = collections.find(c => c.id === colId);
-                  if (!col) return null;
-                  return (
-                    <span
-                      key={col.id}
-                      className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 font-medium"
-                    >
-                      #{col.name}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-
-            {game.notes ? (
-              <p className="text-[11px] text-zinc-400 italic line-clamp-1">
-                "{game.notes}"
-              </p>
-            ) : null}
-          </div>
-        )}
+        <Meter
+          value={progress}
+          tone={progress === 100 ? 'trophy' : 'accent'}
+          label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
+        />
       </div>
 
-      {/* Edit Game Modal */}
-      <EditGameModal
-        game={game}
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-      />
+      <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
     </motion.div>
   );
 };

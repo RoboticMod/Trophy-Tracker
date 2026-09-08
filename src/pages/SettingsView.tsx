@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Settings,
   Database,
@@ -11,784 +10,782 @@ import {
   User,
   Sliders,
   Play,
-  Trophy,
   Gamepad2,
   FolderKanban,
   BarChart3,
   Search,
-  CheckCircle2,
   Copy,
   Code,
   Trash2,
-  Clock,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
   Library,
   RotateCcw,
-  Image as ImageIcon,
-  X
+  LogOut,
+  Tags,
+  Palette,
+  X,
+  CloudOff,
+  Cloud,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { SidebarConfig, GameStatus, Platform } from '../types';
-import { SUPABASE_SCHEMA_SQL } from '../lib/syncEngine';
+import { useAuth } from '../context/AuthContext';
+import { clearUserCache } from '../lib/localCache';
+import { SidebarConfig, GameStatus, HighlightStyle, Platform, GAME_STATUSES } from '../types';
+import { SUPABASE_SCHEMA_SQL } from '../lib/db';
 import { getRawgCacheCount, clearRawgCache } from '../lib/rawg';
-import { DEFAULT_STATUS_NAMES, DEFAULT_PLATFORM_SORT_ORDER, PLATFORMS } from '../lib/constants';
+import {
+  DEFAULT_STATUS_NAMES,
+  DEFAULT_PLATFORM_SORT_ORDER,
+  PLATFORMS,
+  describePlatformOrder,
+  normalizePlatform,
+} from '../lib/constants';
+import { validateStatusName, MAX_STATUS_NAME_LENGTH } from '../lib/status';
+import { fileToAvatarDataUrl } from '../lib/image';
+import { PlatformIcon } from '../components/PlatformIcon';
+import { TrophyPair } from '../components/TrophyBadge';
+import { Button, Card, Field, SectionHeader, Switch, TextInput } from '../components/ui';
+import { cn } from '../lib/cn';
 
 const ALL_NAV_ITEMS = [
   {
     id: 'dashboard',
     path: '/',
-    name: 'Dashboard',
-    description: 'Library overview and quick filters',
+    name: 'Library',
+    description: 'Overview and filters',
     icon: Library,
     configKey: null,
-    badgeColor: 'bg-blue-500/20 text-blue-400',
+    tone: 'bg-accent-100 text-accent-900',
   },
   {
     id: 'playing',
     path: '/playing',
-    name: 'Currently Playing',
+    name: 'Currently playing',
     description: 'Active titles in progress',
     icon: Play,
     configKey: 'showCurrentlyPlaying' as const,
-    badgeColor: 'bg-blue-500/20 text-blue-400',
+    tone: 'bg-accent-100 text-accent-900',
   },
   {
     id: 'achievements',
     path: '/achievements',
-    name: 'All Achievements & Trophies',
-    description: 'Trophy showcase and platinum tracking',
-    icon: Trophy,
+    name: 'Achievements & trophies',
+    description: 'Perfect games and platinums',
+    icon: null,
     configKey: 'showAchievements' as const,
-    badgeColor: 'bg-amber-500/20 text-amber-400',
+    tone: 'bg-trophy-100',
   },
   {
     id: 'search',
     path: '/search',
-    name: 'Search & Add',
-    description: 'Catalog search and adding games',
+    name: 'Search & add',
+    description: 'Catalog search',
     icon: Search,
     configKey: 'showSearch' as const,
-    badgeColor: 'bg-cyan-500/20 text-cyan-400',
+    tone: 'bg-accent-100 text-accent-900',
   },
   {
     id: 'backlog',
     path: '/backlog',
-    name: 'My Backlog',
+    name: 'Backlog',
     description: 'Queue of unplayed games',
     icon: Gamepad2,
     configKey: 'showBacklog' as const,
-    badgeColor: 'bg-emerald-500/20 text-emerald-400',
+    tone: 'bg-notice-100 text-notice-900',
   },
   {
     id: 'collections',
     path: '/collections',
     name: 'Collections',
-    description: 'Custom playlists and categories',
+    description: 'Custom lists',
     icon: FolderKanban,
     configKey: 'showCollections' as const,
-    badgeColor: 'bg-purple-500/20 text-purple-400',
+    tone: 'bg-gray-200 text-gray-800',
   },
   {
     id: 'stats',
     path: '/stats',
     name: 'Statistics',
-    description: 'Playtime, charts, and metrics',
+    description: 'Playtime and completion metrics',
     icon: BarChart3,
     configKey: 'showStats' as const,
-    badgeColor: 'bg-rose-500/20 text-rose-400',
+    tone: 'bg-positive-100 text-positive-900',
   },
 ];
 
-const DEFAULT_NAV_ORDER = ['/', '/playing', '/achievements', '/search', '/backlog', '/collections', '/stats'];
+const DEFAULT_NAV_ORDER = [
+  '/',
+  '/playing',
+  '/achievements',
+  '/search',
+  '/backlog',
+  '/collections',
+  '/stats',
+];
 
 export const SettingsView: React.FC = () => {
   const {
-    supabaseConnected,
-    syncWithSupabase,
-    isSyncing,
-    syncStats,
-    lastSyncTime,
     games,
     collections,
     profile,
     updateProfile,
     sidebarConfig,
     updateSidebarConfig,
-    triggerCelebration,
+    replaceAll,
+    refresh,
+    loading,
+    isOnline,
+    pendingWrites,
+    lastSyncedAt,
   } = useGame();
+  const { user, signOut } = useAuth();
 
-  const [usernameInput, setUsernameInput] = useState(profile.username || 'ApexGamer');
-  const [emailInput, setEmailInput] = useState(profile.email || 'gamer@gametracker.pro');
-  const [avatarUrlInput, setAvatarUrlInput] = useState(profile.avatarUrl || '');
-  
-  const [statusNamesInput, setStatusNamesInput] = useState<Partial<Record<GameStatus, string>>>(
-    profile.statusNames || {}
-  );
-  const [platformOrderInput, setPlatformOrderInput] = useState<Platform[]>(
-    profile.platformOrder || DEFAULT_PLATFORM_SORT_ORDER
-  );
-
-  const [savedProfileAlert, setSavedProfileAlert] = useState(false);
+  const [usernameInput, setUsernameInput] = useState(profile.username || '');
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [cacheCount, setCacheCount] = useState(() => getRawgCacheCount());
-  const [clearedCacheAlert, setClearedCacheAlert] = useState(false);
+  const [statusErrors, setStatusErrors] = useState<Partial<Record<GameStatus, string>>>({});
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const platformOrder = profile.platformOrder?.length
+    ? profile.platformOrder
+    : DEFAULT_PLATFORM_SORT_ORDER;
+
+  /* -- Account ----------------------------------------------------------- */
+
+  const handleSaveAccount = (e: React.FormEvent) => {
     e.preventDefault();
+    updateProfile({ username: usernameInput.trim() || 'Player' });
+    setSavedProfile(true);
+    setTimeout(() => setSavedProfile(false), 2000);
+  };
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setAvatarError(null);
+    try {
+      updateProfile({ avatarUrl: await fileToAvatarDataUrl(file) });
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Could not use that image.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (user?.id) clearUserCache(user.id);
+    await signOut();
+  };
+
+  /* -- Status names ------------------------------------------------------- */
+
+  const handleStatusNameChange = (status: GameStatus, value: string) => {
+    const error = validateStatusName(value);
+    setStatusErrors((prev) => ({ ...prev, [status]: error ?? undefined }));
+    if (error) return;
+
     updateProfile({
-      username: usernameInput,
-      email: emailInput,
-      avatarUrl: avatarUrlInput,
-      statusNames: statusNamesInput,
-      platformOrder: platformOrderInput,
-    });
-    setSavedProfileAlert(true);
-    triggerCelebration();
-    setTimeout(() => setSavedProfileAlert(false), 2500);
-  };
-
-  const handleToggleSidebar = (key: keyof SidebarConfig) => {
-    updateSidebarConfig({
-      [key]: !sidebarConfig[key],
+      statusNames: { ...(profile.statusNames || {}), [status]: value.trim() },
     });
   };
 
-  const handleExportData = () => {
-    const data = {
+  const resetStatusName = (status: GameStatus) => {
+    const next = { ...(profile.statusNames || {}) };
+    delete next[status];
+    setStatusErrors((prev) => ({ ...prev, [status]: undefined }));
+    updateProfile({ statusNames: next });
+  };
+
+  /* -- Platform order ----------------------------------------------------- */
+
+  const movePlatform = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= platformOrder.length) return;
+
+    const next: Platform[] = [...platformOrder];
+    [next[index], next[target]] = [next[target], next[index]];
+    updateProfile({ platformOrder: next });
+  };
+
+  /* -- Sidebar ordering --------------------------------------------------- */
+
+  const currentNavOrder = sidebarConfig.navOrder?.length ? sidebarConfig.navOrder : DEFAULT_NAV_ORDER;
+
+  const orderedNavItems = [...ALL_NAV_ITEMS].sort((a, b) => {
+    const idxA = currentNavOrder.indexOf(a.path);
+    const idxB = currentNavOrder.indexOf(b.path);
+    return (
+      (idxA === -1 ? currentNavOrder.length : idxA) - (idxB === -1 ? currentNavOrder.length : idxB)
+    );
+  });
+
+  const navNames = sidebarConfig.navNames || {};
+
+  const renameNav = (path: string, value: string) => {
+    const next = { ...navNames };
+    if (value.trim()) next[path] = value.trim();
+    else delete next[path];
+    updateSidebarConfig({ navNames: next });
+  };
+
+  const moveNav = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= orderedNavItems.length) return;
+
+    const next = orderedNavItems.map((item) => item.path);
+    [next[index], next[target]] = [next[target], next[index]];
+    updateSidebarConfig({ navOrder: next });
+  };
+
+  /* -- Backup ------------------------------------------------------------- */
+
+  const handleExport = () => {
+    const payload = {
       profile,
       collections,
       games,
-      sidebarConfig,
       exportedAt: new Date().toISOString(),
-      version: '2.0.0',
+      version: '3.0.0',
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+    );
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gametracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `trophy-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    triggerCelebration();
   };
 
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (json.games && Array.isArray(json.games)) {
-          localStorage.setItem('gametracker_pro_games_v1', JSON.stringify(json.games));
-          if (json.collections) localStorage.setItem('gametracker_pro_collections_v1', JSON.stringify(json.collections));
-          if (json.profile) localStorage.setItem('gametracker_pro_profile_v2', JSON.stringify(json.profile));
-          setImportStatus('Data successfully restored! Refreshing...');
-          triggerCelebration();
-          setTimeout(() => window.location.reload(), 1200);
-        } else {
-          setImportStatus('Invalid backup file format.');
+        if (!Array.isArray(json.games)) {
+          setImportStatus('That file does not look like a Trophy Tracker backup.');
+          return;
         }
-      } catch (err) {
-        setImportStatus('Failed to parse JSON file.');
+
+        // Backups from older versions may hold platforms this app dropped.
+        const kept = json.games
+          .map((g: Record<string, unknown>) => ({
+            ...g,
+            platform: normalizePlatform(g.platform),
+            updatedAt: g.updatedAt ?? new Date().toISOString(),
+          }))
+          .filter((g: { platform: Platform | null }) => g.platform !== null);
+
+        const dropped = json.games.length - kept.length;
+
+        await replaceAll({
+          games: kept,
+          collections: Array.isArray(json.collections) ? json.collections : collections,
+          profile: json.profile,
+        });
+
+        setImportStatus(
+          dropped > 0
+            ? `Restored ${kept.length} games. ${dropped} on unsupported platforms were skipped.`
+            : `Restored ${kept.length} games.`,
+        );
+      } catch {
+        setImportStatus('Could not parse that JSON file.');
       }
     };
     reader.readAsText(file);
   };
 
-  // Custom avatar file upload handler
-  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (PNG, JPG, WebP, etc.).');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      if (dataUrl) {
-        setAvatarUrlInput(dataUrl);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleClearAvatar = () => {
-    setAvatarUrlInput('');
-  };
-
-  // Sidebar reordering logic
-  const currentNavOrder = sidebarConfig.navOrder && sidebarConfig.navOrder.length > 0
-    ? sidebarConfig.navOrder
-    : DEFAULT_NAV_ORDER;
-
-  const orderedNavItems = [...ALL_NAV_ITEMS].sort((a, b) => {
-    const idxA = currentNavOrder.indexOf(a.path);
-    const idxB = currentNavOrder.indexOf(b.path);
-    if (idxA === -1 && idxB === -1) return 0;
-    if (idxA === -1) return 1;
-    if (idxB === -1) return -1;
-    return idxA - idxB;
-  });
-
-  const handleMoveNav = (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= orderedNavItems.length) return;
-
-    const newOrder = orderedNavItems.map(item => item.path);
-    const temp = newOrder[index];
-    newOrder[index] = newOrder[targetIndex];
-    newOrder[targetIndex] = temp;
-
-    updateSidebarConfig({
-      navOrder: newOrder,
-    });
-  };
-
-  const handleResetNavOrder = () => {
-    updateSidebarConfig({
-      navOrder: DEFAULT_NAV_ORDER,
-    });
-  };
-
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-10">
-      {/* Header */}
-      <div className="border-b border-zinc-800/80 pb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-800 text-zinc-300 flex items-center justify-center">
-            <Settings size={20} />
+    <div className="mx-auto max-w-3xl space-y-6 pb-10">
+      <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-200 text-gray-800">
+          <Settings size={20} />
+        </div>
+        <div>
+          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Settings</h1>
+          <p className="text-75 text-gray-700">
+            Account, naming, ordering, navigation and data.
+          </p>
+        </div>
+      </div>
+
+      {/* Account ------------------------------------------------------------ */}
+      <Card className="space-y-5">
+        <SectionHeader
+          icon={<User size={18} />}
+          title="Account"
+          description={user?.email ?? 'Signed in'}
+          action={
+            <Button variant="secondary" buttonStyle="outline" size="s" onClick={handleSignOut}>
+              <LogOut size={13} />
+              Sign out
+            </Button>
+          }
+        />
+
+        <div className="flex flex-col gap-4 rounded-md border border-gray-200 bg-gray-75 p-4 sm:flex-row sm:items-center">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 ring-1 ring-gray-300">
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-500 font-bold text-gray-700">
+                {(profile.username || 'P').charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Settings & Preferences
-            </h1>
-            <p className="text-xs text-zinc-400">
-              Customize your sidebar navigation order, manage your account, and configure data syncing.
+
+          <div className="flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-sm bg-accent-700 px-4 text-100 font-semibold text-gray-1000 transition-colors hover:bg-accent-800">
+                <Upload size={13} />
+                <span>Upload image</span>
+                <input type="file" accept="image/*" onChange={handleAvatarFile} className="hidden" />
+              </label>
+              {profile.avatarUrl && (
+                <Button
+                  buttonStyle="subtle"
+                  size="s"
+                  variant="negative"
+                  onClick={() => updateProfile({ avatarUrl: undefined })}
+                >
+                  <X size={12} />
+                  Remove
+                </Button>
+              )}
+            </div>
+            <p className={cn('text-50', avatarError ? 'text-negative-900' : 'text-gray-600')}>
+              {avatarError ?? 'Resized to 256px and stored with your profile.'}
             </p>
           </div>
         </div>
-      </div>
 
-      {/* Account Settings Section */}
-      <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-              <User size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">Account Profile</h2>
-              <p className="text-xs text-zinc-400">Personalize your avatar and profile information</p>
-            </div>
-          </div>
-
-          {savedProfileAlert && (
-            <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 size={14} />
-              Saved successfully!
-            </span>
-          )}
-        </div>
-
-        <form onSubmit={handleSaveProfile} className="space-y-5">
-          {/* Custom Avatar Upload & URL */}
-          <div className="p-4 rounded-xl bg-zinc-800/50 border border-zinc-700/60 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-200">Custom Avatar</label>
-              {avatarUrlInput && (
-                <button
-                  type="button"
-                  onClick={handleClearAvatar}
-                  className="text-[11px] text-zinc-400 hover:text-rose-400 flex items-center gap-1 transition-colors"
-                >
-                  <X size={12} />
-                  <span>Remove Avatar</span>
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              {/* Avatar Preview */}
-              <div className="relative w-16 h-16 rounded-full overflow-hidden ring-2 ring-zinc-700 bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                {avatarUrlInput ? (
-                  <img
-                    src={avatarUrlInput}
-                    alt={usernameInput}
-                    className="w-full h-full object-cover"
-                    onError={() => setAvatarUrlInput('')}
-                  />
-                ) : (
-                  <div className="text-xl font-bold text-zinc-400">
-                    {usernameInput ? usernameInput.charAt(0).toUpperCase() : <User size={24} />}
-                  </div>
-                )}
-              </div>
-
-              {/* Upload and URL Controls */}
-              <div className="flex-1 space-y-2 w-full">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors shadow-sm">
-                    <Upload size={13} />
-                    <span>Upload Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarFile}
-                      className="hidden"
-                    />
-                  </label>
-                  <span className="text-[11px] text-zinc-400">Supports PNG, JPG, WebP, GIF</span>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={avatarUrlInput}
-                    onChange={(e) => setAvatarUrlInput(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
-                    placeholder="Or paste an image URL (https://...)"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-300">Username</label>
-              <input
-                type="text"
+        <form onSubmit={handleSaveAccount} className="flex flex-wrap items-end gap-3">
+          <Field label="Display name" className="min-w-56 flex-1">
+            {(props) => (
+              <TextInput
+                {...props}
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-blue-500"
-                placeholder="Enter username"
-                required
+                placeholder="Player"
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-300">Email Address</label>
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-blue-500"
-                placeholder="gamer@example.com"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow-sm"
-          >
-            Save Account Settings
-          </button>
+            )}
+          </Field>
+          <Button type="submit" variant="accent">
+            {savedProfile ? <Check size={14} /> : null}
+            {savedProfile ? 'Saved' : 'Save name'}
+          </Button>
         </form>
-      </div>
+      </Card>
 
-      {/* Customization & Display Section */}
-      <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
-            <Settings size={18} />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-white">Customization</h2>
-            <p className="text-xs text-zinc-400">Rename your game statuses and order platforms.</p>
-          </div>
+      {/* Status names -------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Tags size={18} />}
+          title="Status names"
+          description="Rename any status — the new name appears everywhere at once"
+          iconClassName="bg-trophy-100 text-trophy-900"
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {GAME_STATUSES.map((status) => {
+            const custom = profile.statusNames?.[status];
+            return (
+              <Field
+                key={status}
+                label={DEFAULT_STATUS_NAMES[status]}
+                error={statusErrors[status]}
+                description={
+                  statusErrors[status] ? undefined : `Up to ${MAX_STATUS_NAME_LENGTH} characters`
+                }
+                action={
+                  custom ? (
+                    <button
+                      type="button"
+                      onClick={() => resetStatusName(status)}
+                      className="rounded-sm text-50 text-gray-600 hover:text-gray-900"
+                    >
+                      Reset
+                    </button>
+                  ) : null
+                }
+              >
+                {(props) => (
+                  <TextInput
+                    {...props}
+                    defaultValue={custom ?? DEFAULT_STATUS_NAMES[status]}
+                    maxLength={MAX_STATUS_NAME_LENGTH + 8}
+                    onChange={(e) => handleStatusNameChange(status, e.target.value)}
+                    placeholder={DEFAULT_STATUS_NAMES[status]}
+                  />
+                )}
+              </Field>
+            );
+          })}
         </div>
+      </Card>
 
-        <div className="space-y-4">
-          <h3 className="text-xs font-semibold text-zinc-300">Custom Status Names</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {(Object.keys(DEFAULT_STATUS_NAMES) as GameStatus[]).map((status) => (
-              <div key={status} className="space-y-1.5">
-                <label className="text-[11px] font-medium text-zinc-400 capitalize">{status}</label>
-                <input
-                  type="text"
-                  value={statusNamesInput[status] || DEFAULT_STATUS_NAMES[status]}
-                  onChange={(e) => setStatusNamesInput({ ...statusNamesInput, [status]: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-amber-500"
-                  placeholder={DEFAULT_STATUS_NAMES[status]}
-                />
+      {/* Card highlight ------------------------------------------------------ */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Palette size={18} />}
+          title="Card highlight"
+          description="How a game card signals that it is in progress or fully completed"
+          iconClassName="bg-accent-100 text-accent-900"
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                id: 'stroke',
+                name: 'Stroke',
+                hint: 'A coloured outline around the card',
+                swatch: 'border-2 border-trophy-700 bg-gray-100',
+              },
+              {
+                id: 'fill',
+                name: 'Filled',
+                hint: 'The whole card tinted in the status colour',
+                swatch: 'border border-trophy-700/40 bg-trophy-100',
+              },
+            ] as { id: HighlightStyle; name: string; hint: string; swatch: string }[]
+          ).map((option) => {
+            const selected = (profile.highlightStyle ?? 'stroke') === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => updateProfile({ highlightStyle: option.id })}
+                aria-pressed={selected}
+                className={cn(
+                  'flex items-center gap-3 rounded-md border p-3 text-left transition-colors',
+                  selected
+                    ? 'border-accent-700 bg-accent-100'
+                    : 'border-gray-300 bg-gray-75 hover:border-gray-400',
+                )}
+              >
+                <span className={cn('h-10 w-14 shrink-0 rounded-sm', option.swatch)} />
+                <span className="min-w-0">
+                  <span className="block text-100 font-semibold text-gray-1000">{option.name}</span>
+                  <span className="block text-50 text-gray-700">{option.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Platform order ------------------------------------------------------ */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Sliders size={18} />}
+          title="Platform order"
+          description={`Used by the "Platform" sort in every library view — currently ${describePlatformOrder(platformOrder)}`}
+          iconClassName="bg-gray-200 text-gray-800"
+          action={
+            platformOrder.join() !== DEFAULT_PLATFORM_SORT_ORDER.join() ? (
+              <Button
+                variant="secondary"
+                buttonStyle="outline"
+                size="s"
+                onClick={() => updateProfile({ platformOrder: DEFAULT_PLATFORM_SORT_ORDER })}
+              >
+                <RotateCcw size={13} />
+                Reset
+              </Button>
+            ) : null
+          }
+        />
+
+        <div className="space-y-2">
+          {platformOrder.map((platform, index) => (
+            <div
+              key={platform}
+              className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-75 p-2.5"
+            >
+              <span className="w-6 text-center text-75 font-bold text-gray-600">#{index + 1}</span>
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-sm"
+                style={{ color: PLATFORMS[platform]?.color }}
+              >
+                <PlatformIcon platform={platform} size={18} />
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-4 pt-4 border-t border-zinc-800/80">
-          <h3 className="text-xs font-semibold text-zinc-300">Platform Sort Order</h3>
-          <p className="text-[11px] text-zinc-400">Drag or adjust order below to change how platforms are prioritized.</p>
-          <div className="flex flex-col gap-2">
-            {platformOrderInput.map((platform, index) => (
-              <div key={platform} className="flex items-center gap-2 p-2 bg-zinc-800/60 rounded-xl border border-zinc-700/60">
-                <span className="text-xs font-bold w-6 text-zinc-500">#{index + 1}</span>
-                <div className="flex items-center gap-2 flex-1">
-                   <div className={`w-6 h-6 rounded flex flex-shrink-0 items-center justify-center`} style={{ backgroundColor: PLATFORMS[platform]?.bgColor, color: PLATFORMS[platform]?.textColor }}>
-                      {PLATFORMS[platform]?.name?.[0]}
-                   </div>
-                   <span className="text-xs text-zinc-200">{PLATFORMS[platform]?.name}</span>
-                </div>
-                <div className="flex gap-1">
-                   <button 
-                     type="button" 
-                     disabled={index === 0}
-                     onClick={() => {
-                        const newOrder = [...platformOrderInput];
-                        [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
-                        setPlatformOrderInput(newOrder);
-                     }}
-                     className="p-1 hover:bg-zinc-700 rounded disabled:opacity-30 disabled:cursor-not-allowed text-zinc-300"
-                   >
-                     <ChevronUp size={14} />
-                   </button>
-                   <button 
-                     type="button" 
-                     disabled={index === platformOrderInput.length - 1}
-                     onClick={() => {
-                        const newOrder = [...platformOrderInput];
-                        [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-                        setPlatformOrderInput(newOrder);
-                     }}
-                     className="p-1 hover:bg-zinc-700 rounded disabled:opacity-30 disabled:cursor-not-allowed text-zinc-300"
-                   >
-                     <ChevronDown size={14} />
-                   </button>
-                </div>
+              <span className="flex-1 text-100 text-gray-900">{PLATFORMS[platform]?.name}</span>
+              <div className="flex gap-1">
+                <Button
+                  size="s"
+                  iconOnly
+                  variant="secondary"
+                  buttonStyle="outline"
+                  disabled={index === 0}
+                  onClick={() => movePlatform(index, -1)}
+                  aria-label={`Move ${PLATFORMS[platform]?.name} up`}
+                >
+                  <ChevronUp size={14} />
+                </Button>
+                <Button
+                  size="s"
+                  iconOnly
+                  variant="secondary"
+                  buttonStyle="outline"
+                  disabled={index === platformOrder.length - 1}
+                  onClick={() => movePlatform(index, 1)}
+                  aria-label={`Move ${PLATFORMS[platform]?.name} down`}
+                >
+                  <ChevronDown size={14} />
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSaveProfile}
-          className="mt-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition-colors shadow-sm"
-        >
-          Save Customizations
-        </button>
-      </div>
-
-      {/* Sidebar Customization & Reordering Section */}
-      <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center">
-              <Sliders size={18} />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">Sidebar Navigation & Reordering</h2>
-              <p className="text-xs text-zinc-400">
-                Reorder navigation items or toggle their visibility in your sidebar
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleResetNavOrder}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-zinc-700 transition-colors"
-            title="Reset sidebar order to default"
-          >
-            <RotateCcw size={13} />
-            <span>Reset Order</span>
-          </button>
+          ))}
         </div>
+      </Card>
 
-        {/* Reorderable Items List */}
-        <div className="space-y-2 pt-2">
+      {/* Navigation ---------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Sliders size={18} />}
+          title="Sidebar navigation"
+          description="Reorder destinations or hide the ones you don't use"
+          action={
+            <Button
+              variant="secondary"
+              buttonStyle="outline"
+              size="s"
+              onClick={() => updateSidebarConfig({ navOrder: DEFAULT_NAV_ORDER })}
+            >
+              <RotateCcw size={13} />
+              Reset order
+            </Button>
+          }
+        />
+
+        <div className="space-y-2">
           {orderedNavItems.map((item, index) => {
             const Icon = item.icon;
-            const isVisible = item.configKey ? sidebarConfig[item.configKey] : true;
-            const isFirst = index === 0;
-            const isLast = index === orderedNavItems.length - 1;
+            const visible = item.configKey
+              ? (sidebarConfig[item.configKey] as boolean)
+              : true;
 
             return (
               <div
                 key={item.id}
-                className="p-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 flex items-center justify-between gap-3 transition-colors hover:border-zinc-600"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-75 p-3"
               >
-                {/* Left: Position index, Icon, and Info */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 text-center text-xs font-bold text-zinc-500 flex-shrink-0">
+                <div className="flex min-w-56 flex-1 items-center gap-3">
+                  <span className="w-6 shrink-0 text-center text-75 font-bold text-gray-600">
                     #{index + 1}
                   </span>
-
-                  <div className={`w-8 h-8 rounded-lg ${item.badgeColor} flex items-center justify-center flex-shrink-0`}>
-                    <Icon size={16} />
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-sm',
+                      item.tone,
+                    )}
+                  >
+                    {Icon ? <Icon size={16} /> : <TrophyPair size={15} />}
                   </div>
-
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-white truncate flex items-center gap-2">
-                      <span>{item.name}</span>
-                      {item.configKey === null && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                          Home
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-zinc-400 truncate">{item.description}</div>
+                  <div className="min-w-0 flex-1">
+                    <TextInput
+                      defaultValue={navNames[item.path] ?? item.name}
+                      onChange={(e) => renameNav(item.path, e.target.value)}
+                      aria-label={`Sidebar name for ${item.name}`}
+                      placeholder={item.name}
+                      className="h-8 text-75 font-semibold"
+                    />
+                    <div className="mt-1 truncate text-50 text-gray-700">{item.description}</div>
                   </div>
                 </div>
 
-                {/* Right: Reorder Buttons and Visibility Toggle */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Move Up */}
-                  <button
-                    type="button"
-                    onClick={() => handleMoveNav(index, 'up')}
-                    disabled={isFirst}
-                    className={`p-1.5 rounded-lg border transition-colors ${
-                      isFirst
-                        ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                        : 'border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                    }`}
-                    title="Move up"
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    size="s"
+                    iconOnly
+                    variant="secondary"
+                    buttonStyle="outline"
+                    disabled={index === 0}
+                    onClick={() => moveNav(index, -1)}
+                    aria-label={`Move ${item.name} up`}
                   >
                     <ChevronUp size={14} />
-                  </button>
-
-                  {/* Move Down */}
-                  <button
-                    type="button"
-                    onClick={() => handleMoveNav(index, 'down')}
-                    disabled={isLast}
-                    className={`p-1.5 rounded-lg border transition-colors ${
-                      isLast
-                        ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                        : 'border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                    }`}
-                    title="Move down"
+                  </Button>
+                  <Button
+                    size="s"
+                    iconOnly
+                    variant="secondary"
+                    buttonStyle="outline"
+                    disabled={index === orderedNavItems.length - 1}
+                    onClick={() => moveNav(index, 1)}
+                    aria-label={`Move ${item.name} down`}
                   >
                     <ChevronDown size={14} />
-                  </button>
+                  </Button>
 
-                  {/* Visibility Toggle Switch */}
                   {item.configKey ? (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSidebar(item.configKey!)}
-                      className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ml-1 ${
-                        isVisible ? 'bg-blue-600' : 'bg-zinc-700'
-                      }`}
-                      title={isVisible ? 'Hide from sidebar' : 'Show in sidebar'}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                          isVisible ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                    <Switch
+                      checked={visible}
+                      onChange={() =>
+                        updateSidebarConfig({
+                          [item.configKey as keyof SidebarConfig]: !visible,
+                        })
+                      }
+                      label={`${visible ? 'Hide' : 'Show'} ${item.name} in the sidebar`}
+                    />
                   ) : (
-                    <div className="w-11 text-center text-[10px] text-zinc-500 font-medium ml-1">
+                    <span className="w-11 text-center text-50 font-medium text-gray-600">
                       Always
-                    </div>
+                    </span>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
+      </Card>
 
-      {/* Supabase & PostgreSQL Cloud Sync Card */}
-      <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-              <Database size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">Supabase & PostgreSQL Database Sync</h2>
-              <p className="text-xs text-zinc-400">
-                Live bidirectional cloud synchronization with conflict resolution
-              </p>
-            </div>
-          </div>
+      {/* Cloud --------------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Database size={18} />}
+          title="Cloud storage"
+          description="Your library lives in Supabase and is scoped to your account"
+          iconClassName="bg-positive-100 text-positive-900"
+          action={
+            <span
+              className={cn(
+                'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-75 font-semibold',
+                !isOnline
+                  ? 'border-notice-700 bg-notice-100 text-notice-900'
+                  : pendingWrites > 0
+                    ? 'border-accent-400 bg-accent-100 text-accent-900'
+                    : 'border-positive-700 bg-positive-100 text-positive-900',
+              )}
+            >
+              {isOnline ? <Cloud size={13} /> : <CloudOff size={13} />}
+              {!isOnline ? 'Offline' : pendingWrites > 0 ? `${pendingWrites} pending` : 'Synced'}
+            </span>
+          }
+        />
 
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
-              supabaseConnected
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-            }`}
-          >
-            {supabaseConnected ? 'Connected to PostgreSQL' : 'Local Storage Mode'}
-          </span>
-        </div>
-
-        <p className="text-xs text-zinc-400 leading-relaxed">
-          Your profile automatically persists game records locally with zero latency.
-          To sync between devices via Supabase, set{' '}
-          <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-blue-300 font-mono">
-            VITE_SUPABASE_URL
-          </code>{' '}
-          and{' '}
-          <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-blue-300 font-mono">
-            VITE_SUPABASE_ANON_KEY
-          </code>{' '}
-          in your environment.
+        <p className="text-75 text-gray-700">
+          Changes save to Supabase as you make them. When you are offline they queue locally and
+          are sent as soon as the connection returns.
+          {lastSyncedAt
+            ? ` Last write: ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+            : ''}
         </p>
 
-        {/* Sync Status & Stats Summary */}
-        {lastSyncTime && (
-          <div className="p-3 bg-zinc-800/60 border border-zinc-700/60 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2 text-zinc-300">
-              <Clock size={14} className="text-emerald-400" />
-              <span>Last synced: {new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-            </div>
-            {syncStats && (
-              <span className="text-zinc-400 font-mono text-[11px]">
-                {syncStats.message || (syncStats.success ? 'Sync healthy' : syncStats.error)}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={refresh} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Reload from cloud</span>
+          </Button>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            onClick={syncWithSupabase}
-            disabled={isSyncing}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-            <span>{isSyncing ? 'Synchronizing tables...' : 'Run Cloud Sync'}</span>
-          </button>
-
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            buttonStyle="outline"
             onClick={() => {
               navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
               setCopiedSql(true);
               setTimeout(() => setCopiedSql(false), 2000);
             }}
-            className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs border border-zinc-700 flex items-center gap-2 transition-colors"
           >
-            {copiedSql ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-            <span>{copiedSql ? 'SQL Copied!' : 'Copy PostgreSQL Schema SQL'}</span>
-          </button>
+            {copiedSql ? <Check size={14} className="text-positive-900" /> : <Copy size={14} />}
+            <span>{copiedSql ? 'Schema copied' : 'Copy schema SQL'}</span>
+          </Button>
 
-          <button
-            type="button"
-            onClick={() => setShowSqlSchema(!showSqlSchema)}
-            className="px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs flex items-center gap-1.5 transition-colors"
-          >
+          <Button buttonStyle="subtle" onClick={() => setShowSqlSchema(!showSqlSchema)}>
             <Code size={14} />
             <span>{showSqlSchema ? 'Hide SQL' : 'View SQL'}</span>
             {showSqlSchema ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
+          </Button>
         </div>
 
-        {/* Expandable SQL Schema */}
         {showSqlSchema && (
-          <div className="mt-3 p-4 bg-zinc-950 border border-zinc-800 rounded-xl font-mono text-xs text-zinc-300 overflow-x-auto max-h-60 leading-relaxed">
-            <pre>{SUPABASE_SCHEMA_SQL}</pre>
-          </div>
+          <pre className="max-h-72 overflow-auto rounded-md border border-gray-200 bg-gray-25 p-4 text-75 leading-relaxed text-gray-800">
+            {SUPABASE_SCHEMA_SQL}
+          </pre>
         )}
-      </div>
+      </Card>
 
-      {/* RAWG Open Database & Query Cache */}
-      <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-              <Key size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">RAWG Video Games Database & Cache</h2>
-              <p className="text-xs text-zinc-400">
-                Access 800,000+ games with optimized 24-hour client caching
-              </p>
-            </div>
-          </div>
+      {/* RAWG ---------------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Key size={18} />}
+          title="Catalog cache"
+          description="RAWG search results are cached locally for 24 hours"
+          action={
+            <span className="rounded-full border border-gray-300 bg-gray-200 px-3 py-1 text-75 font-semibold text-gray-800">
+              {cacheCount} cached
+            </span>
+          }
+        />
 
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700">
-            {cacheCount} Cached Queries
-          </span>
-        </div>
-
-        <p className="text-xs text-zinc-400">
-          A built-in curated catalog is preloaded. Search queries and metadata are automatically cached for 24 hours to minimize API latency and save rate limits.
-          Supply your free key from{' '}
+        <p className="text-75 text-gray-700">
+          Set <code className="rounded-sm bg-gray-200 px-1.5 py-0.5 text-accent-900">VITE_RAWG_API_KEY</code>{' '}
+          to search the full catalog. Without a key, a small built-in list is used.{' '}
           <a
             href="https://rawg.io/apidocs"
             target="_blank"
             rel="noreferrer"
-            className="text-blue-400 underline font-semibold"
+            className="rounded-sm font-semibold text-accent-900 underline"
           >
-            rawg.io/apidocs
-          </a>{' '}
-          in your environment variables.
+            Get a free key
+          </a>
+          .
         </p>
 
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              clearRawgCache();
-              setCacheCount(0);
-              setClearedCacheAlert(true);
-              setTimeout(() => setClearedCacheAlert(false), 2000);
-            }}
-            className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 font-semibold text-xs border border-zinc-700 flex items-center gap-1.5 transition-colors"
-          >
-            <Trash2 size={13} />
-            <span>Purge Local Search Cache</span>
-          </button>
-          {clearedCacheAlert && (
-            <span className="text-xs text-emerald-400 font-medium">Cache cleared!</span>
-          )}
-        </div>
-      </div>
+        <Button
+          variant="secondary"
+          buttonStyle="outline"
+          onClick={() => {
+            clearRawgCache();
+            setCacheCount(0);
+          }}
+        >
+          <Trash2 size={13} />
+          <span>Clear search cache</span>
+        </Button>
+      </Card>
 
-      {/* Backup & Export Data */}
-      <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
-            <Download size={18} />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-white">Data Portability & Backup</h2>
-            <p className="text-xs text-zinc-400">Export or restore your full game tracker data anytime</p>
-          </div>
-        </div>
+      {/* Backup -------------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Download size={18} />}
+          title="Backup & restore"
+          description="Export a portable JSON copy, or restore one into your account"
+          iconClassName="bg-gray-200 text-gray-800"
+        />
 
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            onClick={handleExportData}
-            className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold text-xs border border-zinc-700 flex items-center gap-2 transition-colors"
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={handleExport}>
             <Download size={14} />
-            <span>Export Backup (JSON)</span>
-          </button>
+            <span>Export JSON</span>
+          </Button>
 
-          <label className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold text-xs border border-zinc-700 flex items-center gap-2 transition-colors cursor-pointer">
+          <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-sm bg-gray-200 px-4 text-100 font-semibold text-gray-900 transition-colors hover:bg-gray-300">
             <Upload size={14} />
-            <span>Restore Backup</span>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportData}
-              className="hidden"
-            />
+            <span>Restore backup</span>
+            <input type="file" accept=".json" onChange={handleImport} className="hidden" />
           </label>
         </div>
 
-        {importStatus && (
-          <p className="text-xs font-semibold text-emerald-400 mt-2">{importStatus}</p>
-        )}
-      </div>
+        <p className="text-50 text-gray-600">
+          Restoring replaces your library in the cloud. Games on platforms this app no longer
+          supports are skipped.
+        </p>
+
+        {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
+      </Card>
     </div>
   );
 };

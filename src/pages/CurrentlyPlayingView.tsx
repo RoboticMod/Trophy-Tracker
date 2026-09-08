@@ -1,113 +1,106 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Play, Plus, Clock, Trophy, Sparkles, Filter } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { Play, Clock } from 'lucide-react';
+import { TrophyPair } from '../components/TrophyBadge';
 import { useGame } from '../context/GameContext';
 import { GameCard } from '../components/GameCard';
-import { PlatformIcon } from '../components/PlatformIcon';
-import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
+import { comparePlatformOrder } from '../lib/constants';
+import { statusLabel } from '../lib/status';
+import { Card, EmptyState } from '../components/ui';
 
 export const CurrentlyPlayingView: React.FC = () => {
-  const { games, setIsQuickAddOpen, updateGame, profile } = useGame();
+  const { games, profile } = useGame();
+  const platformOrder = profile.platformOrder;
 
-  const playingGames = games
-    .filter(g => g.status === 'playing')
-    .sort((a, b) => {
-      const pDiff = comparePlatformOrder(a.platform, b.platform, profile?.platformOrder);
-      if (pDiff !== 0) return pDiff;
-      return a.title.localeCompare(b.title);
-    });
-  const totalPlayingHours = playingGames.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0);
-  const totalAchievements = playingGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
-  const totalPossible = playingGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
+  const playingGames = useMemo(
+    () =>
+      games
+        .filter((g) => g.status === 'playing')
+        .sort((a, b) => {
+          const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
+          return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
+        }),
+    [games, platformOrder],
+  );
+
+  const totalHours = playingGames.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0);
+  const unlocked = playingGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
+  const possible = playingGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-6">
+    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+      <div className="border-b border-gray-200 pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-              <Play size={18} className="fill-blue-400" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-100 text-accent-900">
+              <Play size={18} />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Currently Playing
+            <h1 className="text-600 font-bold tracking-tight text-gray-1000">
+              {statusLabel('playing', profile)}
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-              {playingGames.length} Active
+            <span className="rounded-full bg-accent-100 px-2.5 py-0.5 text-75 font-semibold text-accent-900">
+              {playingGames.length} active
             </span>
           </div>
-          <p className="text-xs text-zinc-400">
-            Games you are actively exploring right now. Log progress, hours, and achievements.
+          <p className="text-75 text-gray-700">
+            Games in progress right now. Log hours and achievement unlocks as you go.
           </p>
         </div>
-
-        <button
-          onClick={() => setIsQuickAddOpen(true)}
-          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md flex items-center gap-2 self-start sm:self-auto transition-colors"
-        >
-          <Plus size={16} />
-          <span>Add Playing Game</span>
-        </button>
       </div>
 
-      {/* Summary Metrics Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-            <Play size={18} />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-white">{playingGames.length}</div>
-            <div className="text-[11px] text-zinc-400">Active Titles</div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-            <Clock size={18} />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-white">{totalPlayingHours}h</div>
-            <div className="text-[11px] text-zinc-400">Logged in Active Games</div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-            <Trophy size={18} />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-white">
-              {totalAchievements} / {totalPossible}
-            </div>
-            <div className="text-[11px] text-zinc-400">
-              Active Unlocks ({totalPossible > 0 ? Math.round((totalAchievements / totalPossible) * 100) : 0}%)
-            </div>
-          </div>
-        </div>
+      <div className="grid-metrics">
+        <Summary
+          icon={<Play size={18} />}
+          tone="bg-accent-100 text-accent-900"
+          value={String(playingGames.length)}
+          label="Active titles"
+        />
+        <Summary
+          icon={<Clock size={18} />}
+          tone="bg-gray-200 text-gray-800"
+          value={`${totalHours}h`}
+          label="Logged in active games"
+        />
+        <Summary
+          icon={<TrophyPair size={16} />}
+          tone="bg-trophy-100"
+          value={`${unlocked} / ${possible}`}
+          label={`Active unlocks (${possible > 0 ? Math.round((unlocked / possible) * 100) : 0}%)`}
+        />
       </div>
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+      <div className="grid-cards">
         <AnimatePresence>
-          {playingGames.map(game => (
+          {playingGames.map((game) => (
             <GameCard key={game.id} game={game} />
           ))}
         </AnimatePresence>
       </div>
 
-      {/* Empty State */}
       {playingGames.length === 0 && (
-        <div className="py-16 text-center rounded-2xl bg-zinc-900/40 border border-dashed border-zinc-800 p-8 space-y-3 max-w-md mx-auto">
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto">
-            <Play size={24} />
-          </div>
-          <h3 className="text-sm font-bold text-white">No games currently in play</h3>
-          <p className="text-xs text-zinc-400">
-            Pick a game from your backlog or library and set its status to "Playing".
-          </p>
-        </div>
+        <EmptyState
+          icon={<Play size={24} />}
+          title="Nothing in progress"
+          description={`Pick something from your library or backlog and set its status to "${statusLabel('playing', profile)}".`}
+        />
       )}
     </div>
   );
 };
+
+const Summary: React.FC<{
+  icon: React.ReactNode;
+  tone: string;
+  value: string;
+  label: string;
+}> = ({ icon, tone, value, label }) => (
+  <Card className="flex items-center gap-3">
+    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${tone}`}>
+      {icon}
+    </div>
+    <div className="min-w-0">
+      <div className="text-400 font-bold text-gray-1000">{value}</div>
+      <div className="truncate text-50 text-gray-700">{label}</div>
+    </div>
+  </Card>
+);

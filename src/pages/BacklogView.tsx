@@ -1,154 +1,147 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Hourglass, Plus, Play, Filter } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameCard } from '../components/GameCard';
-import { Platform } from '../types';
+import { PlatformIcon } from '../components/PlatformIcon';
+import { Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
+import { statusLabel } from '../lib/status';
+import { Button, Card, EmptyState } from '../components/ui';
+import { cn } from '../lib/cn';
 
 export const BacklogView: React.FC = () => {
   const { games, setIsQuickAddOpen, updateGame, profile } = useGame();
   const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
+  const platformOrder = profile.platformOrder;
 
-  const backlogGames = games.filter(g => g.status === 'backlog');
+  const backlogGames = useMemo(() => games.filter((g) => g.status === 'backlog'), [games]);
 
-  const filtered = backlogGames
-    .filter(g => {
-      if (platformFilter !== 'all' && g.platform !== platformFilter) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const pDiff = comparePlatformOrder(a.platform, b.platform, profile?.platformOrder);
-      if (pDiff !== 0) return pDiff;
-      return a.title.localeCompare(b.title);
-    });
+  const sorted = useMemo(
+    () =>
+      [...backlogGames].sort((a, b) => {
+        const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
+        return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
+      }),
+    [backlogGames, platformOrder],
+  );
 
-  const totalBacklogAchievements = backlogGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
+  const filtered = sorted.filter((g) => platformFilter === 'all' || g.platform === platformFilter);
 
-  const startPlayingNext = () => {
-    const nextGame = backlogGames[0];
-    if (nextGame) {
-      updateGame(nextGame.id, { status: 'playing' });
-    }
+  const potentialAchievements = backlogGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
+
+  /** Promotes the first game in the current platform order to "playing". */
+  const startNext = () => {
+    const next = sorted[0];
+    if (next) updateGame(next.id, { status: 'playing' });
   };
 
   return (
-    <div className="space-y-7 max-w-7xl mx-auto pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
+    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+      <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-notice-100 text-notice-900">
             <Hourglass size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Backlog Queue
+            <h1 className="text-600 font-bold tracking-tight text-gray-1000">
+              {statusLabel('backlog', profile)}
             </h1>
-            <p className="text-xs text-zinc-400">
-              Queue of unplayed games
-            </p>
+            <p className="text-75 text-gray-700">Games queued and waiting to be played</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {backlogGames.length > 0 && (
-            <button
-              onClick={startPlayingNext}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-sm flex items-center gap-1.5 transition-colors"
-            >
-              <Play size={14} className="fill-white" />
-              <span>Start Next Game</span>
-            </button>
+          {sorted.length > 0 && (
+            <Button variant="positive" size="l" onClick={startNext}>
+              <Play size={14} />
+              <span>Start next game</span>
+            </Button>
           )}
-
-          <button
-            onClick={() => setIsQuickAddOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm flex items-center gap-1.5 transition-colors"
-          >
-            <Plus size={14} />
-            <span>Add to Backlog</span>
-          </button>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800">
-          <div className="text-2xl font-bold text-white">{backlogGames.length}</div>
-          <div className="text-[11px] font-medium text-zinc-400">Total Games in Queue</div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800">
-          <div className="text-2xl font-bold text-amber-400">{totalBacklogAchievements}</div>
-          <div className="text-[11px] font-medium text-zinc-400">Potential Achievements to Unlock</div>
-        </div>
+      <div className="grid-metrics">
+        <Card>
+          <div className="text-600 font-bold text-gray-1000">{backlogGames.length}</div>
+          <div className="text-50 font-medium text-gray-700">Games in queue</div>
+        </Card>
+        <Card>
+          <div className="text-600 font-bold text-notice-900">{potentialAchievements}</div>
+          <div className="text-50 font-medium text-gray-700">Achievements still to unlock</div>
+        </Card>
       </div>
 
-      {/* Platform Filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        <span className="text-xs font-medium text-zinc-400 flex items-center gap-1 mr-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 flex items-center gap-1 text-75 font-medium text-gray-700">
           <Filter size={13} />
-          Platform:
+          Platform
         </span>
 
-        <button
-          onClick={() => setPlatformFilter('all')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-            platformFilter === 'all'
-              ? 'bg-amber-500 text-zinc-950 font-bold shadow-sm'
-              : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
-          }`}
-        >
+        <Chip selected={platformFilter === 'all'} onClick={() => setPlatformFilter('all')}>
           All ({backlogGames.length})
-        </button>
+        </Chip>
 
-        {Object.entries(PLATFORMS).map(([id, cfg]) => {
-          const count = backlogGames.filter(g => g.platform === id).length;
-          if (count === 0) return null;
+        {PLATFORM_IDS.map((p) => {
+          const count = backlogGames.filter((g) => g.platform === p).length;
           return (
-            <button
-              key={id}
-              onClick={() => setPlatformFilter(id as Platform)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                platformFilter === id
-                  ? 'bg-amber-500 text-zinc-950 font-bold shadow-sm'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
-              }`}
+            <Chip
+              key={p}
+              selected={platformFilter === p}
+              onClick={() => setPlatformFilter(p)}
+              title={PLATFORMS[p].name}
             >
-              {cfg.name} ({count})
-            </button>
+              <PlatformIcon platform={p} size={15} />
+              <span>{PLATFORMS[p].shortName}</span>
+              <span className="opacity-70">({count})</span>
+            </Chip>
           );
         })}
       </div>
 
-      {/* Games List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+      <div className="grid-cards">
         <AnimatePresence>
-          {filtered.map(game => (
+          {filtered.map((game) => (
             <GameCard key={game.id} game={game} />
           ))}
         </AnimatePresence>
       </div>
 
-      {/* Empty State */}
       {filtered.length === 0 && (
-        <div className="py-16 text-center rounded-2xl bg-zinc-900/40 border border-dashed border-zinc-800 p-8 space-y-3 max-w-md mx-auto">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
-            <Hourglass size={24} />
-          </div>
-          <h3 className="text-sm font-bold text-white">Your backlog is caught up</h3>
-          <p className="text-xs text-zinc-400">
-            No games currently waiting in this filter. Add new games to your backlog queue from the catalog.
-          </p>
-          <button
-            onClick={() => setIsQuickAddOpen(true)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm inline-flex items-center gap-1.5 transition-colors"
-          >
-            <Plus size={14} />
-            Add Game to Backlog
-          </button>
-        </div>
+        <EmptyState
+          icon={<Hourglass size={24} />}
+          title="Your backlog is clear"
+          description="Nothing is waiting under this filter. Add games from the catalog to queue them up."
+          action={
+            <Button variant="accent" onClick={() => setIsQuickAddOpen(true)}>
+              <Plus size={14} />
+              Add game
+            </Button>
+          }
+        />
       )}
     </div>
   );
 };
+
+const Chip: React.FC<{
+  selected: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}> = ({ selected, onClick, title, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title}
+    aria-pressed={selected}
+    className={cn(
+      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
+      selected
+        ? 'border-notice-700 bg-notice-100 text-notice-900'
+        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
+    )}
+  >
+    {children}
+  </button>
+);

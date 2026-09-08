@@ -1,41 +1,39 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import confetti from 'canvas-confetti';
-import { UserGame, Collection, UserProfile, Platform, GameStatus, SidebarConfig } from '../types';
-import { INITIAL_GAMES, DEFAULT_COLLECTIONS } from '../lib/constants';
-import { supabase } from '../lib/supabase';
-import { executeBidirectionalSync, getSyncMetadata, SyncStats } from '../lib/syncEngine';
-
-interface GameContextType {
-  games: UserGame[];
-  collections: Collection[];
-  profile: UserProfile;
-  updateProfile: (updates: Partial<UserProfile>) => void;
-  sidebarConfig: SidebarConfig;
-  updateSidebarConfig: (updates: Partial<SidebarConfig>) => void;
-  activePlatformFilter: Platform | 'all';
-  setActivePlatformFilter: (platform: Platform | 'all') => void;
-  activeStatusFilter: GameStatus | 'all';
-  setActiveStatusFilter: (status: GameStatus | 'all') => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  isQuickAddOpen: boolean;
-  setIsQuickAddOpen: (open: boolean) => void;
-  addGame: (game: Omit<UserGame, 'id' | 'addedAt'>) => void;
-  updateGame: (id: string, updates: Partial<UserGame>) => void;
-  deleteGame: (id: string) => void;
-  createCollection: (name: string, description?: string, color?: string, icon?: string) => void;
-  deleteCollection: (id: string) => void;
-  triggerCelebration: () => void;
-  supabaseConnected: boolean;
-  syncWithSupabase: () => Promise<void>;
-  isSyncing: boolean;
-  syncStats: SyncStats | null;
-  lastSyncTime: string | null;
-}
-
-const STORAGE_GAMES_KEY = 'gametracker_pro_games_v1';
-const STORAGE_COLLECTIONS_KEY = 'gametracker_pro_collections_v1';
-const STORAGE_PROFILE_KEY = 'gametracker_pro_profile_v2';
+import {
+  Collection,
+  GameStatus,
+  Platform,
+  SidebarConfig,
+  UserGame,
+  UserProfile,
+} from '../types';
+import {
+  DEFAULT_COLLECTIONS,
+  DEFAULT_COLLECTION_COLOR,
+  DEFAULT_PLATFORM_SORT_ORDER,
+} from '../lib/constants';
+import { normalizeRating } from '../lib/rating';
+import { useAuth } from './AuthContext';
+import * as db from '../lib/db';
+import {
+  PendingWrite,
+  clearUserCache,
+  enqueue,
+  purgeLegacyStorage,
+  readQueue,
+  readSnapshot,
+  writeQueue,
+  writeSnapshot,
+} from '../lib/localCache';
 
 export const DEFAULT_SIDEBAR_CONFIG: SidebarConfig = {
   showCurrentlyPlaying: true,
@@ -46,232 +44,450 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarConfig = {
   showSearch: true,
 };
 
-const DEFAULT_PROFILE: UserProfile = {
-  id: 'usr-default',
-  username: 'ApexGamer',
-  email: 'gamer@gametracker.pro',
-  avatarUrl: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150&auto=format&fit=crop&q=80',
-  sidebarConfig: DEFAULT_SIDEBAR_CONFIG,
-};
+interface GameContextType {
+  games: UserGame[];
+  collections: Collection[];
+  profile: UserProfile;
+  sidebarConfig: SidebarConfig;
+
+  loading: boolean;
+  /** Message shown when a write could not reach the cloud. */
+  error: string | null;
+  dismissError: () => void;
+  isOnline: boolean;
+  /** Writes waiting for connectivity. */
+  pendingWrites: number;
+  lastSyncedAt: string | null;
+  refresh: () => Promise<void>;
+
+  activePlatformFilter: Platform | 'all';
+  setActivePlatformFilter: (platform: Platform | 'all') => void;
+  activeStatusFilter: GameStatus | 'all';
+  setActiveStatusFilter: (status: GameStatus | 'all') => void;
+  isQuickAddOpen: boolean;
+  setIsQuickAddOpen: (open: boolean) => void;
+
+  addGame: (game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => void;
+  updateGame: (id: string, updates: Partial<UserGame>) => void;
+  deleteGame: (id: string) => void;
+  createCollection: (name: string, description?: string, color?: string, icon?: string) => void;
+  deleteCollection: (id: string) => void;
+
+  updateProfile: (updates: Partial<UserProfile>) => void;
+  updateSidebarConfig: (updates: Partial<SidebarConfig>) => void;
+  replaceAll: (snapshot: {
+    games: UserGame[];
+    collections: Collection[];
+    profile?: UserProfile;
+  }) => Promise<void>;
+
+  triggerCelebration: () => void;
+}
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
+const newId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const isPerfect = (game: Pick<UserGame, 'achievementsUnlocked' | 'achievementsTotal'>) =>
+  game.achievementsTotal > 0 && game.achievementsUnlocked >= game.achievementsTotal;
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [games, setGames] = useState<UserGame[]>(() => {
-    const saved = localStorage.getItem(STORAGE_GAMES_KEY);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_GAMES;
-  });
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
-  const [collections, setCollections] = useState<Collection[]>(() => {
-    const saved = localStorage.getItem(STORAGE_COLLECTIONS_KEY);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return DEFAULT_COLLECTIONS;
-  });
+  const [games, setGames] = useState<UserGame[]>([]);
+  const [collections, setCollections] = useState<Collection[]>(DEFAULT_COLLECTIONS);
+  const [profile, setProfile] = useState<UserProfile>(() => ({
+    id: 'anonymous',
+    username: 'Player',
+    sidebarConfig: DEFAULT_SIDEBAR_CONFIG,
+    platformOrder: DEFAULT_PLATFORM_SORT_ORDER,
+  }));
 
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem(STORAGE_PROFILE_KEY);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return DEFAULT_PROFILE;
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [pendingWrites, setPendingWrites] = useState(0);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const [activePlatformFilter, setActivePlatformFilter] = useState<Platform | 'all'>('all');
   const [activeStatusFilter, setActiveStatusFilter] = useState<GameStatus | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [supabaseConnected, setSupabaseConnected] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStats, setSyncStats] = useState<SyncStats | null>(() => getSyncMetadata().lastStats);
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => getSyncMetadata().lastSyncTime);
 
-  // Sync to local storage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_GAMES_KEY, JSON.stringify(games));
-  }, [games]);
+  // Latest state, so queue flushes and cache writes never close over stale data.
+  const latest = useRef({ games, collections, profile });
+  latest.current = { games, collections, profile };
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_COLLECTIONS_KEY, JSON.stringify(collections));
-  }, [collections]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(profile));
-  }, [profile]);
-
-  // Check Supabase connection on load
-  useEffect(() => {
-    const checkSupabase = async () => {
-      try {
-        const { error } = await supabase.from('games').select('count', { count: 'exact', head: true });
-        if (!error) {
-          setSupabaseConnected(true);
-        }
-      } catch (err) {
-        // Safe fallback - offline mode is ready
-        setSupabaseConnected(false);
-      }
-    };
-    checkSupabase();
+    purgeLegacyStorage();
   }, []);
 
-  const triggerCelebration = () => {
+  const triggerCelebration = useCallback(() => {
     try {
       confetti({
         particleCount: 80,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#38bdf8', '#c084fc', '#34d399', '#f43f5e', '#fbbf24']
+        // Literal hex: canvas-confetti paints to a canvas and cannot resolve
+        // CSS custom properties. These mirror the trophy and platform tokens.
+        colors: ['#f2c14e', '#66c0f4', '#4d9bf0', '#52c294', '#ffffff'],
       });
-    } catch (e) {
-      // Ignore if canvas is not ready
+    } catch {
+      // Canvas unavailable — the state change still happened.
     }
-  };
+  }, []);
 
-  const updateProfile = (updates: Partial<UserProfile>) => {
-    setProfile(prev => ({
-      ...prev,
-      ...updates,
-    }));
-  };
+  /* ---------------------------------------------------------------------- */
+  /* Cloud writes: optimistic locally, queued when offline                   */
+  /* ---------------------------------------------------------------------- */
 
-  const updateSidebarConfig = (updates: Partial<SidebarConfig>) => {
-    setProfile(prev => ({
-      ...prev,
-      sidebarConfig: {
-        ...(prev.sidebarConfig || DEFAULT_SIDEBAR_CONFIG),
-        ...updates,
-      },
-    }));
-  };
+  const applyWrite = useCallback(async (entry: PendingWrite, id: string) => {
+    if (entry.kind === 'game' && entry.op === 'upsert') await db.upsertGame(entry.game, id);
+    else if (entry.kind === 'game') await db.deleteGame(entry.id, id);
+    else if (entry.kind === 'collections') await db.upsertCollections(entry.collections, id);
+    else if (entry.kind === 'collection') await db.deleteCollection(entry.id, id);
+    else if (entry.kind === 'profile') await db.saveProfile(entry.profile, id);
+  }, []);
 
-  const addGame = (gameData: Omit<UserGame, 'id' | 'addedAt'>) => {
-    const newGame: UserGame = {
-      ...gameData,
-      id: 'game_' + Math.random().toString(36).substring(2, 9),
-      addedAt: new Date().toISOString(),
-    };
-
-    setGames(prev => [newGame, ...prev]);
-    triggerCelebration();
-  };
-
-  const updateGame = (id: string, updates: Partial<UserGame>) => {
-    setGames(prev =>
-      prev.map(g => {
-        if (g.id !== id) return g;
-        const updated = { ...g, ...updates };
-
-        // If newly marked as completed or mastered, celebrate!
-        if (
-          (updates.status === 'completed' || updates.status === 'mastered') &&
-          g.status !== 'completed' && g.status !== 'mastered'
-        ) {
-          triggerCelebration();
-          updated.completedAt = new Date().toISOString();
-        }
-
-        // If achievements reached total, celebrate!
-        if (
-          updates.achievementsUnlocked &&
-          updates.achievementsUnlocked >= (updated.achievementsTotal || 1) &&
-          g.achievementsUnlocked < (updated.achievementsTotal || 1)
-        ) {
-          triggerCelebration();
-        }
-
-        return updated;
-      })
-    );
-  };
-
-  const deleteGame = (id: string) => {
-    setGames(prev => prev.filter(g => g.id !== id));
-  };
-
-  const createCollection = (name: string, description?: string, color: string = '#8B5CF6', icon: string = 'Folder') => {
-    const newCol: Collection = {
-      id: 'col_' + Math.random().toString(36).substring(2, 9),
-      name,
-      description,
-      color,
-      icon,
-      isSystem: false,
-      createdAt: new Date().toISOString(),
-    };
-    setCollections(prev => [...prev, newCol]);
-  };
-
-  const deleteCollection = (id: string) => {
-    setCollections(prev => prev.filter(c => c.id !== id));
-    // Remove collection reference from games
-    setGames(prev =>
-      prev.map(g => ({
-        ...g,
-        collections: g.collections.filter(cId => cId !== id),
-      }))
-    );
-  };
-
-  const syncWithSupabase = async () => {
-    setIsSyncing(true);
-    try {
-      const result = await executeBidirectionalSync(games, collections, profile);
-      if (result.stats.success) {
-        setGames(result.updatedGames);
-        setCollections(result.updatedCollections);
-        setProfile(result.updatedProfile);
-        setSyncStats(result.stats);
-        setLastSyncTime(result.stats.timestamp);
-        setSupabaseConnected(true);
-        triggerCelebration();
-      } else {
-        setSyncStats(result.stats);
+  const flushQueue = useCallback(
+    async (id: string) => {
+      const queue = readQueue(id);
+      if (queue.length === 0) {
+        setPendingWrites(0);
+        return;
       }
-    } catch (err) {
-      console.warn('Sync failed:', err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
-  return (
-    <GameContext.Provider
-      value={{
-        games,
-        collections,
-        profile,
-        updateProfile,
-        sidebarConfig: profile.sidebarConfig || DEFAULT_SIDEBAR_CONFIG,
-        updateSidebarConfig,
-        activePlatformFilter,
-        setActivePlatformFilter,
-        activeStatusFilter,
-        setActiveStatusFilter,
-        searchQuery,
-        setSearchQuery,
-        isQuickAddOpen,
-        setIsQuickAddOpen,
-        addGame,
-        updateGame,
-        deleteGame,
-        createCollection,
-        deleteCollection,
-        triggerCelebration,
-        supabaseConnected,
-        syncWithSupabase,
-        isSyncing,
-        syncStats,
-        lastSyncTime,
-      }}
-    >
-      {children}
-    </GameContext.Provider>
+      const remaining: PendingWrite[] = [];
+      for (const entry of queue) {
+        try {
+          await applyWrite(entry, id);
+        } catch {
+          remaining.push(entry);
+        }
+      }
+
+      writeQueue(id, remaining);
+      setPendingWrites(remaining.length);
+      if (remaining.length === 0) setLastSyncedAt(new Date().toISOString());
+    },
+    [applyWrite],
   );
+
+  const push = useCallback(
+    async (entry: PendingWrite) => {
+      if (!userId) return;
+      try {
+        await applyWrite(entry, userId);
+        setLastSyncedAt(new Date().toISOString());
+      } catch (err) {
+        // Keep the optimistic local change and retry when connectivity returns.
+        enqueue(userId, entry);
+        setPendingWrites(readQueue(userId).length);
+        setError(
+          err instanceof Error
+            ? `Saved locally — could not reach the cloud (${err.message}).`
+            : 'Saved locally — could not reach the cloud.',
+        );
+      }
+    },
+    [userId, applyWrite],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Load                                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  const load = useCallback(
+    async (id: string) => {
+      setLoading(true);
+
+      // Paint from cache immediately so a slow network is not a blank screen.
+      const cached = readSnapshot(id);
+      if (cached) {
+        // Cached rows predate the 0-100 rating scale, so normalise on read.
+        setGames(cached.games.map((g) => ({ ...g, rating: normalizeRating(g.rating) })));
+        setCollections(cached.collections.length ? cached.collections : DEFAULT_COLLECTIONS);
+        if (cached.profile) setProfile(cached.profile);
+      }
+      setPendingWrites(readQueue(id).length);
+
+      try {
+        await flushQueue(id);
+
+        const [remoteGames, remoteCollections, remoteProfile] = await Promise.all([
+          db.listGames(id),
+          db.listCollections(id),
+          db.getProfile(id),
+        ]);
+
+        const nextCollections = remoteCollections.length ? remoteCollections : DEFAULT_COLLECTIONS;
+        const nextProfile: UserProfile = remoteProfile ?? {
+          id,
+          username: user?.email?.split('@')[0] || 'Player',
+          email: user?.email,
+          sidebarConfig: DEFAULT_SIDEBAR_CONFIG,
+          platformOrder: DEFAULT_PLATFORM_SORT_ORDER,
+        };
+
+        setGames(remoteGames);
+        setCollections(nextCollections);
+        setProfile(nextProfile);
+        writeSnapshot(id, {
+          games: remoteGames,
+          collections: nextCollections,
+          profile: nextProfile,
+        });
+        setLastSyncedAt(new Date().toISOString());
+        setError(null);
+
+        // First sign-in on a fresh account: seed starter collections and profile.
+        if (!remoteCollections.length) await db.upsertCollections(DEFAULT_COLLECTIONS, id);
+        if (!remoteProfile) await db.saveProfile(nextProfile, id);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? `Could not load your library from the cloud (${err.message}). Showing the last local copy.`
+            : 'Could not load your library from the cloud. Showing the last local copy.',
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [flushQueue, user?.email],
+  );
+
+  useEffect(() => {
+    if (!userId) {
+      setGames([]);
+      setCollections(DEFAULT_COLLECTIONS);
+      setLoading(false);
+      return;
+    }
+    void load(userId);
+  }, [userId, load]);
+
+  // Persist a cache snapshot whenever state settles.
+  useEffect(() => {
+    if (!userId || loading) return;
+    writeSnapshot(userId, { games, collections, profile });
+  }, [userId, loading, games, collections, profile]);
+
+  // Retry queued writes as soon as the connection comes back.
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true);
+      if (userId) void flushQueue(userId);
+    };
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, [userId, flushQueue]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Mutations                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  const addGame = useCallback(
+    (data: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => {
+      const now = new Date().toISOString();
+      const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
+      setGames((prev) => [game, ...prev]);
+      void push({ kind: 'game', op: 'upsert', game });
+      if (game.status === 'mastered' || isPerfect(game)) triggerCelebration();
+    },
+    [push, triggerCelebration],
+  );
+
+  const updateGame = useCallback(
+    (id: string, updates: Partial<UserGame>) => {
+      let next: UserGame | null = null;
+      let celebrate = false;
+
+      setGames((prev) =>
+        prev.map((game) => {
+          if (game.id !== id) return game;
+
+          const merged: UserGame = { ...game, ...updates, updatedAt: new Date().toISOString() };
+
+          const becameFinished =
+            (merged.status === 'completed' || merged.status === 'mastered') &&
+            game.status !== 'completed' &&
+            game.status !== 'mastered';
+          if (becameFinished) merged.completedAt = merged.completedAt ?? merged.updatedAt;
+
+          // Explicit undefined check: dropping back to 0 unlocked is a real edit.
+          const progressed =
+            updates.achievementsUnlocked !== undefined || updates.hoursPlayed !== undefined;
+          if (progressed) merged.lastPlayedAt = merged.updatedAt;
+
+          celebrate = becameFinished || (!isPerfect(game) && isPerfect(merged));
+          next = merged;
+          return merged;
+        }),
+      );
+
+      if (next) void push({ kind: 'game', op: 'upsert', game: next });
+      if (celebrate) triggerCelebration();
+    },
+    [push, triggerCelebration],
+  );
+
+  const deleteGame = useCallback(
+    (id: string) => {
+      setGames((prev) => prev.filter((g) => g.id !== id));
+      void push({ kind: 'game', op: 'delete', id });
+    },
+    [push],
+  );
+
+  const createCollection = useCallback(
+    (name: string, description?: string, color = DEFAULT_COLLECTION_COLOR, icon = 'Folder') => {
+      const collection: Collection = {
+        id: newId(),
+        name,
+        description,
+        color,
+        icon,
+        isSystem: false,
+        createdAt: new Date().toISOString(),
+      };
+      setCollections((prev) => [...prev, collection]);
+      void push({ kind: 'collections', op: 'upsert', collections: [collection] });
+    },
+    [push],
+  );
+
+  const deleteCollection = useCallback(
+    (id: string) => {
+      setCollections((prev) => prev.filter((c) => c.id !== id));
+
+      const affected = latest.current.games.filter((g) => g.collections?.includes(id));
+      if (affected.length) {
+        const now = new Date().toISOString();
+        const updated = affected.map((g) => ({
+          ...g,
+          collections: g.collections.filter((c) => c !== id),
+          updatedAt: now,
+        }));
+        setGames((prev) => prev.map((g) => updated.find((u) => u.id === g.id) ?? g));
+        updated.forEach((game) => void push({ kind: 'game', op: 'upsert', game }));
+      }
+
+      void push({ kind: 'collection', op: 'delete', id });
+    },
+    [push],
+  );
+
+  const updateProfile = useCallback(
+    (updates: Partial<UserProfile>) => {
+      const next = { ...latest.current.profile, ...updates };
+      setProfile(next);
+      void push({ kind: 'profile', op: 'upsert', profile: next });
+    },
+    [push],
+  );
+
+  const updateSidebarConfig = useCallback(
+    (updates: Partial<SidebarConfig>) => {
+      updateProfile({
+        sidebarConfig: {
+          ...(latest.current.profile.sidebarConfig || DEFAULT_SIDEBAR_CONFIG),
+          ...updates,
+        },
+      });
+    },
+    [updateProfile],
+  );
+
+  const replaceAll = useCallback(
+    async (snapshot: { games: UserGame[]; collections: Collection[]; profile?: UserProfile }) => {
+      if (!userId) return;
+      setGames(snapshot.games);
+      setCollections(snapshot.collections);
+      if (snapshot.profile) setProfile({ ...snapshot.profile, id: userId });
+
+      try {
+        await db.upsertGames(snapshot.games, userId);
+        await db.upsertCollections(snapshot.collections, userId);
+        if (snapshot.profile) await db.saveProfile({ ...snapshot.profile, id: userId }, userId);
+        setLastSyncedAt(new Date().toISOString());
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? `Restored locally, but the cloud copy was not updated (${err.message}).`
+            : 'Restored locally, but the cloud copy was not updated.',
+        );
+      }
+    },
+    [userId],
+  );
+
+  const refresh = useCallback(async () => {
+    if (userId) await load(userId);
+  }, [userId, load]);
+
+  const value = useMemo<GameContextType>(
+    () => ({
+      games,
+      collections,
+      profile,
+      sidebarConfig: profile.sidebarConfig || DEFAULT_SIDEBAR_CONFIG,
+      loading,
+      error,
+      dismissError: () => setError(null),
+      isOnline,
+      pendingWrites,
+      lastSyncedAt,
+      refresh,
+      activePlatformFilter,
+      setActivePlatformFilter,
+      activeStatusFilter,
+      setActiveStatusFilter,
+      isQuickAddOpen,
+      setIsQuickAddOpen,
+      addGame,
+      updateGame,
+      deleteGame,
+      createCollection,
+      deleteCollection,
+      updateProfile,
+      updateSidebarConfig,
+      replaceAll,
+      triggerCelebration,
+    }),
+    [
+      games,
+      collections,
+      profile,
+      loading,
+      error,
+      isOnline,
+      pendingWrites,
+      lastSyncedAt,
+      refresh,
+      activePlatformFilter,
+      activeStatusFilter,
+      isQuickAddOpen,
+      addGame,
+      updateGame,
+      deleteGame,
+      createCollection,
+      deleteCollection,
+      updateProfile,
+      updateSidebarConfig,
+      replaceAll,
+      triggerCelebration,
+    ],
+  );
+
+  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
 
 export const useGame = () => {
@@ -279,3 +495,5 @@ export const useGame = () => {
   if (!context) throw new Error('useGame must be used within GameProvider');
   return context;
 };
+
+export { clearUserCache };

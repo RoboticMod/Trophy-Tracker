@@ -1,13 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL?.trim();
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase URL or Anon Key is missing. Please configure them in the Secrets panel.');
-}
+/**
+ * True when real credentials are present. The app renders a setup screen when
+ * this is false rather than building a client against a placeholder URL and
+ * firing doomed requests on every load.
+ */
+export const isSupabaseConfigured = Boolean(
+  url && anonKey && !url.includes('placeholder') && !url.includes('YOUR_'),
+);
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder-project.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
+export const supabase: SupabaseClient = createClient(
+  url || 'http://localhost:54321',
+  anonKey || 'anon-key-not-configured',
+  {
+    auth: {
+      persistSession: isSupabaseConfigured,
+      autoRefreshToken: isSupabaseConfigured,
+      detectSessionInUrl: false,
+    },
+  },
 );

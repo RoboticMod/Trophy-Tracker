@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Clock, Bookmark, Check, Gamepad2, Star, Filter } from 'lucide-react';
+import { Search, Sparkles, Plus, Bookmark, Check, Filter } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { searchGames, detectPlatformFromRawg } from '../lib/rawg';
-import { RawgGameResult, Platform } from '../types';
+import { RawgGameResult, Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS } from '../lib/constants';
-import { StarRating } from '../components/StarRating';
+import { statusLabel } from '../lib/status';
+import { PlatformIcon } from '../components/PlatformIcon';
+import { RatingValue } from '../components/Rating';
+import { Button, OverlayBadge, TextInput } from '../components/ui';
+import { cn } from '../lib/cn';
+
+const FALLBACK_COVER = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600';
 
 export const SearchView: React.FC = () => {
-  const { games, addGame } = useGame();
+  const { games, addGame, profile } = useGame();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RawgGameResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -16,202 +22,183 @@ export const SearchView: React.FC = () => {
   const [addedIds, setAddedIds] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    const doSearch = async () => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
       setLoading(true);
       const res = await searchGames(query);
+      if (cancelled) return;
       setResults(res);
       setLoading(false);
-    };
+    }, 250);
 
-    const timer = setTimeout(doSearch, 250);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [query]);
 
-  const handleQuickAdd = (game: RawgGameResult, toBacklog: boolean = false) => {
-    const detected = detectPlatformFromRawg(game);
-    const platformToUse = selectedPlatform !== 'all' ? selectedPlatform : detected;
-    const convertedRating = game.rating ? Math.min(5, Math.max(0, Math.round(game.rating * 2) / 2)) : undefined;
+  const handleQuickAdd = (game: RawgGameResult, toBacklog: boolean) => {
+    const platform = selectedPlatform !== 'all' ? selectedPlatform : detectPlatformFromRawg(game);
+    // RAWG scores out of 5; this app stores out of 100.
+    const rating = game.rating ? Math.round(Math.min(5, Math.max(0, game.rating)) * 20) : undefined;
 
     addGame({
       rawgId: game.id,
       title: game.name,
-      platform: platformToUse,
+      platform,
       status: toBacklog ? 'backlog' : 'playing',
-      coverImage: game.background_image || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80',
-      genres: game.genres?.map(g => g.name) || ['Action'],
+      coverImage: game.background_image || FALLBACK_COVER,
+      releaseDate: game.released,
+      genres: game.genres?.map((g) => g.name) ?? [],
       hoursPlayed: 0,
       achievementsUnlocked: 0,
-      achievementsTotal: 40,
-      rating: convertedRating,
+      achievementsTotal: 0,
+      rating,
       collections: toBacklog ? ['col-backlog'] : [],
-      notes: `Added from open game database. Released in ${game.released || 'recent years'}.`,
     });
 
-    setAddedIds(prev => ({ ...prev, [game.id]: true }));
+    setAddedIds((prev) => ({ ...prev, [game.id]: true }));
   };
 
-  const isAlreadyAdded = (gameTitle: string) => {
-    return games.some(g => g.title.toLowerCase() === gameTitle.toLowerCase());
-  };
+  const isAlreadyAdded = (title: string) =>
+    games.some((g) => g.title.toLowerCase() === title.toLowerCase());
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-10">
-      {/* Search Header */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="text-blue-400" size={24} />
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Game Database & Discovery
-          </h1>
+    <div className="mx-auto max-w-[1760px] space-y-6 pb-10">
+      <div className="space-y-2 border-b border-gray-200 pb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-100 text-accent-900">
+            <Sparkles size={18} />
+          </div>
+          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Search &amp; add</h1>
         </div>
-        <p className="text-sm text-zinc-400">
-          Search over 800,000+ video games across PS5, Steam, Epic Games, Android Play Store, and more.
+        <p className="text-75 text-gray-700">
+          Search the RAWG catalog and add titles to your Steam or PlayStation library.
         </p>
       </div>
 
-      {/* Search Bar & Filters */}
       <div className="space-y-4">
         <div className="relative">
-          <Search className="absolute left-4 top-3.5 text-zinc-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search by game name, genre, or universe (e.g., Final Fantasy, Resident Evil, Zelda, Hades...)"
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-600"
+            size={18}
+          />
+          <TextInput
+            type="search"
+            aria-label="Search the game catalog"
+            placeholder="Search by title or genre — Elden Ring, roguelike, Resident Evil…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-md transition-all"
+            className="h-12 pl-12 text-200"
           />
         </div>
 
-        {/* Platform Target Preset */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-semibold text-zinc-400 flex items-center gap-1 mr-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 flex items-center gap-1 text-75 font-semibold text-gray-700">
             <Filter size={13} />
-            Target Platform:
+            Add to
           </span>
 
-          <button
-            onClick={() => setSelectedPlatform('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              selectedPlatform === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700'
-            }`}
-          >
-            Auto-Detect
-          </button>
+          <Chip selected={selectedPlatform === 'all'} onClick={() => setSelectedPlatform('all')}>
+            Auto-detect
+          </Chip>
 
-          {(Object.keys(PLATFORMS) as Platform[]).map((p) => {
-            const cfg = PLATFORMS[p];
-            const isSelected = selectedPlatform === p;
-            return (
-              <button
-                key={p}
-                onClick={() => setSelectedPlatform(p)}
-                style={{
-                  borderColor: isSelected ? cfg.color : undefined,
-                  backgroundColor: isSelected ? cfg.bgColor : undefined,
-                  color: isSelected ? cfg.textColor : undefined,
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${
-                  isSelected
-                    ? 'border-current shadow-sm'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
-                }`}
-              >
-                {cfg.shortName}
-              </button>
-            );
-          })}
+          {PLATFORM_IDS.map((p) => (
+            <Chip
+              key={p}
+              selected={selectedPlatform === p}
+              onClick={() => setSelectedPlatform(p)}
+              title={PLATFORMS[p].name}
+            >
+              <PlatformIcon platform={p} size={15} />
+              <span>{PLATFORMS[p].shortName}</span>
+            </Chip>
+          ))}
         </div>
       </div>
 
-      {/* Results Count & Status */}
-      <div className="flex items-center justify-between text-xs text-zinc-400">
+      <div className="flex items-center justify-between text-75 text-gray-700">
         <span>
-          Showing {results.length} games {query.trim() ? `for "${query}"` : 'from top curated releases'}
+          {results.length} result{results.length === 1 ? '' : 's'}{' '}
+          {query.trim() ? `for “${query}”` : 'from the curated catalog'}
         </span>
-        {loading && <span className="text-blue-400 font-semibold animate-pulse">Searching database...</span>}
+        {loading && <span className="animate-pulse font-semibold text-accent-900">Searching…</span>}
       </div>
 
-      {/* Grid of Database Results */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+      <div className="grid-cards">
         {results.map((game) => {
           const added = isAlreadyAdded(game.name) || addedIds[game.id];
-          const detected = detectPlatformFromRawg(game);
-          const platformCfg = PLATFORMS[selectedPlatform !== 'all' ? selectedPlatform : detected];
+          const platform =
+            selectedPlatform !== 'all' ? selectedPlatform : detectPlatformFromRawg(game);
+          const cfg = PLATFORMS[platform];
 
           return (
             <motion.div
               key={game.id}
               whileHover={{ y: -3 }}
-              className="group rounded-3xl bg-zinc-900 border border-zinc-800/80 overflow-hidden flex flex-col justify-between shadow-md hover:border-zinc-700 transition-all"
+              className="group flex flex-col justify-between overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-colors hover:border-gray-300"
             >
-              {/* Thumbnail */}
-              <div className="relative h-40 w-full overflow-hidden bg-zinc-950">
+              <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-25">
                 <img
-                  src={game.background_image || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400'}
-                  alt={game.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  src={game.background_image || FALLBACK_COVER}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+                <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-gray-25/70 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gray-25 via-gray-25/50 to-transparent" />
 
-                <div className="absolute top-2.5 left-2.5">
-                  <div
-                    className="relative px-2 py-0.5 rounded-full border flex items-center justify-center overflow-hidden shadow-sm"
-                    style={{
-                      borderColor: platformCfg.borderColor,
-                      color: platformCfg.textColor,
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-                    <div className="absolute inset-0" style={{ backgroundColor: platformCfg.bgColor }} />
-                    <span className="relative z-10 text-[10px] font-bold">
-                      {platformCfg.shortName}
-                    </span>
-                  </div>
+                <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
+                  <OverlayBadge tint={cfg.tint} title={cfg.name}>
+                    <PlatformIcon platform={platform} size={13} className="text-gray-1000" />
+                    <span className="text-gray-1000">{cfg.shortName}</span>
+                  </OverlayBadge>
                 </div>
 
                 {game.rating ? (
-                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-amber-300 text-[10px] font-bold flex items-center gap-1 border border-amber-400/30">
-                    <StarRating value={game.rating} readOnly size="xs" showLabel={false} />
-                    <span>{game.rating}</span>
+                  <div className="absolute right-2.5 top-2.5">
+                    <OverlayBadge>
+                      <RatingValue value={Math.round(game.rating * 20)} size="xs" />
+                    </OverlayBadge>
                   </div>
                 ) : null}
 
-                <div className="absolute bottom-2 left-3 right-3">
-                  <h3 className="text-sm font-bold text-white truncate drop-shadow">
-                    {game.name}
-                  </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    {game.released?.split('-')[0] || 'TBA'} • {game.genres?.[0]?.name || 'Video Game'}
+                <div className="absolute inset-x-3 bottom-2">
+                  <h3 className="truncate text-100 font-bold text-gray-1000">{game.name}</h3>
+                  <p className="text-50 text-gray-700">
+                    {game.released?.split('-')[0] || 'TBA'} •{' '}
+                    {game.genres?.[0]?.name || 'Video game'}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="p-3 bg-zinc-900/60 border-t border-zinc-800/80 flex items-center gap-2">
+              <div className="flex items-center gap-2 border-t border-gray-200 p-3">
                 {added ? (
-                  <div className="w-full py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center justify-center gap-1.5">
+                  <div className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700 bg-positive-100 py-1.5 text-75 font-semibold text-positive-900">
                     <Check size={14} />
-                    In Your Profile
+                    In your library
                   </div>
                 ) : (
                   <>
-                    <button
+                    <Button
+                      variant="accent"
+                      size="s"
+                      className="flex-1"
                       onClick={() => handleQuickAdd(game, false)}
-                      className="flex-1 py-1.5 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-md shadow-blue-600/20"
                     >
                       <Plus size={14} />
-                      Play Now
-                    </button>
-                    <button
+                      {statusLabel('playing', profile)}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="s"
                       onClick={() => handleQuickAdd(game, true)}
-                      className="py-1.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-300 text-xs font-bold border border-zinc-700 transition-all flex items-center justify-center gap-1"
-                      title="Add to Backlog Collection"
+                      title={`Add to ${statusLabel('backlog', profile)}`}
                     >
                       <Bookmark size={14} />
-                      Backlog
-                    </button>
+                      {statusLabel('backlog', profile)}
+                    </Button>
                   </>
                 )}
               </div>
@@ -222,3 +209,25 @@ export const SearchView: React.FC = () => {
     </div>
   );
 };
+
+const Chip: React.FC<{
+  selected: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}> = ({ selected, onClick, title, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title}
+    aria-pressed={selected}
+    className={cn(
+      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
+      selected
+        ? 'border-accent-700 bg-accent-100 text-accent-900'
+        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
+    )}
+  >
+    {children}
+  </button>
+);

@@ -35,7 +35,7 @@ export const FALLBACK_POPULAR_GAMES: RawgGameResult[] = [
     released: '2024-02-20',
     rating: 4.8,
     genres: [{ id: 28, name: 'Roguelike' }, { id: 10, name: 'Strategy' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }]
+    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }],
   },
   {
     id: 452634,
@@ -62,7 +62,7 @@ export const FALLBACK_POPULAR_GAMES: RawgGameResult[] = [
     released: '2025-11-12',
     rating: 4.9,
     genres: [{ id: 83, name: 'Platformer' }, { id: 51, name: 'Indie' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }]
+    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }],
   },
   {
     id: 2462,
@@ -107,17 +107,8 @@ export const FALLBACK_POPULAR_GAMES: RawgGameResult[] = [
     released: '2024-05-06',
     rating: 4.9,
     genres: [{ id: 4, name: 'Action' }, { id: 51, name: 'Indie' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }]
+    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }],
   },
-  {
-    id: 3272,
-    name: 'Halo Infinite',
-    background_image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&auto=format&fit=crop&q=80',
-    released: '2021-12-08',
-    rating: 4.6,
-    genres: [{ id: 2, name: 'Shooter' }, { id: 4, name: 'Action' }],
-    platforms: [{ platform: { id: 186, name: 'Xbox Series X', slug: 'xbox-series-x' } }, { platform: { id: 1, name: 'Xbox One', slug: 'xbox-one' } }]
-  }
 ];
 
 const CACHE_PREFIX = 'gametracker_rawg_cache_v1_';
@@ -230,23 +221,9 @@ export async function searchGames(query: string, apiKey?: string): Promise<RawgG
 }
 
 export function detectPlatformFromRawg(result: RawgGameResult): Platform {
-  if (!result.platforms || result.platforms.length === 0) return 'steam';
-  const slugs = result.platforms.map(p => p.platform.slug.toLowerCase());
-  
-  if (slugs.some(s => s.includes('playstation') || s.includes('ps5') || s.includes('ps4'))) {
+  const slugs = (result.platforms || []).map((p) => p.platform.slug.toLowerCase());
+  if (slugs.some((s) => s.includes('playstation') || s.startsWith('ps'))) {
     return 'ps5';
   }
-  if (slugs.some(s => s.includes('xbox'))) {
-    return 'xbox';
-  }
-  if (slugs.some(s => s.includes('android'))) {
-    return 'android';
-  }
-  if (slugs.some(s => s.includes('nintendo') || s.includes('switch'))) {
-    return 'nintendo';
-  }
-  if (slugs.some(s => s.includes('pc') || s.includes('steam'))) {
-    return 'steam';
-  }
-  return 'epic';
+  return 'steam';
 }
