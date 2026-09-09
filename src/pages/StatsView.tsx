@@ -4,6 +4,7 @@ import { useGame } from '../context/GameContext';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
 import { statusLabel, STATUS_TONE } from '../lib/status';
 import { GameStatus, PLATFORM_IDS } from '../types';
+import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair, trophyLabel } from '../components/TrophyBadge';
 import { Badge, Card, EmptyState, Meter } from '../components/ui';
@@ -237,10 +238,9 @@ export const StatsView: React.FC = () => {
                 key={game.id}
                 className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-75 p-3"
               >
-                <img
+                <CoverArt
                   src={game.coverImage}
-                  alt=""
-                  loading="lazy"
+                  title={game.title}
                   className="h-12 w-12 shrink-0 rounded-sm object-cover"
                 />
                 <div className="min-w-0 flex-1">

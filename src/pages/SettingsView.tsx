@@ -732,7 +732,8 @@ export const SettingsView: React.FC = () => {
 
         <p className="text-75 text-gray-700">
           Set <code className="rounded-sm bg-gray-200 px-1.5 py-0.5 text-accent-900">VITE_RAWG_API_KEY</code>{' '}
-          to search the full catalog. Without a key, a small built-in list is used.{' '}
+          to search the catalog. Without a key, catalog search returns nothing and games have to be
+          entered by hand.{' '}
           <a
             href="https://rawg.io/apidocs"
             target="_blank"

@@ -1,122 +1,25 @@
 import { RawgGameResult, Platform } from '../types';
 
-export const FALLBACK_POPULAR_GAMES: RawgGameResult[] = [
-  {
-    id: 494384,
-    name: 'Elden Ring',
-    background_image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-    released: '2022-02-25',
-    rating: 4.8,
-    genres: [{ id: 4, name: 'Action' }, { id: 5, name: 'RPG' }],
-    platforms: [{ platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }, { platform: { id: 4, name: 'PC', slug: 'pc' } }]
-  },
-  {
-    id: 58175,
-    name: 'God of War Ragnarök',
-    background_image: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?w=600&auto=format&fit=crop&q=80',
-    released: '2022-11-09',
-    rating: 4.9,
-    genres: [{ id: 4, name: 'Action' }, { id: 3, name: 'Adventure' }],
-    platforms: [{ platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 3328,
-    name: 'The Witcher 3: Wild Hunt',
-    background_image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&auto=format&fit=crop&q=80',
-    released: '2015-05-18',
-    rating: 4.9,
-    genres: [{ id: 5, name: 'RPG' }, { id: 3, name: 'Adventure' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }, { platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 906547,
-    name: 'Balatro',
-    background_image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=80',
-    released: '2024-02-20',
-    rating: 4.8,
-    genres: [{ id: 28, name: 'Roguelike' }, { id: 10, name: 'Strategy' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }],
-  },
-  {
-    id: 452634,
-    name: 'Cyberpunk 2077: Phantom Liberty',
-    background_image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
-    released: '2023-09-26',
-    rating: 4.7,
-    genres: [{ id: 5, name: 'RPG' }, { id: 4, name: 'Action' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }, { platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 58134,
-    name: 'Marvel\'s Spider-Man 2',
-    background_image: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop&q=80',
-    released: '2023-10-20',
-    rating: 4.7,
-    genres: [{ id: 4, name: 'Action' }, { id: 3, name: 'Adventure' }],
-    platforms: [{ platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 9767,
-    name: 'Hollow Knight: Silksong',
-    background_image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80',
-    released: '2025-11-12',
-    rating: 4.9,
-    genres: [{ id: 83, name: 'Platformer' }, { id: 51, name: 'Indie' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }],
-  },
-  {
-    id: 2462,
-    name: 'Genshin Impact',
-    background_image: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=600&auto=format&fit=crop&q=80',
-    released: '2020-09-28',
-    rating: 4.4,
-    genres: [{ id: 5, name: 'RPG' }, { id: 4, name: 'Action' }],
-    platforms: [{ platform: { id: 21, name: 'Android', slug: 'android' } }, { platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 799275,
-    name: 'Black Myth: Wukong',
-    background_image: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80',
-    released: '2024-08-20',
-    rating: 4.7,
-    genres: [{ id: 4, name: 'Action' }, { id: 5, name: 'RPG' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }, { platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 864,
-    name: 'Red Dead Redemption 2',
-    background_image: 'https://images.unsplash.com/photo-1534423861386-85a16f5d13fd?w=600&auto=format&fit=crop&q=80',
-    released: '2018-10-26',
-    rating: 4.9,
-    genres: [{ id: 4, name: 'Action' }, { id: 3, name: 'Adventure' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }, { platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 3498,
-    name: 'Grand Theft Auto V',
-    background_image: 'https://images.unsplash.com/photo-1552824796-03c00445d045?w=600&auto=format&fit=crop&q=80',
-    released: '2013-09-17',
-    rating: 4.8,
-    genres: [{ id: 4, name: 'Action' }, { id: 3, name: 'Adventure' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }, { platform: { id: 187, name: 'PlayStation 5', slug: 'playstation5' } }]
-  },
-  {
-    id: 9768,
-    name: 'Hades II',
-    background_image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-    released: '2024-05-06',
-    rating: 4.9,
-    genres: [{ id: 4, name: 'Action' }, { id: 51, name: 'Indie' }],
-    platforms: [{ platform: { id: 4, name: 'PC', slug: 'pc' } }],
-  },
-];
-
-const CACHE_PREFIX = 'gametracker_rawg_cache_v1_';
+/** Matches every cache generation, so stale ones can be counted and cleared. */
+const CACHE_ROOT = 'gametracker_rawg_cache_';
+/** v2 — v1 could hold results from the removed built-in catalog. */
+const CACHE_PREFIX = `${CACHE_ROOT}v2_`;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/** Cache key for the no-query listing of popular titles. */
+const POPULAR_CACHE_KEY = '__popular__';
 
 interface CacheEntry {
   timestamp: number;
   results: RawgGameResult[];
+}
+
+/** Why a catalog lookup came back with nothing to show. */
+export type CatalogError = 'missing-key' | 'request-failed';
+
+export interface CatalogResponse {
+  results: RawgGameResult[];
+  error?: CatalogError;
 }
 
 function getFromCache(key: string): RawgGameResult[] | null {
@@ -146,78 +49,101 @@ function setInCache(key: string, results: RawgGameResult[]) {
   }
 }
 
-export function getRawgCacheCount(): number {
+/** Every cache key currently in localStorage, optionally filtered. */
+function cacheKeys(predicate: (key: string) => boolean = () => true): string[] {
+  const keys: string[] = [];
   try {
-    let count = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith(CACHE_PREFIX)) {
-        count++;
+      if (key && key.startsWith(CACHE_ROOT) && predicate(key)) {
+        keys.push(key);
       }
     }
-    return count;
   } catch (e) {
-    return 0;
+    // private browsing
   }
+  return keys;
+}
+
+export function getRawgCacheCount(): number {
+  return cacheKeys().length;
 }
 
 export function clearRawgCache(): void {
-  try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(CACHE_PREFIX)) {
-        keysToRemove.push(key);
-      }
+  cacheKeys().forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch (e) {
+      // ignore
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  });
+}
+
+// Drop caches written by an older generation — v1 entries could contain
+// results from the built-in catalog that no longer exists.
+cacheKeys((key) => !key.startsWith(CACHE_PREFIX)).forEach((k) => {
+  try {
+    localStorage.removeItem(k);
   } catch (e) {
     // ignore
   }
+});
+
+/** The configured RAWG key, or undefined when the app has none. */
+export function rawgApiKey(apiKey?: string): string | undefined {
+  const key = (apiKey || import.meta.env.VITE_RAWG_API_KEY || '').trim();
+  if (!key || key === 'YOUR_RAWG_API_KEY') return undefined;
+  return key;
 }
 
-export async function searchGames(query: string, apiKey?: string): Promise<RawgGameResult[]> {
+export const hasRawgKey = (): boolean => Boolean(rawgApiKey());
+
+async function fetchRawg(path: string): Promise<RawgGameResult[] | null> {
+  try {
+    const response = await fetch(`https://api.rawg.io/api/${path}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return Array.isArray(data.results) ? (data.results as RawgGameResult[]) : null;
+  } catch (err) {
+    console.warn('RAWG request failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Catalog lookup against RAWG. An empty query lists what RAWG currently ranks
+ * as popular; everything comes from the API, so a missing key or a failed
+ * request returns nothing rather than invented titles.
+ */
+export async function searchGames(query: string, apiKey?: string): Promise<CatalogResponse> {
   const trimmed = query.trim().toLowerCase();
-  if (!trimmed) {
-    return FALLBACK_POPULAR_GAMES;
-  }
+  const cacheKey = trimmed || POPULAR_CACHE_KEY;
 
-  // Check local cache first
-  const cached = getFromCache(trimmed);
+  const cached = getFromCache(cacheKey);
   if (cached && cached.length > 0) {
-    return cached;
+    return { results: cached };
   }
 
-  // If RAWG API key is configured, fetch live results from RAWG
-  const activeKey = apiKey || import.meta.env.VITE_RAWG_API_KEY;
-  if (activeKey && activeKey !== 'YOUR_RAWG_API_KEY') {
-    try {
-      const response = await fetch(
-        `https://api.rawg.io/api/games?key=${activeKey}&search=${encodeURIComponent(trimmed)}&page_size=16`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (data.results && data.results.length > 0) {
-          setInCache(trimmed, data.results);
-          return data.results;
-        }
-      }
-    } catch (err) {
-      console.warn('RAWG API live search failed, falling back to local database:', err);
-    }
+  const key = rawgApiKey(apiKey);
+  if (!key) {
+    return { results: [], error: 'missing-key' };
   }
 
-  // Fallback to local catalog filtering
-  const filteredFallback = FALLBACK_POPULAR_GAMES.filter((g) =>
-    g.name.toLowerCase().includes(trimmed) ||
-    g.genres?.some(genre => genre.name.toLowerCase().includes(trimmed))
+  const results = await fetchRawg(
+    trimmed
+      ? `games?key=${key}&search=${encodeURIComponent(trimmed)}&page_size=16`
+      : `games?key=${key}&ordering=-added&page_size=16`,
   );
 
-  if (filteredFallback.length > 0) {
-    setInCache(trimmed, filteredFallback);
+  if (!results) {
+    return { results: [], error: 'request-failed' };
   }
 
-  return filteredFallback;
+  if (results.length > 0) {
+    setInCache(cacheKey, results);
+  }
+
+  return { results };
 }
 
 export function detectPlatformFromRawg(result: RawgGameResult): Platform {

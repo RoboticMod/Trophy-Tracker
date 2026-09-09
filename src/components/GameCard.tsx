@@ -5,6 +5,7 @@ import { UserGame, GameStatus, GAME_STATUSES } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel } from '../lib/status';
 import { useGame } from '../context/GameContext';
+import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
@@ -15,9 +16,6 @@ import { Meter, OverlayBadge } from './ui';
 interface GameCardProps {
   game: UserGame;
 }
-
-const FALLBACK_COVER =
-  'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80';
 
 const MENU_STATUSES: GameStatus[] = GAME_STATUSES.filter((s) => s !== 'dropped');
 
@@ -85,11 +83,9 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
       {/* Cover ------------------------------------------------------------- */}
       <div className="relative aspect-[16/9] w-full rounded-t-lg bg-gray-25">
         <div className="absolute inset-0 overflow-hidden rounded-t-lg">
-          <img
-            src={game.coverImage || FALLBACK_COVER}
-            alt=""
-            loading="lazy"
-            decoding="async"
+          <CoverArt
+            src={game.coverImage}
+            title={game.title}
             className={[
               'h-full w-full object-cover object-center transition-all duration-500',
               'group-hover:scale-105',

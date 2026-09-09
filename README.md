@@ -34,7 +34,8 @@ VITE_RAWG_API_KEY=""   # optional
 ```
 
 Without Supabase credentials the app renders a setup screen instead of booting.
-Without a [RAWG](https://rawg.io/apidocs) key, catalog search falls back to a small built-in list.
+Without a [RAWG](https://rawg.io/apidocs) key, catalog search returns nothing — every catalog
+result comes from RAWG, so games have to be entered by hand instead.
 
 ### 3. Run
 
@@ -129,7 +130,7 @@ build environment.
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
 2. **Settings → Secrets and variables → Actions → New repository secret**, once per value:
    `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_RAWG_API_KEY` (the RAWG one is
-   optional — omit it and search falls back to the built-in list).
+   optional — omit it and catalog search returns nothing).
 3. In Supabase, add the published origin to **Authentication → URL Configuration** (Site URL and
    Redirect URLs), otherwise sign-in emails point back at localhost.
 

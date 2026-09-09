@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Bookmark, Check, Filter } from 'lucide-react';
+import { Search, Sparkles, Plus, Bookmark, Check, Filter, KeyRound, WifiOff } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { searchGames, detectPlatformFromRawg } from '../lib/rawg';
+import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
 import { RawgGameResult, Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel } from '../lib/status';
+import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
-import { Button, OverlayBadge, TextInput } from '../components/ui';
+import { Button, EmptyState, OverlayBadge, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
-
-const FALLBACK_COVER = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600';
 
 export const SearchView: React.FC = () => {
   const { games, addGame, profile } = useGame();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RawgGameResult[]>([]);
+  const [error, setError] = useState<CatalogError | undefined>();
   const [loading, setLoading] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
   const [addedIds, setAddedIds] = useState<Record<number, boolean>>({});
@@ -27,7 +27,8 @@ export const SearchView: React.FC = () => {
       setLoading(true);
       const res = await searchGames(query);
       if (cancelled) return;
-      setResults(res);
+      setResults(res.results);
+      setError(res.error);
       setLoading(false);
     }, 250);
 
@@ -47,7 +48,7 @@ export const SearchView: React.FC = () => {
       title: game.name,
       platform,
       status: toBacklog ? 'backlog' : 'playing',
-      coverImage: game.background_image || FALLBACK_COVER,
+      coverImage: game.background_image,
       releaseDate: game.released,
       genres: game.genres?.map((g) => g.name) ?? [],
       hoursPlayed: 0,
@@ -120,10 +121,14 @@ export const SearchView: React.FC = () => {
       <div className="flex items-center justify-between text-75 text-gray-700">
         <span>
           {results.length} result{results.length === 1 ? '' : 's'}{' '}
-          {query.trim() ? `for “${query}”` : 'from the curated catalog'}
+          {query.trim() ? `for “${query}”` : 'from what RAWG ranks as popular now'}
         </span>
         {loading && <span className="animate-pulse font-semibold text-accent-900">Searching…</span>}
       </div>
+
+      {!loading && results.length === 0 && (
+        <CatalogEmptyState error={error} query={query} />
+      )}
 
       <div className="grid-cards">
         {results.map((game) => {
@@ -139,11 +144,9 @@ export const SearchView: React.FC = () => {
               className="group flex flex-col justify-between overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-colors hover:border-gray-300"
             >
               <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-25">
-                <img
-                  src={game.background_image || FALLBACK_COVER}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
+                <CoverArt
+                  src={game.background_image}
+                  title={game.name}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-gray-25/70 to-transparent" />
@@ -207,6 +210,51 @@ export const SearchView: React.FC = () => {
         })}
       </div>
     </div>
+  );
+};
+
+/** Explains an empty catalog grid — no key, a failed call, or no matches. */
+const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ error, query }) => {
+  if (error === 'missing-key') {
+    return (
+      <EmptyState
+        icon={<KeyRound size={20} />}
+        title="No RAWG key configured"
+        description="Catalog search runs on the RAWG API. Set VITE_RAWG_API_KEY to search real titles, or add a game by hand from the library."
+        action={
+          <a
+            href="https://rawg.io/apidocs"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-8 items-center rounded-sm border border-accent-700 px-4 text-100 font-semibold text-accent-900 transition-colors hover:bg-accent-100"
+          >
+            Get a free key
+          </a>
+        }
+      />
+    );
+  }
+
+  if (error === 'request-failed') {
+    return (
+      <EmptyState
+        icon={<WifiOff size={20} />}
+        title="Could not reach RAWG"
+        description="The catalog request failed. Check your connection and try the search again."
+      />
+    );
+  }
+
+  return (
+    <EmptyState
+      icon={<Search size={20} />}
+      title={query.trim() ? 'No matches' : 'Nothing to show yet'}
+      description={
+        query.trim()
+          ? `RAWG has no titles matching “${query.trim()}”. Try a shorter or differently spelled search.`
+          : 'Type a title or genre to search the RAWG catalog.'
+      }
+    />
   );
 };
 

@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Clock, Trophy, Loader2 } from 'lucide-react';
+import { Search, Sparkles, Plus, Clock, Trophy, Loader2, KeyRound, WifiOff } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { Platform, GameStatus, RawgGameResult, PLATFORM_IDS } from '../types';
 import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
 import { statusLabel } from '../lib/status';
-import { searchGames, detectPlatformFromRawg } from '../lib/rawg';
+import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
+import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { awardNoun } from './TrophyBadge';
 import { RatingControl } from './Rating';
 import { Button, Dialog, Field, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 
-const FALLBACK_COVER = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600';
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
 
 export const QuickAddModal: React.FC = () => {
@@ -21,6 +21,7 @@ export const QuickAddModal: React.FC = () => {
   const [tab, setTab] = useState<'search' | 'custom'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<RawgGameResult[]>([]);
+  const [searchError, setSearchError] = useState<CatalogError | undefined>();
   const [isSearching, setIsSearching] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -46,7 +47,8 @@ export const QuickAddModal: React.FC = () => {
       setIsSearching(true);
       const res = await searchGames(searchQuery);
       if (cancelled) return;
-      setSearchResults(res);
+      setSearchResults(res.results);
+      setSearchError(res.error);
       setIsSearching(false);
     }, 250);
 
@@ -101,7 +103,7 @@ export const QuickAddModal: React.FC = () => {
       title: title.trim(),
       platform,
       status,
-      coverImage: coverImage || FALLBACK_COVER,
+      coverImage: coverImage.trim() || undefined,
       releaseDate,
       genres,
       hoursPlayed,
@@ -176,6 +178,8 @@ export const QuickAddModal: React.FC = () => {
               <Loader2 size={22} className="animate-spin" />
               <p className="text-75">Searching…</p>
             </div>
+          ) : searchResults.length === 0 ? (
+            <SearchEmptyState error={searchError} query={searchQuery} />
           ) : (
             <div className="grid max-h-[380px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
               {searchResults.map((game) => (
@@ -187,10 +191,9 @@ export const QuickAddModal: React.FC = () => {
                   onClick={() => selectGameFromSearch(game)}
                   className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-gray-75 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
                 >
-                  <img
-                    src={game.background_image || FALLBACK_COVER}
-                    alt=""
-                    loading="lazy"
+                  <CoverArt
+                    src={game.background_image}
+                    title={game.name}
                     className="h-14 w-14 shrink-0 rounded-sm object-cover"
                   />
                   <div className="min-w-0 flex-1">
@@ -357,7 +360,7 @@ export const QuickAddModal: React.FC = () => {
             </fieldset>
           )}
 
-          <Field label="Cover image URL" description="Optional — leave blank to use a placeholder">
+          <Field label="Cover image URL" description="Optional — leave blank for a plain lettered tile">
             {(props) => (
               <TextInput
                 {...props}
@@ -388,6 +391,42 @@ export const QuickAddModal: React.FC = () => {
         </form>
       )}
     </Dialog>
+  );
+};
+
+/** Compact in-dialog explanation for an empty catalog result set. */
+const SearchEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ error, query }) => {
+  const trimmed = query.trim();
+
+  const [icon, title, body] =
+    error === 'missing-key'
+      ? [
+          <KeyRound size={20} key="k" />,
+          'No RAWG key configured',
+          'Catalog search runs on the RAWG API. Set VITE_RAWG_API_KEY, or use “Enter details” to add the game yourself.',
+        ]
+      : error === 'request-failed'
+        ? [
+            <WifiOff size={20} key="w" />,
+            'Could not reach RAWG',
+            'The catalog request failed. Check your connection, or use “Enter details” to add the game yourself.',
+          ]
+        : [
+            <Search size={20} key="s" />,
+            trimmed ? 'No matches' : 'Nothing to show yet',
+            trimmed
+              ? `RAWG has no titles matching “${trimmed}”.`
+              : 'Type a title or genre to search the RAWG catalog.',
+          ];
+
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-75/60 px-6 py-10 text-center">
+      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-200 text-gray-700">
+        {icon}
+      </div>
+      <h4 className="text-100 font-bold text-gray-1000">{title}</h4>
+      <p className="max-w-sm text-75 text-gray-700">{body}</p>
+    </div>
   );
 };
 
