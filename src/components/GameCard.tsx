@@ -8,6 +8,7 @@ import { useGame } from '../context/GameContext';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
+import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
 
@@ -21,7 +22,7 @@ const FALLBACK_COVER =
 const MENU_STATUSES: GameStatus[] = GAME_STATUSES.filter((s) => s !== 'dropped');
 
 export const GameCard: React.FC<GameCardProps> = ({ game }) => {
-  const { updateGame, deleteGame, profile } = useGame();
+  const { updateGame, deleteGame, profile, celebration } = useGame();
   const [showMenu, setShowMenu] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -253,6 +254,10 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
           label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
         />
       </div>
+
+      {celebration?.gameId === game.id && (
+        <Celebration key={celebration.token} platform={game.platform} />
+      )}
 
       <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
     </motion.div>

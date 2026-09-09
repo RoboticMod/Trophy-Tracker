@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import confetti from 'canvas-confetti';
+import { CELEBRATION_MS } from '../components/Celebration';
 import {
   Collection,
   GameStatus,
@@ -81,7 +81,9 @@ interface GameContextType {
     profile?: UserProfile;
   }) => Promise<void>;
 
-  triggerCelebration: () => void;
+  /** The game currently celebrating. The token restarts the burst on repeats. */
+  celebration: { gameId: string; token: number } | null;
+  triggerCelebration: (gameId: string) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -125,20 +127,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     purgeLegacyStorage();
   }, []);
 
-  const triggerCelebration = useCallback(() => {
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        // Literal hex: canvas-confetti paints to a canvas and cannot resolve
-        // CSS custom properties. These mirror the trophy and platform tokens.
-        colors: ['#f2c14e', '#66c0f4', '#4d9bf0', '#52c294', '#ffffff'],
-      });
-    } catch {
-      // Canvas unavailable — the state change still happened.
-    }
+  const [celebration, setCelebration] = useState<{ gameId: string; token: number } | null>(null);
+  const celebrationTimer = useRef<number | null>(null);
+
+  const triggerCelebration = useCallback((gameId: string) => {
+    if (celebrationTimer.current !== null) window.clearTimeout(celebrationTimer.current);
+    setCelebration({ gameId, token: Date.now() });
+    celebrationTimer.current = window.setTimeout(() => {
+      setCelebration(null);
+      celebrationTimer.current = null;
+    }, CELEBRATION_MS);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (celebrationTimer.current !== null) window.clearTimeout(celebrationTimer.current);
+    },
+    [],
+  );
 
   /* ---------------------------------------------------------------------- */
   /* Cloud writes: optimistic locally, queued when offline                   */
@@ -300,7 +306,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
-      if (game.status === 'mastered' || isPerfect(game)) triggerCelebration();
+      if (game.status === 'mastered' || isPerfect(game)) triggerCelebration(game.id);
     },
     [push, triggerCelebration],
   );
@@ -334,7 +340,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       if (next) void push({ kind: 'game', op: 'upsert', game: next });
-      if (celebrate) triggerCelebration();
+      if (celebrate) triggerCelebration(id);
     },
     [push, triggerCelebration],
   );
@@ -460,6 +466,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateProfile,
       updateSidebarConfig,
       replaceAll,
+      celebration,
       triggerCelebration,
     }),
     [
@@ -483,6 +490,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateProfile,
       updateSidebarConfig,
       replaceAll,
+      celebration,
       triggerCelebration,
     ],
   );
