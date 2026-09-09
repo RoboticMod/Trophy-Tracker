@@ -25,6 +25,7 @@ type SortOption =
   | 'platform'
   | 'recent'
   | 'rating-desc'
+  | 'achievement-rating-desc'
   | 'hours-desc'
   | 'completion-desc'
   | 'title-asc';
@@ -102,6 +103,9 @@ export const DashboardView: React.FC = () => {
         return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
       }
       if (sortBy === 'rating-desc') return (b.rating || 0) - (a.rating || 0);
+      if (sortBy === 'achievement-rating-desc') {
+        return (b.achievementRating || 0) - (a.achievementRating || 0);
+      }
       if (sortBy === 'hours-desc') return (b.hoursPlayed || 0) - (a.hoursPlayed || 0);
       if (sortBy === 'completion-desc') {
         const compA = a.achievementsTotal > 0 ? a.achievementsUnlocked / a.achievementsTotal : 0;
@@ -275,7 +279,8 @@ export const DashboardView: React.FC = () => {
             >
               <option value="platform">Platform ({describePlatformOrder(platformOrder)})</option>
               <option value="recent">Recently played</option>
-              <option value="rating-desc">Rating: highest first</option>
+              <option value="rating-desc">Game rating: highest first</option>
+              <option value="achievement-rating-desc">Achievement rating: highest first</option>
               <option value="hours-desc">Playtime: most hours</option>
               <option value="completion-desc">Completion: highest</option>
               <option value="title-asc">Title: A to Z</option>

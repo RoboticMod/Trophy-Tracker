@@ -30,6 +30,8 @@ export interface UserGame {
   genres: string[];
   hoursPlayed: number;
   rating?: number;
+  /** Separate score for how good the achievement/trophy list was to earn. */
+  achievementRating?: number;
   achievementsUnlocked: number;
   achievementsTotal: number;
   collections: string[];

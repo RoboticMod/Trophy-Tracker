@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { normalizePlatform } from './constants';
-import { normalizeRating } from './rating';
+import { clampRating, normalizeRating } from './rating';
 import {
   Collection,
   GameStatus,
@@ -27,6 +27,7 @@ interface GameRow {
   genres: string[] | null;
   hours_played: number | string | null;
   rating: number | string | null;
+  achievement_rating: number | string | null;
   achievements_unlocked: number | null;
   achievements_total: number | null;
   collections: string[] | null;
@@ -56,6 +57,7 @@ function toGame(row: GameRow): UserGame | null {
     genres: row.genres ?? [],
     hoursPlayed: Number(row.hours_played) || 0,
     rating: normalizeRating(Number(row.rating)),
+    achievementRating: clampRating(Number(row.achievement_rating)),
     achievementsUnlocked: row.achievements_unlocked ?? 0,
     achievementsTotal: row.achievements_total ?? 0,
     collections: row.collections ?? [],
@@ -80,6 +82,7 @@ function fromGame(game: UserGame, userId: string) {
     genres: game.genres ?? [],
     hours_played: game.hoursPlayed ?? 0,
     rating: game.rating ?? 0,
+    achievement_rating: game.achievementRating ?? 0,
     achievements_unlocked: game.achievementsUnlocked ?? 0,
     achievements_total: game.achievementsTotal ?? 0,
     collections: game.collections ?? [],

@@ -35,6 +35,7 @@ export const QuickAddModal: React.FC = () => {
   const [achievementsTotal, setAchievementsTotal] = useState(0);
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [rating, setRating] = useState(0);
+  const [achievementRating, setAchievementRating] = useState(0);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export const QuickAddModal: React.FC = () => {
     setAchievementsTotal(0);
     setSelectedCollections([]);
     setRating(0);
+    setAchievementRating(0);
     setNotes('');
   };
 
@@ -106,6 +108,7 @@ export const QuickAddModal: React.FC = () => {
       achievementsUnlocked,
       achievementsTotal,
       rating: rating || undefined,
+      achievementRating: achievementRating || undefined,
       collections: selectedCollections,
       notes: notes.trim() || undefined,
     });
@@ -306,6 +309,17 @@ export const QuickAddModal: React.FC = () => {
               Your rating
             </span>
             <RatingControl value={rating} onChange={setRating} />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="flex items-center gap-1 text-75 font-semibold text-gray-800">
+              <Trophy size={13} className="text-trophy-900" />
+              {awardNoun(platform)} rating
+            </span>
+            <RatingControl value={achievementRating} onChange={setAchievementRating} />
+            <p className="text-50 text-gray-600">
+              How good the {awardNoun(platform).toLowerCase()} were to earn.
+            </p>
           </div>
 
           {collections.length > 0 && (

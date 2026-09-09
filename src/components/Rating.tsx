@@ -6,6 +6,8 @@ interface RatingValueProps {
   value: number;
   size?: 'xs' | 'sm' | 'md';
   className?: string;
+  /** Names what was scored, so two chips on one card read differently. */
+  label?: string;
 }
 
 const SIZE: Record<NonNullable<RatingValueProps['size']>, string> = {
@@ -15,13 +17,18 @@ const SIZE: Record<NonNullable<RatingValueProps['size']>, string> = {
 };
 
 /** Read-only score chip. Colour carries the value, red through to gold. */
-export const RatingValue: React.FC<RatingValueProps> = ({ value, size = 'sm', className }) => {
+export const RatingValue: React.FC<RatingValueProps> = ({
+  value,
+  size = 'sm',
+  className,
+  label = 'Rated',
+}) => {
   const clamped = Math.max(0, Math.min(MAX_RATING, Math.round(value)));
   const color = ratingColor(clamped);
 
   return (
     <span
-      title={`Rated ${clamped} out of ${MAX_RATING} — ${ratingLabel(clamped)}`}
+      title={`${label} ${clamped} out of ${MAX_RATING} — ${ratingLabel(clamped)}`}
       style={{ color, borderColor: color, backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)` }}
       className={cn(
         'inline-flex items-center justify-center rounded-sm border font-bold tabular-nums',

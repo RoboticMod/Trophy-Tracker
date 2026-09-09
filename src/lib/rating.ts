@@ -12,6 +12,15 @@ export function normalizeRating(value: number | undefined | null): number | unde
 }
 
 /**
+ * Clamp for scores that never existed on the old five-star scale, so a genuine
+ * low rating is kept as-is instead of being scaled up like a legacy value.
+ */
+export function clampRating(value: number | undefined | null): number | undefined {
+  if (value === undefined || value === null || value === 0) return undefined;
+  return Math.round(Math.max(0, Math.min(MAX_RATING, value)));
+}
+
+/**
  * Red at 0 through amber to gold at 100, so the colour alone reads as a score.
  * Hue 0-45 keeps the whole ramp inside the warm range used by the token layer.
  */

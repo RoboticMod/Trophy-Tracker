@@ -16,6 +16,7 @@ create table if not exists public.games (
   genres                text[] not null default '{}',
   hours_played          numeric not null default 0,
   rating                numeric not null default 0,
+  achievement_rating    numeric not null default 0,
   achievements_unlocked integer not null default 0,
   achievements_total    integer not null default 0,
   collections           text[] not null default '{}',
@@ -26,6 +27,11 @@ create table if not exists public.games (
   updated_at            timestamptz not null default now()
 );
 create index if not exists games_user_id_idx on public.games (user_id);
+
+-- "create table if not exists" leaves an existing table untouched, so columns
+-- added after the first run need their own statement to reach older projects.
+alter table public.games
+  add column if not exists achievement_rating numeric not null default 0;
 
 -- 2. Collections -------------------------------------------------------------
 create table if not exists public.collections (

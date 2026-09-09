@@ -212,7 +212,9 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
               <Clock size={12} />
               {game.hoursPlayed}h played
             </span>
-            {game.rating ? <RatingValue value={game.rating} size="xs" /> : null}
+            {game.rating ? (
+              <RatingValue value={game.rating} size="xs" label="Game rated" />
+            ) : null}
           </div>
         </div>
       </div>
@@ -230,9 +232,18 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
               {awardLabel}
             </span>
           </span>
-          <span className="shrink-0 font-semibold text-gray-900">
-            {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
-            <span className="font-normal text-gray-600">({progress}%)</span>
+          <span className="flex shrink-0 items-center gap-1.5 font-semibold text-gray-900">
+            {game.achievementRating ? (
+              <RatingValue
+                value={game.achievementRating}
+                size="xs"
+                label={`${awardNoun(game.platform)} rated`}
+              />
+            ) : null}
+            <span>
+              {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
+              <span className="font-normal text-gray-600">({progress}%)</span>
+            </span>
           </span>
         </div>
 

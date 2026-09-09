@@ -77,6 +77,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
   const [coverImage, setCoverImage] = useState(game.coverImage || '');
   const [hoursPlayed, setHoursPlayed] = useState(game.hoursPlayed || 0);
   const [rating, setRating] = useState(game.rating || 0);
+  const [achievementRating, setAchievementRating] = useState(game.achievementRating || 0);
   const [achievementsUnlocked, setAchievementsUnlocked] = useState(game.achievementsUnlocked || 0);
   const [achievementsTotal, setAchievementsTotal] = useState(game.achievementsTotal || 0);
   const [selectedCollections, setSelectedCollections] = useState<string[]>(game.collections || []);
@@ -99,6 +100,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
       coverImage: coverImage.trim() || undefined,
       hoursPlayed,
       rating: rating || undefined,
+      achievementRating: achievementRating || undefined,
       achievementsUnlocked: Math.min(achievementsUnlocked, achievementsTotal),
       achievementsTotal,
       collections: selectedCollections,
@@ -256,10 +258,11 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
           </Field>
 
           <div className="space-y-1.5">
-            <span className="text-75 font-semibold text-gray-800">Rating</span>
+            <span className="text-75 font-semibold text-gray-800">Game rating</span>
             <RatingControl value={rating} onChange={setRating} />
             <p className="text-50 text-gray-600">
-              Scored out of 100. The colour runs red at the bottom through to gold at 100.
+              The game itself, scored out of 100. The colour runs red at the bottom through to
+              gold at 100.
             </p>
           </div>
         </div>
@@ -329,6 +332,16 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
                 onIncrement={() => setAchievementsTotal((n) => n + 1)}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5 border-t border-gray-200 pt-3">
+            <span className="text-75 font-semibold text-gray-800">
+              {noun} rating
+            </span>
+            <RatingControl value={achievementRating} onChange={setAchievementRating} />
+            <p className="text-50 text-gray-600">
+              How good the {nounLower} were to earn — separate from how good the game is.
+            </p>
           </div>
         </div>
 
