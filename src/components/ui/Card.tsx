@@ -6,19 +6,12 @@ interface CardProps {
   className?: string;
   /** Removes the default padding when the card manages its own layout. */
   bare?: boolean;
-  /**
-   * Replaces the default border and background tokens. cn() only concatenates,
-   * so a tint passed through className would sit alongside the default and let
-   * stylesheet order pick the winner — this substitutes them instead.
-   */
-  surface?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className, bare = false, surface }) => (
+export const Card: React.FC<CardProps> = ({ children, className, bare = false }) => (
   <div
     className={cn(
-      'rounded-lg border',
-      surface ?? 'border-gray-200 bg-gray-100',
+      'rounded-lg border border-gray-200 bg-gray-100',
       bare ? '' : 'p-5',
       className,
     )}

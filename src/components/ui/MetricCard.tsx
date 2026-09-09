@@ -17,8 +17,6 @@ interface MetricCardProps {
   label: string;
   /** Optional per-platform split shown beneath the headline number. */
   breakdown?: MetricBreakdown[];
-  /** Token classes tinting the whole card, for the filled highlight style. */
-  surface?: string;
 }
 
 /** The headline statistic card used across the dashboard and achievements. */
@@ -28,9 +26,8 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   value,
   label,
   breakdown,
-  surface,
 }) => (
-  <Card className="space-y-3" surface={surface}>
+  <Card className="space-y-3">
     <div className="flex items-center gap-3">
       <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-md', tone)}>
         {icon}
