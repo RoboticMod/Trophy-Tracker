@@ -55,6 +55,10 @@ export const DashboardView: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('platform');
   const [ratingFilter, setRatingFilter] = useState<RatingFilterOption>('all');
 
+  // Matches the card treatment chosen in Settings, so the metrics above the
+  // library read the same way as the cards below it.
+  const filled = profile.highlightStyle === 'fill';
+
   const backlogGames = games.filter((g) => g.status === 'backlog');
   const currentlyPlaying = games.filter((g) => g.status === 'playing');
   const perfectGames = games.filter(
@@ -146,6 +150,7 @@ export const DashboardView: React.FC = () => {
         <MetricCard
           icon={<TrophyPair size={17} />}
           tone="bg-trophy-100"
+          surface={filled ? 'border-trophy-700/60 bg-trophy-100' : undefined}
           value={String(perfectGames.length)}
           label="100% completed"
           breakdown={splitByPlatform(perfectGames, (p) => (
@@ -155,6 +160,7 @@ export const DashboardView: React.FC = () => {
         <MetricCard
           icon={<Play size={20} />}
           tone="bg-accent-100 text-accent-900"
+          surface={filled ? 'border-accent-200 bg-accent-100' : undefined}
           value={String(currentlyPlaying.length)}
           label={statusLabel('playing', profile)}
           breakdown={splitByPlatform(currentlyPlaying, (p) => (
@@ -163,7 +169,8 @@ export const DashboardView: React.FC = () => {
         />
         <MetricCard
           icon={<Hourglass size={20} />}
-          tone="bg-notice-100 text-notice-900"
+          tone="bg-gray-300 text-gray-800"
+          surface={filled ? 'border-gray-400 bg-gray-200' : undefined}
           value={String(backlogGames.length)}
           label={statusLabel('backlog', profile)}
           breakdown={splitByPlatform(backlogGames, (p) => (
