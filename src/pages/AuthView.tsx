@@ -4,6 +4,7 @@ import { Loader2, LogIn, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TrophyPair } from '../components/TrophyBadge';
 import { APP_NAME } from '../lib/constants';
+import { getRememberMe } from '../lib/supabase';
 import { Button, Field, TextInput } from '../components/ui';
 
 type Mode = 'signin' | 'signup';
@@ -14,6 +15,7 @@ export const AuthView: React.FC = () => {
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(getRememberMe);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
@@ -28,7 +30,8 @@ export const AuthView: React.FC = () => {
     }
 
     setBusy(true);
-    const result = mode === 'signin' ? await signIn(email, password) : await signUp(email, password);
+    const result =
+      mode === 'signin' ? await signIn(email, password, remember) : await signUp(email, password);
     setBusy(false);
 
     if (result.error) {
@@ -113,6 +116,18 @@ export const AuthView: React.FC = () => {
             />
           )}
         </Field>
+
+        {mode === 'signin' ? (
+          <label className="flex cursor-pointer items-center gap-2 text-75 text-gray-800">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 cursor-pointer rounded-sm border-gray-300 accent-accent-700"
+            />
+            <span>Keep me signed in on this device</span>
+          </label>
+        ) : null}
 
         {error ? (
           <p

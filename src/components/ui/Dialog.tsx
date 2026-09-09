@@ -32,11 +32,20 @@ export const Dialog: React.FC<DialogProps> = ({
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Callers routinely pass an inline arrow for onClose, so its identity changes
+  // on every parent render. Reading it through a ref keeps that churn out of the
+  // effect below, which would otherwise re-run and steal focus back to the panel
+  // after every keystroke in a field inside the dialog.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!isOpen) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKeyDown);
 
@@ -48,7 +57,7 @@ export const Dialog: React.FC<DialogProps> = ({
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   return (
     <AnimatePresence>

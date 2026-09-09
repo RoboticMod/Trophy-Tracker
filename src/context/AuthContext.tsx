@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, setRememberMe } from '../lib/supabase';
 
 interface AuthResult {
   error: string | null;
@@ -12,7 +12,7 @@ interface AuthContextValue {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<AuthResult>;
+  signIn: (email: string, password: string, remember?: boolean) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 }
@@ -50,11 +50,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       session,
       user: session?.user ?? null,
       loading,
-      signIn: async (email, password) => {
+      signIn: async (email, password, remember = true) => {
+        // Set before the request: it decides where the new session is stored.
+        setRememberMe(remember);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error: error?.message ?? null };
       },
       signUp: async (email, password) => {
+        setRememberMe(true);
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) return { error: error.message };
         // Supabase returns a user with no session when email confirmation is on.
@@ -62,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       signOut: async () => {
         await supabase.auth.signOut();
+        setRememberMe(false);
       },
     }),
     [session, loading],
