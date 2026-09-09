@@ -28,11 +28,6 @@ create table if not exists public.games (
 );
 create index if not exists games_user_id_idx on public.games (user_id);
 
--- "create table if not exists" leaves an existing table untouched, so columns
--- added after the first run need their own statement to reach older projects.
-alter table public.games
-  add column if not exists achievement_rating numeric not null default 0;
-
 -- 2. Collections -------------------------------------------------------------
 create table if not exists public.collections (
   id          text primary key,
@@ -64,7 +59,46 @@ create table if not exists public.user_profile (
   updated_at     timestamptz not null default now()
 );
 
--- 4. Keep updated_at honest --------------------------------------------------
+-- 4. Reconcile columns -------------------------------------------------------
+--    "create table if not exists" leaves an EXISTING table completely alone, so
+--    a project set up against an older version of this file silently keeps the
+--    old columns and every write naming a newer one fails with 42703. Listing
+--    each column again here makes re-running this script repair that drift
+--    instead of quietly doing nothing.
+alter table public.games
+  add column if not exists rawg_id               integer,
+  add column if not exists cover_image           text,
+  add column if not exists release_date          text,
+  add column if not exists genres                text[] not null default '{}',
+  add column if not exists hours_played          numeric not null default 0,
+  add column if not exists rating                numeric not null default 0,
+  add column if not exists achievement_rating    numeric not null default 0,
+  add column if not exists achievements_unlocked integer not null default 0,
+  add column if not exists achievements_total    integer not null default 0,
+  add column if not exists collections           text[] not null default '{}',
+  add column if not exists notes                 text,
+  add column if not exists last_played_at        timestamptz,
+  add column if not exists completed_at          timestamptz,
+  add column if not exists updated_at            timestamptz not null default now();
+
+alter table public.collections
+  add column if not exists description text,
+  add column if not exists color       text,
+  add column if not exists icon        text,
+  add column if not exists is_system   boolean not null default false,
+  add column if not exists updated_at  timestamptz not null default now();
+
+alter table public.user_profile
+  add column if not exists username        text not null default 'Player',
+  add column if not exists email           text,
+  add column if not exists avatar_url      text,
+  add column if not exists sidebar_config  jsonb,
+  add column if not exists status_names    jsonb,
+  add column if not exists platform_order  text[],
+  add column if not exists highlight_style text,
+  add column if not exists updated_at      timestamptz not null default now();
+
+-- 5. Keep updated_at honest --------------------------------------------------
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -85,7 +119,7 @@ drop trigger if exists user_profile_touch_updated_at on public.user_profile;
 create trigger user_profile_touch_updated_at before update on public.user_profile
   for each row execute function public.touch_updated_at();
 
--- 5. Row level security ------------------------------------------------------
+-- 6. Row level security ------------------------------------------------------
 --    Note: "create policy if not exists" is not valid PostgreSQL, so each
 --    policy is dropped first to make this script safe to re-run.
 alter table public.games        enable row level security;
