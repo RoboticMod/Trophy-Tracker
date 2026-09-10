@@ -4,10 +4,7 @@ import { PLATFORMS } from '../lib/constants';
 
 const SPARK_COUNT = 18;
 
-/**
- * How long the celebration runs. GameContext clears it to match, and the card's
- * trophy emblem animates for the same span.
- */
+/** How long the celebration runs. GameContext clears it to match. */
 export const CELEBRATION_MS = 2000;
 
 interface CelebrationProps {

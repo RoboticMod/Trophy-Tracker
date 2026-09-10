@@ -12,7 +12,6 @@ import { EditGameModal } from './EditGameModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
-import { cn } from '../lib/cn';
 
 interface GameCardProps {
   game: UserGame;
@@ -113,10 +112,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
               circle
               size={40}
               title={awardLabel}
-              className={cn(
-                'trophy-emblem ring-1 ring-trophy-700/60',
-                celebrating && 'trophy-emblem-celebrate',
-              )}
+              className="trophy-emblem ring-1 ring-trophy-700/60"
             >
               <TrophyBadge platform={game.platform} size={24} />
             </OverlayBadge>
