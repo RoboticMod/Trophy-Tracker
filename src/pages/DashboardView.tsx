@@ -250,17 +250,28 @@ export const DashboardView: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 flex items-center gap-1 text-50 font-semibold text-gray-700">
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-3">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="library-rating"
+              className="flex items-center gap-1 text-50 font-semibold text-gray-700"
+            >
               <Star size={12} className="text-trophy-900" />
               Rating
-            </span>
-            {(['all', '90+', '75+', '60+', '40+', 'unrated'] as RatingFilterOption[]).map((r) => (
-              <FilterChip key={r} selected={ratingFilter === r} onClick={() => setRatingFilter(r)}>
-                {r === 'all' ? 'All' : r === 'unrated' ? 'Unrated' : r}
-              </FilterChip>
-            ))}
+            </label>
+            <Select
+              id="library-rating"
+              value={ratingFilter}
+              onChange={(e) => setRatingFilter(e.target.value as RatingFilterOption)}
+              className="w-auto"
+            >
+              <option value="all">Any rating</option>
+              <option value="90+">Rated 90 or more</option>
+              <option value="75+">Rated 75 or more</option>
+              <option value="60+">Rated 60 or more</option>
+              <option value="40+">Rated 40 or more</option>
+              <option value="unrated">Unrated only</option>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">

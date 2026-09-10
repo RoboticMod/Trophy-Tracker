@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Clock, MoreVertical, Trash2, Pencil } from 'lucide-react';
-import { UserGame, GameStatus, GAME_STATUSES } from '../types';
+import { Clock, MoreVertical } from 'lucide-react';
+import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel } from '../lib/status';
 import { useGame } from '../context/GameContext';
@@ -17,13 +17,9 @@ interface GameCardProps {
   game: UserGame;
 }
 
-const MENU_STATUSES: GameStatus[] = GAME_STATUSES.filter((s) => s !== 'dropped');
-
 export const GameCard: React.FC<GameCardProps> = ({ game }) => {
-  const { updateGame, deleteGame, profile, celebration } = useGame();
-  const [showMenu, setShowMenu] = useState(false);
+  const { profile, celebration } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
   const progress =
@@ -51,22 +47,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         : 'border-accent-400 bg-gray-100 hover:border-accent-700'
       : 'border-gray-200 bg-gray-100 hover:border-gray-300';
 
-  useEffect(() => {
-    if (!showMenu) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowMenu(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [showMenu]);
-
   return (
     <motion.div
       layout
@@ -76,7 +56,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
       whileHover={{ y: -3, transition: { duration: 0.15 } }}
       className={[
         'group relative flex flex-col rounded-lg border transition-colors',
-        showMenu ? 'z-40' : 'z-0',
         highlight,
       ].join(' ')}
     >
@@ -122,83 +101,36 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
             </OverlayBadge>
           )}
 
-          {/* One completion chip carrying the platform's own trophy artwork. */}
-          {isMastered && (
-            <OverlayBadge
-              className="text-trophy-900 ring-trophy-700/50"
-              title={awardLabel}
-            >
-              <TrophyBadge platform={game.platform} size={17} />
-              100%
-            </OverlayBadge>
-          )}
         </div>
 
+        {/* Completion emblem: a round disc carrying the platform's own trophy
+            artwork, ringed in gold so it reads as an award rather than a chip. */}
+        {isMastered && (
+          <div className="absolute bottom-3 right-3 z-20">
+            <OverlayBadge
+              circle
+              size={40}
+              title={awardLabel}
+              className="trophy-emblem ring-1 ring-trophy-700/60"
+            >
+              <TrophyBadge platform={game.platform} size={24} />
+            </OverlayBadge>
+          </div>
+        )}
+
         {/* Options ----------------------------------------------------------- */}
-        <div ref={menuRef} className="absolute right-3 top-3 z-30">
+        {/* Status, collections and deletion all live in the edit dialog, so the
+            control opens it directly rather than repeating a subset in a menu. */}
+        <div className="absolute right-3 top-3 z-30">
           <button
             type="button"
-            onClick={() => setShowMenu(!showMenu)}
-            aria-haspopup="menu"
-            aria-expanded={showMenu}
-            aria-label={`Options for ${game.title}`}
+            onClick={() => setIsEditOpen(true)}
+            aria-label={`Edit ${game.title}`}
+            title="Edit game details"
             className="overlay-scrim flex h-7 w-7 items-center justify-center rounded-sm text-gray-900 transition-colors hover:text-gray-1000"
           >
             <MoreVertical size={15} />
           </button>
-
-          {showMenu && (
-            <div
-              role="menu"
-              className="absolute right-0 top-9 w-48 overflow-hidden rounded-md border border-gray-300 bg-gray-200 py-1 text-75 text-gray-900 shadow-lg"
-            >
-              <div className="px-3 py-1 text-50 font-bold uppercase tracking-wide text-gray-600">
-                Set status
-              </div>
-              {MENU_STATUSES.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    updateGame(game.id, { status });
-                    setShowMenu(false);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-300"
-                >
-                  {statusLabel(status, profile)}
-                </button>
-              ))}
-
-              <div className="my-1 border-t border-gray-300" />
-
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setIsEditOpen(true);
-                  setShowMenu(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-accent-900 transition-colors hover:bg-accent-100"
-              >
-                <Pencil size={13} />
-                Edit game details
-              </button>
-
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  deleteGame(game.id);
-                  setShowMenu(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-negative-900 transition-colors hover:bg-negative-100"
-              >
-                <Trash2 size={13} />
-                Delete game
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Title ------------------------------------------------------------ */}

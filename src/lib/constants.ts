@@ -70,7 +70,8 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     name: 'Backlog',
     description: 'Games queued to play',
     icon: 'Clock',
-    color: '#edaa30',
+    // Neutral, matching backlog everywhere else in the app.
+    color: '#a5a5ad',
     isSystem: true,
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -93,6 +94,17 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     createdAt: '2026-01-03T00:00:00.000Z',
   },
 ];
+
+/**
+ * Restores the app-owned colour on system collections. Their colour is identity
+ * rather than user data, so a row saved under an older palette must not keep
+ * showing the old one — re-running the schema cannot repair saved rows.
+ */
+export const withSystemColors = (collections: Collection[]): Collection[] =>
+  collections.map((collection) => {
+    const preset = DEFAULT_COLLECTIONS.find((d) => d.id === collection.id && d.isSystem);
+    return preset ? { ...collection, color: preset.color } : collection;
+  });
 
 /**
  * Accent colours offered when creating a collection. These are stored as data on

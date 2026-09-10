@@ -20,6 +20,7 @@ import {
   DEFAULT_COLLECTIONS,
   DEFAULT_COLLECTION_COLOR,
   DEFAULT_PLATFORM_SORT_ORDER,
+  withSystemColors,
 } from '../lib/constants';
 import { normalizeRating } from '../lib/rating';
 import { useAuth } from './AuthContext';
@@ -215,7 +216,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cached) {
         // Cached rows predate the 0-100 rating scale, so normalise on read.
         setGames(cached.games.map((g) => ({ ...g, rating: normalizeRating(g.rating) })));
-        setCollections(cached.collections.length ? cached.collections : DEFAULT_COLLECTIONS);
+        setCollections(
+          withSystemColors(cached.collections.length ? cached.collections : DEFAULT_COLLECTIONS),
+        );
         if (cached.profile) setProfile(cached.profile);
       }
       setPendingWrites(readQueue(id).length);
@@ -229,7 +232,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           db.getProfile(id),
         ]);
 
-        const nextCollections = remoteCollections.length ? remoteCollections : DEFAULT_COLLECTIONS;
+        const nextCollections = withSystemColors(
+          remoteCollections.length ? remoteCollections : DEFAULT_COLLECTIONS,
+        );
         const nextProfile: UserProfile = remoteProfile ?? {
           id,
           username: user?.email?.split('@')[0] || 'Player',

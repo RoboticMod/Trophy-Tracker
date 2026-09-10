@@ -2,24 +2,24 @@ import React, { useMemo } from 'react';
 import { Platform } from '../types';
 import { PLATFORMS } from '../lib/constants';
 
-const PARTICLE_COUNT = 16;
+const SPARK_COUNT = 18;
 
-/** How long the burst runs. GameContext clears the celebration to match. */
-export const CELEBRATION_MS = 1100;
+/** How long the celebration runs. GameContext clears it to match. */
+export const CELEBRATION_MS = 1400;
 
 interface CelebrationProps {
   platform: Platform;
 }
 
 /**
- * Plays over the card that was just completed: a warm wash, a shockwave ring,
- * and a spray of particles thrown out from the centre.
+ * Plays over the card that was just completed: a band of light sweeping up the
+ * artwork, with sparkles rising and drifting in its wake.
  *
  * Mount it with a fresh key per celebration — the spread is randomised once on
- * mount, so no two bursts land the same way, and the CSS animations restart.
+ * mount, so no two runs land the same way, and the CSS animations restart.
  */
 export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
-  const particles = useMemo(() => {
+  const sparks = useMemo(() => {
     const palette = [
       'var(--color-trophy-900)',
       'var(--color-trophy-700)',
@@ -27,24 +27,18 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
       'var(--color-gray-1000)',
     ];
 
-    return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-      // Even wedges with a little jitter, so the spray reads as a burst rather
-      // than a clock face.
-      const angle = (i / PARTICLE_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-      const distance = 54 + Math.random() * 46;
-      const size = 4 + Math.random() * 5;
-
-      return {
-        id: i,
-        dx: `${(Math.cos(angle) * distance).toFixed(1)}px`,
-        dy: `${(Math.sin(angle) * distance).toFixed(1)}px`,
-        rot: `${((Math.random() - 0.5) * 320).toFixed(0)}deg`,
-        size,
-        radius: Math.random() > 0.45 ? '9999px' : '2px',
-        delay: `${Math.round(Math.random() * 70)}ms`,
-        color: palette[i % palette.length],
-      };
-    });
+    return Array.from({ length: SPARK_COUNT }, (_, i) => ({
+      id: i,
+      // Spread across the card's width, then drift sideways as they climb.
+      dx: `${(5 + (i / SPARK_COUNT) * 90 + (Math.random() - 0.5) * 6).toFixed(1)}%`,
+      drift: `${((Math.random() - 0.5) * 26).toFixed(0)}px`,
+      rise: `${(-70 - Math.random() * 90).toFixed(0)}px`,
+      rot: `${((Math.random() - 0.5) * 200).toFixed(0)}deg`,
+      size: 3 + Math.random() * 4,
+      radius: Math.random() > 0.5 ? '9999px' : '1px',
+      delay: `${Math.round(Math.random() * 320)}ms`,
+      color: palette[i % palette.length],
+    }));
   }, [platform]);
 
   return (
@@ -56,30 +50,36 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
         className="celebration-glow absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--color-trophy-900) 26%, transparent), transparent 68%)',
+            'radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--color-trophy-900) 24%, transparent), transparent 70%)',
         }}
       />
 
       <div
-        className="celebration-ring absolute left-1/2 top-[45%] h-24 w-24 rounded-full border-2"
-        style={{ borderColor: 'color-mix(in srgb, var(--color-trophy-900) 70%, transparent)' }}
+        className="celebration-shine absolute inset-x-0 h-1/2"
+        style={{
+          top: '50%',
+          background:
+            'linear-gradient(to top, transparent, color-mix(in srgb, var(--color-trophy-900) 34%, transparent) 55%, transparent)',
+        }}
       />
 
-      <div className="absolute left-1/2 top-[45%] h-0 w-0">
-        {particles.map((p) => (
+      {/* Anchored to the bottom edge, so the sparkles climb the whole card. */}
+      <div className="absolute inset-x-0 bottom-0 h-0">
+        {sparks.map((s) => (
           <span
-            key={p.id}
-            className="celebration-particle absolute block"
+            key={s.id}
+            className="celebration-particle absolute bottom-0 block"
             style={
               {
-                '--dx': p.dx,
-                '--dy': p.dy,
-                '--rot': p.rot,
-                width: p.size,
-                height: p.size,
-                borderRadius: p.radius,
-                backgroundColor: p.color,
-                animationDelay: p.delay,
+                '--drift': s.drift,
+                '--rise': s.rise,
+                '--rot': s.rot,
+                left: s.dx,
+                width: s.size,
+                height: s.size,
+                borderRadius: s.radius,
+                backgroundColor: s.color,
+                animationDelay: s.delay,
               } as React.CSSProperties
             }
           />

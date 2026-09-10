@@ -4,7 +4,7 @@ import { Clock, Trash2, Plus, Minus } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { UserGame, Platform, GameStatus, PLATFORM_IDS } from '../types';
 import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
-import { statusLabel } from '../lib/status';
+import { statusLabel, STATUS_SELECTED_CLASS } from '../lib/status';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
 import { RatingControl } from './Rating';
@@ -218,7 +218,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
                 className={cn(
                   'rounded-sm border px-3 py-2 text-75 font-semibold transition-colors',
                   status === s
-                    ? 'border-accent-700 bg-accent-100 text-accent-900'
+                    ? STATUS_SELECTED_CLASS[s]
                     : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
                 )}
               >

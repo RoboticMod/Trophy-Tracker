@@ -21,12 +21,12 @@ export function clampRating(value: number | undefined | null): number | undefine
 }
 
 /**
- * Red at 0 through amber to gold at 100, so the colour alone reads as a score.
- * Hue 0-45 keeps the whole ramp inside the warm range used by the token layer.
+ * Red at 0, yellow at 50, green at 100 — the familiar scoring ramp, so the
+ * colour alone reads as a verdict. Hue 0-120 is exactly that sweep.
  */
 export function ratingColor(value: number): string {
   const v = Math.max(0, Math.min(MAX_RATING, value));
-  const hue = (v / MAX_RATING) * 45;
+  const hue = (v / MAX_RATING) * 120;
   const saturation = 78 + (v / MAX_RATING) * 12;
   const lightness = 47 + (v / MAX_RATING) * 11;
   return `hsl(${hue.toFixed(0)} ${saturation.toFixed(0)}% ${lightness.toFixed(0)}%)`;
