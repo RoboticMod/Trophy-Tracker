@@ -4,8 +4,11 @@ import { PLATFORMS } from '../lib/constants';
 
 const SPARK_COUNT = 18;
 
-/** How long the celebration runs. GameContext clears it to match. */
-export const CELEBRATION_MS = 1400;
+/**
+ * How long the celebration runs. GameContext clears it to match, and the card's
+ * trophy emblem animates for the same span.
+ */
+export const CELEBRATION_MS = 2000;
 
 interface CelebrationProps {
   platform: Platform;
@@ -32,11 +35,11 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
       // Spread across the card's width, then drift sideways as they climb.
       dx: `${(5 + (i / SPARK_COUNT) * 90 + (Math.random() - 0.5) * 6).toFixed(1)}%`,
       drift: `${((Math.random() - 0.5) * 26).toFixed(0)}px`,
-      rise: `${(-70 - Math.random() * 90).toFixed(0)}px`,
+      rise: `${(-80 - Math.random() * 110).toFixed(0)}px`,
       rot: `${((Math.random() - 0.5) * 200).toFixed(0)}deg`,
       size: 3 + Math.random() * 4,
       radius: Math.random() > 0.5 ? '9999px' : '1px',
-      delay: `${Math.round(Math.random() * 320)}ms`,
+      delay: `${Math.round(Math.random() * 520)}ms`,
       color: palette[i % palette.length],
     }));
   }, [platform]);

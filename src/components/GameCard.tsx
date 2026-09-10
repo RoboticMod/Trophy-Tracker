@@ -12,6 +12,7 @@ import { EditGameModal } from './EditGameModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
+import { cn } from '../lib/cn';
 
 interface GameCardProps {
   game: UserGame;
@@ -20,6 +21,7 @@ interface GameCardProps {
 export const GameCard: React.FC<GameCardProps> = ({ game }) => {
   const { profile, celebration } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const celebrating = celebration?.gameId === game.id;
 
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
   const progress =
@@ -111,7 +113,10 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
               circle
               size={40}
               title={awardLabel}
-              className="trophy-emblem ring-1 ring-trophy-700/60"
+              className={cn(
+                'trophy-emblem ring-1 ring-trophy-700/60',
+                celebrating && 'trophy-emblem-celebrate',
+              )}
             >
               <TrophyBadge platform={game.platform} size={24} />
             </OverlayBadge>
@@ -183,9 +188,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         />
       </div>
 
-      {celebration?.gameId === game.id && (
-        <Celebration key={celebration.token} platform={game.platform} />
-      )}
+      {celebrating && <Celebration key={celebration.token} platform={game.platform} />}
 
       <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
     </motion.div>

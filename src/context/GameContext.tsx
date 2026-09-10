@@ -318,33 +318,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateGame = useCallback(
     (id: string, updates: Partial<UserGame>) => {
-      let next: UserGame | null = null;
-      let celebrate = false;
+      // Derived from the latest ref rather than inside the setGames updater:
+      // React decides when that updater runs, so reading a flag set inside it
+      // is a race — one that silently skipped the completion celebration.
+      const current = latest.current.games.find((g) => g.id === id);
+      if (!current) return;
 
-      setGames((prev) =>
-        prev.map((game) => {
-          if (game.id !== id) return game;
+      const merged: UserGame = { ...current, ...updates, updatedAt: new Date().toISOString() };
 
-          const merged: UserGame = { ...game, ...updates, updatedAt: new Date().toISOString() };
+      const becameFinished =
+        (merged.status === 'completed' || merged.status === 'mastered') &&
+        current.status !== 'completed' &&
+        current.status !== 'mastered';
+      if (becameFinished) merged.completedAt = merged.completedAt ?? merged.updatedAt;
 
-          const becameFinished =
-            (merged.status === 'completed' || merged.status === 'mastered') &&
-            game.status !== 'completed' &&
-            game.status !== 'mastered';
-          if (becameFinished) merged.completedAt = merged.completedAt ?? merged.updatedAt;
+      // Explicit undefined check: dropping back to 0 unlocked is a real edit.
+      const progressed =
+        updates.achievementsUnlocked !== undefined || updates.hoursPlayed !== undefined;
+      if (progressed) merged.lastPlayedAt = merged.updatedAt;
 
-          // Explicit undefined check: dropping back to 0 unlocked is a real edit.
-          const progressed =
-            updates.achievementsUnlocked !== undefined || updates.hoursPlayed !== undefined;
-          if (progressed) merged.lastPlayedAt = merged.updatedAt;
+      // Unlocking the last one counts even when the status never changes.
+      const celebrate = becameFinished || (!isPerfect(current) && isPerfect(merged));
 
-          celebrate = becameFinished || (!isPerfect(game) && isPerfect(merged));
-          next = merged;
-          return merged;
-        }),
-      );
-
-      if (next) void push({ kind: 'game', op: 'upsert', game: next });
+      setGames((prev) => prev.map((game) => (game.id === id ? merged : game)));
+      void push({ kind: 'game', op: 'upsert', game: merged });
       if (celebrate) triggerCelebration(id);
     },
     [push, triggerCelebration],

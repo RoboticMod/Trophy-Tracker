@@ -248,14 +248,44 @@
   }
 }
 
-@keyframes celebration-ring {
+/* The emblem answers the burst: it lands, settles, then catches the light once
+   more before the sparkles finish. */
+@keyframes trophy-emblem-celebrate {
   0% {
-    transform: translate(-50%, -50%) scale(0.25);
-    opacity: 0.9;
+    transform: scale(0.45) rotate(-14deg);
+  }
+  16% {
+    transform: scale(1.28) rotate(7deg);
+  }
+  28% {
+    transform: scale(0.94) rotate(-4deg);
+  }
+  40% {
+    transform: scale(1.08) rotate(2deg);
+  }
+  52% {
+    transform: scale(1) rotate(0deg);
+  }
+  72% {
+    transform: scale(1.12) rotate(0deg);
   }
   100% {
-    transform: translate(-50%, -50%) scale(1.9);
-    opacity: 0;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes trophy-emblem-flare {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--color-trophy-900) 12%, transparent),
+      0 2px 14px -2px color-mix(in srgb, var(--color-trophy-900) 45%, transparent);
+  }
+  18%,
+  72% {
+    box-shadow:
+      0 0 0 7px color-mix(in srgb, var(--color-trophy-900) 26%, transparent),
+      0 4px 26px 2px color-mix(in srgb, var(--color-trophy-900) 75%, transparent);
   }
 }
 
@@ -292,24 +322,15 @@
 }
 
 @utility celebration-glow {
-  animation: celebration-glow 900ms ease-out forwards;
+  animation: celebration-glow 1400ms ease-out forwards;
 
   @media (prefers-reduced-motion: reduce) {
-    animation-duration: 1000ms;
-  }
-}
-
-@utility celebration-ring {
-  animation: celebration-ring 750ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-    opacity: 0;
+    animation-duration: 1200ms;
   }
 }
 
 @utility celebration-particle {
-  animation: celebration-particle 1150ms cubic-bezier(0.33, 0.9, 0.4, 1) forwards;
+  animation: celebration-particle 1450ms cubic-bezier(0.33, 0.9, 0.4, 1) forwards;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -318,10 +339,21 @@
 }
 
 @utility celebration-shine {
-  animation: celebration-shine 900ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: celebration-shine 1250ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* Runs for the same span as the burst, so emblem and sparkles finish together. */
+@utility trophy-emblem-celebrate {
+  animation:
+    trophy-emblem-celebrate 2000ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    trophy-emblem-flare 2000ms ease-in-out forwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 }

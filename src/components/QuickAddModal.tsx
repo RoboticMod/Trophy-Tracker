@@ -1,19 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Clock, Trophy, Loader2, KeyRound, WifiOff } from 'lucide-react';
+import { Search, Sparkles, Plus, Clock, Loader2, KeyRound, WifiOff } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { Platform, GameStatus, RawgGameResult, PLATFORM_IDS } from '../types';
-import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
-import { statusLabel } from '../lib/status';
+import { GameStatus, RawgGameResult } from '../types';
 import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
 import { CoverArt } from './CoverArt';
-import { PlatformIcon } from './PlatformIcon';
-import { awardNoun } from './TrophyBadge';
-import { RatingControl } from './Rating';
-import { Button, Dialog, Field, TextArea, TextInput } from './ui';
+import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
+import { Button, Dialog, TextInput } from './ui';
 import { cn } from '../lib/cn';
 
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
+
+const EMPTY_GAME: GameDetailsValues = {
+  title: '',
+  platform: 'steam',
+  status: 'playing',
+  coverImage: '',
+  hoursPlayed: 0,
+  rating: 0,
+  achievementRating: 0,
+  achievementsUnlocked: 0,
+  achievementsTotal: 0,
+  collections: [],
+  notes: '',
+};
 
 export const QuickAddModal: React.FC = () => {
   const { isQuickAddOpen, setIsQuickAddOpen, addGame, collections, profile } = useGame();
@@ -24,20 +34,10 @@ export const QuickAddModal: React.FC = () => {
   const [searchError, setSearchError] = useState<CatalogError | undefined>();
   const [isSearching, setIsSearching] = useState(false);
 
-  const [title, setTitle] = useState('');
-  const [platform, setPlatform] = useState<Platform>('steam');
-  const [status, setStatus] = useState<GameStatus>('playing');
-  const [coverImage, setCoverImage] = useState('');
+  const [values, setValues] = useState<GameDetailsValues>(EMPTY_GAME);
   const [releaseDate, setReleaseDate] = useState<string | undefined>();
   const [genres, setGenres] = useState<string[]>([]);
   const [rawgId, setRawgId] = useState<number | undefined>();
-  const [hoursPlayed, setHoursPlayed] = useState(0);
-  const [achievementsUnlocked, setAchievementsUnlocked] = useState(0);
-  const [achievementsTotal, setAchievementsTotal] = useState(0);
-  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
-  const [rating, setRating] = useState(0);
-  const [achievementRating, setAchievementRating] = useState(0);
-  const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (!isQuickAddOpen) return;
@@ -61,20 +61,10 @@ export const QuickAddModal: React.FC = () => {
   const reset = () => {
     setTab('search');
     setSearchQuery('');
-    setTitle('');
-    setPlatform('steam');
-    setStatus('playing');
-    setCoverImage('');
+    setValues(EMPTY_GAME);
     setReleaseDate(undefined);
     setGenres([]);
     setRawgId(undefined);
-    setHoursPlayed(0);
-    setAchievementsUnlocked(0);
-    setAchievementsTotal(0);
-    setSelectedCollections([]);
-    setRating(0);
-    setAchievementRating(0);
-    setNotes('');
   };
 
   const close = () => {
@@ -84,35 +74,39 @@ export const QuickAddModal: React.FC = () => {
 
   /** Pulls a catalog result into the form so details can be adjusted first. */
   const selectGameFromSearch = (game: RawgGameResult) => {
-    setTitle(game.name);
-    setCoverImage(game.background_image || '');
     setReleaseDate(game.released);
     setGenres(game.genres?.map((g) => g.name) ?? []);
     setRawgId(game.id);
-    setPlatform(detectPlatformFromRawg(game));
-    if (game.rating) setRating(Math.round(Math.min(5, Math.max(0, game.rating)) * 20));
+    setValues((v) => ({
+      ...v,
+      title: game.name,
+      coverImage: game.background_image || '',
+      platform: detectPlatformFromRawg(game),
+      // RAWG scores out of 5; this app stores out of 100.
+      rating: game.rating ? Math.round(Math.min(5, Math.max(0, game.rating)) * 20) : v.rating,
+    }));
     setTab('custom');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!values.title.trim()) return;
 
     addGame({
       rawgId,
-      title: title.trim(),
-      platform,
-      status,
-      coverImage: coverImage.trim() || undefined,
+      title: values.title.trim(),
+      platform: values.platform,
+      status: values.status,
+      coverImage: values.coverImage.trim() || undefined,
       releaseDate,
       genres,
-      hoursPlayed,
-      achievementsUnlocked,
-      achievementsTotal,
-      rating: rating || undefined,
-      achievementRating: achievementRating || undefined,
-      collections: selectedCollections,
-      notes: notes.trim() || undefined,
+      hoursPlayed: values.hoursPlayed,
+      achievementsUnlocked: Math.min(values.achievementsUnlocked, values.achievementsTotal),
+      achievementsTotal: values.achievementsTotal,
+      rating: values.rating || undefined,
+      achievementRating: values.achievementRating || undefined,
+      collections: values.collections,
+      notes: values.notes.trim() || undefined,
     });
 
     close();
@@ -134,7 +128,7 @@ export const QuickAddModal: React.FC = () => {
             <Button
               variant="accent"
               onClick={handleSubmit}
-              disabled={!title.trim()}
+              disabled={!values.title.trim()}
               type="submit"
               form="quick-add-form"
             >
@@ -211,184 +205,20 @@ export const QuickAddModal: React.FC = () => {
           )}
         </div>
       ) : (
-        <form id="quick-add-form" onSubmit={handleSubmit} className="space-y-5">
-          <Field label="Title">
-            {(props) => (
-              <TextInput
-                {...props}
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter the game title"
-              />
-            )}
-          </Field>
-
-          <fieldset>
-            <legend className="mb-1.5 text-75 font-semibold text-gray-800">Platform</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {PLATFORM_IDS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPlatform(p)}
-                  aria-pressed={platform === p}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-sm border p-3 text-100 font-semibold transition-colors',
-                    platform === p
-                      ? 'border-accent-700 bg-accent-100 text-accent-900'
-                      : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
-                  )}
-                >
-                  <PlatformIcon platform={p} size={18} />
-                  {PLATFORMS[p].name}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="mb-1.5 text-75 font-semibold text-gray-800">Status</legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {STATUS_CHOICES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatus(s)}
-                  aria-pressed={status === s}
-                  className={cn(
-                    'rounded-sm border p-2.5 text-75 font-medium transition-colors',
-                    status === s
-                      ? 'border-accent-700 bg-accent-100 text-accent-900'
-                      : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
-                  )}
-                >
-                  {statusLabel(s, profile)}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Hours played">
-              {(props) => (
-                <TextInput
-                  {...props}
-                  type="number"
-                  min={0}
-                  value={hoursPlayed}
-                  onChange={(e) => setHoursPlayed(Math.max(0, Number(e.target.value)))}
-                />
-              )}
-            </Field>
-
-            <Field label={awardNoun(platform)} description="Unlocked out of total">
-              {(props) => (
-                <div className="flex items-center gap-2">
-                  <TextInput
-                    {...props}
-                    type="number"
-                    min={0}
-                    aria-label={`${awardNoun(platform)} unlocked`}
-                    value={achievementsUnlocked}
-                    onChange={(e) => setAchievementsUnlocked(Math.max(0, Number(e.target.value)))}
-                  />
-                  <span className="text-gray-600">/</span>
-                  <TextInput
-                    type="number"
-                    min={0}
-                    aria-label={`${awardNoun(platform)} total`}
-                    value={achievementsTotal}
-                    onChange={(e) => setAchievementsTotal(Math.max(0, Number(e.target.value)))}
-                  />
-                </div>
-              )}
-            </Field>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="flex items-center gap-1 text-75 font-semibold text-gray-800">
-              <Trophy size={13} className="text-trophy-900" />
-              Your rating
-            </span>
-            <RatingControl value={rating} onChange={setRating} />
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="flex items-center gap-1 text-75 font-semibold text-gray-800">
-              <Trophy size={13} className="text-trophy-900" />
-              {awardNoun(platform)} rating
-            </span>
-            <RatingControl value={achievementRating} onChange={setAchievementRating} />
-            <p className="text-50 text-gray-600">
-              How good the {awardNoun(platform).toLowerCase()} were to earn.
-            </p>
-          </div>
-
-          {collections.length > 0 && (
-            <fieldset>
-              <legend className="mb-1.5 text-75 font-semibold text-gray-800">Collections</legend>
-              <div className="flex flex-wrap gap-2">
-                {collections.map((col) => {
-                  const selected = selectedCollections.includes(col.id);
-                  return (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() =>
-                        setSelectedCollections((prev) =>
-                          selected ? prev.filter((c) => c !== col.id) : [...prev, col.id],
-                        )
-                      }
-                      aria-pressed={selected}
-                      className={cn(
-                        'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-medium transition-colors',
-                        selected
-                          ? 'border-accent-700 bg-accent-100 text-accent-900'
-                          : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400',
-                      )}
-                    >
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: col.color || DEFAULT_COLLECTION_COLOR }}
-                      />
-                      {col.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-          )}
-
-          <Field label="Cover image URL" description="Optional — leave blank for a plain lettered tile">
-            {(props) => (
-              <TextInput
-                {...props}
-                type="url"
-                value={coverImage}
-                onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="https://…"
-              />
-            )}
-          </Field>
-
-          <Field label="Notes" description="Optional">
-            {(props) => (
-              <TextArea
-                {...props}
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Where you got to, what is left, anything worth remembering."
-              />
-            )}
-          </Field>
-
+        <GameDetailsFields
+          formId="quick-add-form"
+          onSubmit={handleSubmit}
+          values={values}
+          onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
+          statuses={STATUS_CHOICES}
+          collections={collections}
+          profile={profile}
+        >
           <p className="flex items-center gap-1.5 text-50 text-gray-600">
             <Clock size={12} />
             Added games sync to your account automatically.
           </p>
-        </form>
+        </GameDetailsFields>
       )}
     </Dialog>
   );
