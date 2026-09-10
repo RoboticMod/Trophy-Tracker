@@ -92,7 +92,7 @@ const ALL_NAV_ITEMS = [
     description: 'Queue of unplayed games',
     icon: Gamepad2,
     configKey: 'showBacklog' as const,
-    tone: 'bg-notice-100 text-notice-900',
+    tone: 'bg-gray-300 text-gray-800',
   },
   {
     id: 'collections',

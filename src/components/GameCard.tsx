@@ -109,7 +109,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
           </OverlayBadge>
 
           {game.status === 'backlog' && (
-            <OverlayBadge className="text-notice-900">
+            <OverlayBadge className="text-gray-800">
               <Clock size={11} />
               {statusLabel('backlog', profile)}
             </OverlayBadge>

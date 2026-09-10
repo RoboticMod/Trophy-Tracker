@@ -40,7 +40,7 @@ export const BacklogView: React.FC = () => {
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-notice-100 text-notice-900">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-300 text-gray-800">
             <Hourglass size={20} />
           </div>
           <div>
@@ -67,7 +67,7 @@ export const BacklogView: React.FC = () => {
           <div className="text-50 font-medium text-gray-700">Games in queue</div>
         </Card>
         <Card>
-          <div className="text-600 font-bold text-notice-900">{potentialAchievements}</div>
+          <div className="text-600 font-bold text-gray-1000">{potentialAchievements}</div>
           <div className="text-50 font-medium text-gray-700">Achievements still to unlock</div>
         </Card>
       </div>
@@ -138,7 +138,7 @@ const Chip: React.FC<{
     className={cn(
       'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
       selected
-        ? 'border-notice-700 bg-notice-100 text-notice-900'
+        ? 'border-gray-400 bg-gray-300 text-gray-1000'
         : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
     )}
   >

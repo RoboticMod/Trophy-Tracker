@@ -25,7 +25,9 @@ export function validateStatusName(value: string): string | null {
 /** Tone token used for a status wherever it is shown as a badge. */
 export const STATUS_TONE: Record<GameStatus, 'accent' | 'notice' | 'positive' | 'trophy' | 'neutral'> = {
   playing: 'accent',
-  backlog: 'notice',
+  // Neutral, not notice: backlog is a queue, and the amber read as a warning
+  // and clashed with the gold used for completion.
+  backlog: 'neutral',
   completed: 'positive',
   mastered: 'trophy',
   dropped: 'neutral',
