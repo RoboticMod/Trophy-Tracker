@@ -12,6 +12,7 @@ import { EditGameModal } from './EditGameModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
+import { cn } from '../lib/cn';
 
 interface GameCardProps {
   game: UserGame;
@@ -135,8 +136,23 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         </div>
 
         {/* Title ------------------------------------------------------------ */}
-        <div className="pointer-events-none absolute inset-x-3.5 bottom-2.5 z-10">
-          <h3 className="truncate text-200 font-bold tracking-tight text-gray-1000">{game.title}</h3>
+        {/* The completion emblem sits in the bottom-right corner, so on a
+            finished game the text keeps clear of it and wraps to a second line
+            rather than running underneath. */}
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-x-3.5 bottom-2.5 z-10',
+            isMastered && 'pr-12',
+          )}
+        >
+          <h3
+            className={cn(
+              'text-200 font-bold tracking-tight text-gray-1000',
+              isMastered ? 'line-clamp-2' : 'truncate',
+            )}
+          >
+            {game.title}
+          </h3>
           <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
             <span className="flex items-center gap-1">
               <Clock size={12} />
