@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Clock, MoreVertical } from 'lucide-react';
 import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
-import { statusLabel } from '../lib/status';
+import { statusLabel, STATUS_OVERLAY_CLASS } from '../lib/status';
 import { useGame } from '../context/GameContext';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
@@ -89,20 +89,17 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
             <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
           </OverlayBadge>
 
-          {game.status === 'backlog' && (
-            <OverlayBadge className="text-gray-800">
-              <Clock size={11} />
-              {statusLabel('backlog', profile)}
-            </OverlayBadge>
-          )}
-
-          {game.status === 'playing' && !isMastered && (
-            <OverlayBadge className="text-accent-900">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-900" />
-              {statusLabel('playing', profile)}
-            </OverlayBadge>
-          )}
-
+          {/* Every game states its status here, in that status's own colour.
+              Only an in-progress game pulses. */}
+          <OverlayBadge className={STATUS_OVERLAY_CLASS[game.status]}>
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full bg-current',
+                game.status === 'playing' && 'animate-pulse',
+              )}
+            />
+            {statusLabel(game.status, profile)}
+          </OverlayBadge>
         </div>
 
         {/* Completion emblem: a round disc carrying the platform's own trophy

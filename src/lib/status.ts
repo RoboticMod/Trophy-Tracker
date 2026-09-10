@@ -34,6 +34,18 @@ export const STATUS_SELECTED_CLASS: Record<GameStatus, string> = {
   dropped: 'border-negative-700 bg-negative-100 text-negative-900',
 };
 
+/**
+ * Text colour for a status chip sitting on cover art, where the scrim already
+ * supplies the background and only the ink needs to carry the status.
+ */
+export const STATUS_OVERLAY_CLASS: Record<GameStatus, string> = {
+  playing: 'text-accent-900',
+  backlog: 'text-gray-800',
+  completed: 'text-positive-900',
+  mastered: 'text-trophy-900',
+  dropped: 'text-negative-900',
+};
+
 /** Tone token used for a status wherever it is shown as a badge. */
 export const STATUS_TONE: Record<GameStatus, 'accent' | 'notice' | 'positive' | 'trophy' | 'neutral'> = {
   playing: 'accent',
