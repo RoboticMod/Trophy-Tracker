@@ -14,6 +14,12 @@ interface DialogProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   size?: 'm' | 'l';
+  /**
+   * Takes the opening focus instead of the panel. A dialog whose first job is
+   * typing should land the caret in the field, and doing it here rather than in
+   * the caller avoids racing the panel's own focus.
+   */
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -29,6 +35,7 @@ export const Dialog: React.FC<DialogProps> = ({
   footer,
   children,
   size = 'm',
+  initialFocusRef,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +58,7 @@ export const Dialog: React.FC<DialogProps> = ({
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    panelRef.current?.focus();
+    (initialFocusRef?.current ?? panelRef.current)?.focus();
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);

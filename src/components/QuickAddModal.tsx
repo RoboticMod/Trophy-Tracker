@@ -1,9 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Clock, Loader2, KeyRound, WifiOff } from 'lucide-react';
+import {
+  Search,
+  Sparkles,
+  Plus,
+  Clock,
+  Loader2,
+  KeyRound,
+  WifiOff,
+  Eraser,
+  Minimize2,
+} from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameStatus, RawgGameResult } from '../types';
 import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
+import { snapRating } from '../lib/rating';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
@@ -40,14 +51,6 @@ export const QuickAddModal: React.FC = () => {
   const [genres, setGenres] = useState<string[]>([]);
   const [rawgId, setRawgId] = useState<number | undefined>();
 
-  // Focus the search box on open so typing can start straight away. Deferred a
-  // frame: the dialog moves focus to its own panel as it mounts.
-  useEffect(() => {
-    if (!isQuickAddOpen || tab !== 'search') return;
-    const frame = requestAnimationFrame(() => searchRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [isQuickAddOpen, tab]);
-
   useEffect(() => {
     if (!isQuickAddOpen) return;
     let cancelled = false;
@@ -67,8 +70,7 @@ export const QuickAddModal: React.FC = () => {
     };
   }, [searchQuery, isQuickAddOpen]);
 
-  const reset = () => {
-    setTab('search');
+  const clearAll = () => {
     setSearchQuery('');
     setValues(EMPTY_GAME);
     setReleaseDate(undefined);
@@ -76,10 +78,28 @@ export const QuickAddModal: React.FC = () => {
     setRawgId(undefined);
   };
 
+  /**
+   * Hides the dialog without touching the draft, so browsing the library and
+   * coming back does not mean filling the form in again. The draft only clears
+   * on an explicit "Clear all" or once the game has actually been added.
+   */
+  const minimize = () => setIsQuickAddOpen(false);
+
   const close = () => {
     setIsQuickAddOpen(false);
-    reset();
+    setTab('search');
+    clearAll();
   };
+
+  const hasDraft =
+    values.title.trim() !== '' ||
+    values.notes.trim() !== '' ||
+    values.hoursPlayed > 0 ||
+    values.achievementsTotal > 0 ||
+    values.rating > 0 ||
+    values.achievementRating > 0 ||
+    values.collections.length > 0 ||
+    searchQuery.trim() !== '';
 
   /** Pulls a catalog result into the form so details can be adjusted first. */
   const selectGameFromSearch = (game: RawgGameResult) => {
@@ -91,8 +111,8 @@ export const QuickAddModal: React.FC = () => {
       title: game.name,
       coverImage: game.background_image || '',
       platform: detectPlatformFromRawg(game),
-      // RAWG scores out of 5; this app stores out of 100.
-      rating: game.rating ? Math.round(Math.min(5, Math.max(0, game.rating)) * 20) : v.rating,
+      // RAWG scores out of 5; this app scores out of 10.
+      rating: game.rating ? snapRating(Math.min(5, Math.max(0, game.rating)) * 2) : v.rating,
     }));
     setTab('custom');
   };
@@ -124,16 +144,29 @@ export const QuickAddModal: React.FC = () => {
   return (
     <Dialog
       isOpen={isQuickAddOpen}
-      onClose={close}
       title="Add a game"
       description="Search the catalog, or enter the details yourself"
       icon={<Sparkles size={18} />}
+      onClose={minimize}
+      initialFocusRef={tab === 'search' ? searchRef : undefined}
       footer={
-        tab === 'custom' ? (
-          <>
-            <Button buttonStyle="subtle" onClick={close}>
-              Cancel
-            </Button>
+        <>
+          <Button
+            buttonStyle="subtle"
+            className="mr-auto"
+            onClick={clearAll}
+            disabled={!hasDraft}
+          >
+            <Eraser size={14} />
+            Clear all
+          </Button>
+
+          <Button buttonStyle="subtle" onClick={minimize} title="Keeps what you have entered">
+            <Minimize2 size={14} />
+            Minimize
+          </Button>
+
+          {tab === 'custom' && (
             <Button
               variant="accent"
               onClick={handleSubmit}
@@ -144,8 +177,8 @@ export const QuickAddModal: React.FC = () => {
               <Plus size={15} />
               Add to library
             </Button>
-          </>
-        ) : undefined
+          )}
+        </>
       }
     >
       <div className="mb-5 flex gap-1 rounded-sm bg-gray-75 p-1">

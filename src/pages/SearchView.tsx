@@ -9,6 +9,7 @@ import { statusLabel } from '../lib/status';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
+import { snapRating } from '../lib/rating';
 import { Button, EmptyState, OverlayBadge, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
@@ -41,7 +42,7 @@ export const SearchView: React.FC = () => {
   const handleQuickAdd = (game: RawgGameResult, toBacklog: boolean) => {
     const platform = selectedPlatform !== 'all' ? selectedPlatform : detectPlatformFromRawg(game);
     // RAWG scores out of 5; this app stores out of 100.
-    const rating = game.rating ? Math.round(Math.min(5, Math.max(0, game.rating)) * 20) : undefined;
+    const rating = game.rating ? snapRating(Math.min(5, Math.max(0, game.rating)) * 2) : undefined;
 
     addGame({
       rawgId: game.id,
@@ -162,7 +163,7 @@ export const SearchView: React.FC = () => {
                 {game.rating ? (
                   <div className="absolute right-2.5 top-2.5">
                     <OverlayBadge>
-                      <RatingValue value={Math.round(game.rating * 20)} size="xs" />
+                      <RatingValue value={snapRating(game.rating * 2)} size="xs" />
                     </OverlayBadge>
                   </div>
                 ) : null}

@@ -8,6 +8,12 @@ import React, {
   useState,
 } from 'react';
 import { CELEBRATION_MS } from '../components/Celebration';
+
+/**
+ * Long enough for a freshly added card to settle and for its progress bar to
+ * finish sweeping up to full before the burst answers it.
+ */
+const ADD_CELEBRATION_DELAY_MS = 750;
 import {
   Collection,
   GameStatus,
@@ -84,7 +90,7 @@ interface GameContextType {
 
   /** The game currently celebrating. The token restarts the burst on repeats. */
   celebration: { gameId: string; token: number } | null;
-  triggerCelebration: (gameId: string) => void;
+  triggerCelebration: (gameId: string, delayMs?: number) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -129,23 +135,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const [celebration, setCelebration] = useState<{ gameId: string; token: number } | null>(null);
-  const celebrationTimer = useRef<number | null>(null);
+  const celebrationTimers = useRef<number[]>([]);
 
-  const triggerCelebration = useCallback((gameId: string) => {
-    if (celebrationTimer.current !== null) window.clearTimeout(celebrationTimer.current);
-    setCelebration({ gameId, token: Date.now() });
-    celebrationTimer.current = window.setTimeout(() => {
-      setCelebration(null);
-      celebrationTimer.current = null;
-    }, CELEBRATION_MS);
+  const clearCelebrationTimers = () => {
+    celebrationTimers.current.forEach(window.clearTimeout);
+    celebrationTimers.current = [];
+  };
+
+  const triggerCelebration = useCallback((gameId: string, delayMs = 0) => {
+    clearCelebrationTimers();
+
+    const play = () => {
+      setCelebration({ gameId, token: Date.now() });
+      celebrationTimers.current.push(
+        window.setTimeout(() => setCelebration(null), CELEBRATION_MS),
+      );
+    };
+
+    if (delayMs > 0) celebrationTimers.current.push(window.setTimeout(play, delayMs));
+    else play();
   }, []);
 
-  useEffect(
-    () => () => {
-      if (celebrationTimer.current !== null) window.clearTimeout(celebrationTimer.current);
-    },
-    [],
-  );
+  useEffect(() => clearCelebrationTimers, []);
 
   /* ---------------------------------------------------------------------- */
   /* Cloud writes: optimistic locally, queued when offline                   */
@@ -311,7 +322,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
-      if (game.status === 'mastered' || isPerfect(game)) triggerCelebration(game.id);
+      // Held back so the new card can land and run its progress bar up to full
+      // first — firing on mount put the burst behind the dialog that was still
+      // closing, and it was over before the card was even looked at.
+      if (game.status === 'mastered' || isPerfect(game)) {
+        triggerCelebration(game.id, ADD_CELEBRATION_DELAY_MS);
+      }
     },
     [push, triggerCelebration],
   );
