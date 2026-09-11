@@ -8,6 +8,7 @@ import { TrophyBadge, awardNoun } from './TrophyBadge';
 import { RatingControl } from './Rating';
 import { Button, Field, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
+import { useNumericField } from '../lib/useNumericField';
 
 /** Everything both the add and edit dialogs collect about a game. */
 export interface GameDetailsValues {
@@ -105,6 +106,16 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   const noun = awardNoun(platform);
   const nounLower = noun.toLowerCase();
 
+  const hoursField = useNumericField(hoursPlayed, (n) =>
+    onChange({ hoursPlayed: Math.max(0, n) }),
+  );
+  const unlockedField = useNumericField(achievementsUnlocked, (n) =>
+    onChange({ achievementsUnlocked: Math.max(0, n) }),
+  );
+  const totalField = useNumericField(achievementsTotal, (n) =>
+    onChange({ achievementsTotal: Math.max(0, n) }),
+  );
+
   return (
     <form id={formId} onSubmit={onSubmit} className="space-y-5">
       <Field label="Title">
@@ -195,10 +206,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                 <TextInput
                   {...props}
                   type="number"
+                  inputMode="decimal"
                   min={0}
                   step={0.5}
-                  value={hoursPlayed}
-                  onChange={(e) => onChange({ hoursPlayed: Math.max(0, Number(e.target.value)) })}
+                  {...hoursField}
                   className="pl-9"
                 />
               </div>
@@ -253,12 +264,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                 <TextInput
                   {...props}
                   type="number"
+                  inputMode="numeric"
                   min={0}
                   max={achievementsTotal}
-                  value={achievementsUnlocked}
-                  onChange={(e) =>
-                    onChange({ achievementsUnlocked: Math.max(0, Number(e.target.value)) })
-                  }
+                  {...unlockedField}
                 />
               )}
             </Field>
@@ -282,11 +291,9 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                 <TextInput
                   {...props}
                   type="number"
+                  inputMode="numeric"
                   min={0}
-                  value={achievementsTotal}
-                  onChange={(e) =>
-                    onChange({ achievementsTotal: Math.max(0, Number(e.target.value)) })
-                  }
+                  {...totalField}
                 />
               )}
             </Field>

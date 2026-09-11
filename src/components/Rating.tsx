@@ -1,6 +1,7 @@
 import React from 'react';
 import { MAX_RATING, ratingColor, ratingLabel } from '../lib/rating';
 import { cn } from '../lib/cn';
+import { useNumericField } from '../lib/useNumericField';
 
 interface RatingValueProps {
   value: number;
@@ -65,6 +66,10 @@ export const RatingControl: React.FC<RatingControlProps> = ({
   const color = ratingColor(clamped);
   const isRated = clamped > 0;
 
+  const ratingField = useNumericField(clamped, (n) =>
+    onChange(Math.max(0, Math.min(MAX_RATING, n))),
+  );
+
   return (
     <div className="flex items-center gap-3">
       <input
@@ -87,10 +92,10 @@ export const RatingControl: React.FC<RatingControlProps> = ({
       {!compact && (
         <input
           type="number"
+          inputMode="numeric"
           min={0}
           max={MAX_RATING}
-          value={clamped}
-          onChange={(e) => onChange(Math.max(0, Math.min(MAX_RATING, Number(e.target.value))))}
+          {...ratingField}
           aria-label="Rating value"
           style={{ color, borderColor: isRated ? color : undefined }}
           className={cn(
