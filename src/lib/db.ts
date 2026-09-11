@@ -136,6 +136,7 @@ interface ProfileRow {
   status_names: Partial<Record<GameStatus, string>> | null;
   platform_order: string[] | null;
   highlight_style: string | null;
+  rating_mode: string | null;
 }
 
 const toProfile = (row: ProfileRow): UserProfile => ({
@@ -150,6 +151,7 @@ const toProfile = (row: ProfileRow): UserProfile => ({
       ?.map(normalizePlatform)
       .filter((p): p is Platform => p !== null)) ?? undefined,
   highlightStyle: row.highlight_style === 'fill' ? 'fill' : 'stroke',
+  ratingMode: row.rating_mode === 'guided' ? 'guided' : 'manual',
 });
 
 const fromProfile = (profile: UserProfile, userId: string) => ({
@@ -161,6 +163,7 @@ const fromProfile = (profile: UserProfile, userId: string) => ({
   status_names: profile.statusNames ?? null,
   platform_order: profile.platformOrder ?? null,
   highlight_style: profile.highlightStyle ?? 'stroke',
+  rating_mode: profile.ratingMode ?? 'manual',
 });
 
 /* -------------------------------------------------------------------------- */

@@ -9,6 +9,9 @@ export const isPlatform = (value: unknown): value is Platform =>
 /** Card emphasis treatment, chosen in Settings. */
 export type HighlightStyle = 'stroke' | 'fill';
 
+/** How a rating is entered: a slider, or a short questionnaire that scores it. */
+export type RatingMode = 'manual' | 'guided';
+
 export type GameStatus = 'backlog' | 'playing' | 'completed' | 'mastered' | 'dropped';
 
 export const GAME_STATUSES: GameStatus[] = [
@@ -78,6 +81,8 @@ export interface UserProfile {
   platformOrder?: Platform[];
   /** How a card signals its status: a coloured stroke, or a filled tint. */
   highlightStyle?: HighlightStyle;
+  /** Whether ratings are set by hand, or worked out from a few questions. */
+  ratingMode?: RatingMode;
 }
 
 export interface PlatformConfig {

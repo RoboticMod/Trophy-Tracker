@@ -56,6 +56,7 @@ create table if not exists public.user_profile (
   status_names   jsonb,
   platform_order text[],
   highlight_style text,
+  rating_mode    text,
   updated_at     timestamptz not null default now()
 );
 
@@ -96,6 +97,7 @@ alter table public.user_profile
   add column if not exists status_names    jsonb,
   add column if not exists platform_order  text[],
   add column if not exists highlight_style text,
+  add column if not exists rating_mode     text,
   add column if not exists updated_at      timestamptz not null default now();
 
 -- 5. Keep updated_at honest --------------------------------------------------

@@ -9,6 +9,9 @@ import { RatingControl } from './Rating';
 import { Button, Field, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
+import { MAX_RATING } from '../lib/rating';
+import { GuidedRating } from './GuidedRating';
+import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/ratingQuestions';
 
 /** Everything both the add and edit dialogs collect about a game. */
 export interface GameDetailsValues {
@@ -105,6 +108,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   // section to trophies straight away.
   const noun = awardNoun(platform);
   const nounLower = noun.toLowerCase();
+
+  const guided = profile.ratingMode === 'guided';
+  const gameRatingHint = `The game itself, scored out of ${MAX_RATING}. The colour runs red at the bottom through to green at the top.`;
+  const awardRatingHint = `How good the ${nounLower} were to earn — separate from how good the game is.`;
 
   // Rounded to a tenth: hours accept decimals, but float arithmetic would
   // otherwise leave values like 12.300000000000001 in the record.
@@ -235,11 +242,19 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
 
         <div className="space-y-1.5">
           <span className="text-75 font-semibold text-gray-800">Game rating</span>
-          <RatingControl value={rating} onChange={(next) => onChange({ rating: next })} />
-          <p className="text-50 text-gray-600">
-            The game itself, scored out of 100. The colour runs red at the bottom through to green
-            at 100.
-          </p>
+          {guided ? (
+            <GuidedRating
+              questions={GAME_RATING_QUESTIONS}
+              value={rating}
+              onChange={(next) => onChange({ rating: next })}
+              description={gameRatingHint}
+            />
+          ) : (
+            <>
+              <RatingControl value={rating} onChange={(next) => onChange({ rating: next })} />
+              <p className="text-50 text-gray-600">{gameRatingHint}</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -318,13 +333,22 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
 
         <div className="space-y-1.5 border-t border-gray-200 pt-3">
           <span className="text-75 font-semibold text-gray-800">{noun} rating</span>
-          <RatingControl
-            value={achievementRating}
-            onChange={(next) => onChange({ achievementRating: next })}
-          />
-          <p className="text-50 text-gray-600">
-            How good the {nounLower} were to earn — separate from how good the game is.
-          </p>
+          {guided ? (
+            <GuidedRating
+              questions={ACHIEVEMENT_RATING_QUESTIONS}
+              value={achievementRating}
+              onChange={(next) => onChange({ achievementRating: next })}
+              description={awardRatingHint}
+            />
+          ) : (
+            <>
+              <RatingControl
+                value={achievementRating}
+                onChange={(next) => onChange({ achievementRating: next })}
+              />
+              <p className="text-50 text-gray-600">{awardRatingHint}</p>
+            </>
+          )}
         </div>
       </div>
 

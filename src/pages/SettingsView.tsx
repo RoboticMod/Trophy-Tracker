@@ -27,11 +27,20 @@ import {
   X,
   CloudOff,
   Cloud,
+  Star,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import { clearUserCache } from '../lib/localCache';
-import { SidebarConfig, GameStatus, HighlightStyle, Platform, GAME_STATUSES } from '../types';
+import {
+  SidebarConfig,
+  GameStatus,
+  HighlightStyle,
+  Platform,
+  RatingMode,
+  GAME_STATUSES,
+} from '../types';
+import { MAX_RATING } from '../lib/rating';
 import { SUPABASE_SCHEMA_SQL } from '../lib/db';
 import { getRawgCacheCount, clearRawgCache } from '../lib/rawg';
 import {
@@ -484,6 +493,57 @@ export const SettingsView: React.FC = () => {
             );
           })}
         </div>
+      </Card>
+
+      {/* Rating mode --------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Star size={18} />}
+          title="How you rate games"
+          description="Score a game directly, or answer a few questions and let the score follow"
+          iconClassName="bg-trophy-100 text-trophy-900"
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                id: 'manual',
+                name: 'Set the score myself',
+                hint: `A slider from 0 to ${MAX_RATING}, in half points`,
+              },
+              {
+                id: 'guided',
+                name: 'Answer questions',
+                hint: 'A few multiple-choice questions work the score out for you',
+              },
+            ] as { id: RatingMode; name: string; hint: string }[]
+          ).map((option) => {
+            const selected = (profile.ratingMode ?? 'manual') === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => updateProfile({ ratingMode: option.id })}
+                aria-pressed={selected}
+                className={cn(
+                  'rounded-md border p-3 text-left transition-colors',
+                  selected
+                    ? 'border-accent-700 bg-accent-100'
+                    : 'border-gray-300 bg-gray-75 hover:border-gray-400',
+                )}
+              >
+                <span className="block text-100 font-semibold text-gray-1000">{option.name}</span>
+                <span className="block text-50 text-gray-700">{option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-50 text-gray-600">
+          A worked-out score always lands on the ordinary slider afterwards, so you can move it if
+          you disagree. This applies to both the game and the {`achievement`} score.
+        </p>
       </Card>
 
       {/* Platform order ------------------------------------------------------ */}
