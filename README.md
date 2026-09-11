@@ -23,6 +23,11 @@ It creates three tables — `games`, `collections`, `user_profile` — each scop
 row level security enforced against `auth.uid()`, so an account can only ever read or write its
 own rows.
 
+> **Upgrading an existing project:** the theming release added `card_layout`, `accent`, `gold`,
+> `surface`, `ui_app_name` and `ui_dash_title` to `user_profile`. Re-run the same script — it is
+> idempotent, and its reconcile section adds the new columns to a table that already exists.
+> Without them, saving anything from **Advanced customization** fails with a `42703`.
+
 ### 2. Configure the environment
 
 Copy `.env.example` to `.env.local` and fill it in:
@@ -51,7 +56,11 @@ npm run build    # production bundle in dist/
 
 | Area | Where |
 |---|---|
-| Design tokens (Spectrum 2) | `src/index.css` |
+| Design tokens | `src/index.css` |
+| Live theme (accent, metal, surfaces) | `src/lib/theme.ts` |
+| Chip / tone colour rule | `src/lib/tone.ts` |
+| Icon set | `src/components/icons.tsx` |
+| Navigation model | `src/lib/navigation.ts` |
 | UI primitives | `src/components/ui/` |
 | Auth session | `src/context/AuthContext.tsx` |
 | Library state + offline queue | `src/context/GameContext.tsx` |
@@ -61,16 +70,40 @@ npm run build    # production bundle in dist/
 
 ### Design system
 
-The app follows **Adobe Spectrum 2**, expressed as a token layer rather than the S2 component
-library. `src/index.css` defines the whole vocabulary — a 25→1000 gray ramp, accent and semantic
-ramps, a 50→900 type ramp, a three-step corner-radius scale, elevation, and a focus indicator.
+A console-style dark interface: large cover tiles, cinematic spacing, **gold reserved for
+completion and trophy states** and **blue for interaction**. Display type and every numeral are
+Chakra Petch; body copy is Manrope.
 
-Components compose those tokens through Tailwind utilities (`bg-gray-100`, `text-200`,
-`rounded-md`). **No component should introduce a raw hex value or an arbitrary-value class such as
-`text-[11px]`.** Anything reusable belongs in `src/components/ui/`.
+The token layer has two tiers:
 
-The gaming character lives in cover art, the gold "mastered" treatment, the platform trophy
-artwork and the motion — not in inventing new tokens.
+- `--tt-*` custom properties on `:root` are the **live theme**. Advanced customization rewrites
+  them at runtime, which repaints the whole app without a single component re-rendering.
+- The `@theme` block maps Tailwind utilities onto those variables, so components are written as
+  `bg-surface text-ink font-display`, never as raw hex.
+
+Only `src/index.css` and `src/lib/theme.ts` read hex literals. A component that needs a colour
+composes a token, or — where the colour is *data*, like a collection's accent or a platform's hue
+— goes through `chipStyle()` in `src/lib/tone.ts`.
+
+Two rules worth knowing:
+
+- **Borders are inset shadows** (`hairline`, `hairline-2`, or an explicit `box-shadow`), never
+  real borders, so a hover or selection state can never shift layout by a pixel.
+- **Active chip ink is a lightened step of its tone**, not the tone itself. A saturated hue on its
+  own 16% wash lands near 2:1; the lightened step measures ~10:1 on the same wash.
+
+### Theming
+
+`applyTheme()` writes six accent/metal variables plus a seven-variable surface set. The accent
+family is derived, not picked, so a custom hex gets the same contrast treatment a preset does:
+
+```
+ink  = mix(accent, #ffffff, 55%)     soft = mix(accent, bg,      80%)
+on   = mix(accent, #000000, 84%)     goldHi = mix(gold, #ffffff, 35%)
+```
+
+Surface presets store their **key**, never the seven hexes, so changing a preset's palette later
+reaches accounts that already chose it.
 
 ### Data flow
 
@@ -86,34 +119,59 @@ second account signing in on the same browser never sees the first account's lib
 
 `Platform` is `'steam' | 'ps5'`. That union is deliberately narrow — the compiler is what keeps
 platform handling exhaustive. To add one you would extend `src/types.ts`, `PLATFORMS` in
-`src/lib/constants.ts`, `PlatformIcon`, `TrophyBadge`, the `platform` check constraint in the
-schema, and `normalizePlatform`.
+`src/lib/constants.ts`, `TrophyBadge`, the `platform` check constraint in the schema, and
+`normalizePlatform`.
 
 Games on unsupported platforms are dropped when read from the cloud or restored from a backup,
 rather than being silently coerced.
 
 ### Trophy artwork
 
-`public/assets/steam-achievement.png` and `public/assets/ps5-platinum-achievement.png` are the
-completion marks. They are 256×256 with their own padding baked in, so `TrophyBadge` renders them
-contained in a square box at their natural proportions. Optical differences between the two are
-corrected by a single `OPTICAL_SCALE` constant per asset in `src/components/TrophyBadge.tsx` —
-never by scaling at a call site.
+`src/assets/steam-achievement.png` and `src/assets/ps5-platinum-achievement.png` are the
+completion marks, imported as modules so Vite rewrites their URLs against the configured base and
+they resolve from a subpath host too. Both are trimmed to their artwork, so `TrophyBadge` contains
+them in a square box and `object-contain` sizes each by its height — the two line up at a matching
+optical weight wherever they appear side by side.
+
+`BrandMark` pairs both marks in the warm gold-washed chip used as the app's identity in the
+sidebar, the mobile top bar and the sign-in card.
 
 ### Responsive layout
 
 Card grids use the intrinsic `.grid-cards` utility (`auto-fill` with a `minmax` track), so column
-count scales continuously with the viewport instead of stepping at hand-picked breakpoints —
-roughly 1 column on a phone through 6 on a 2560px display. The sidebar is a full panel from `lg`,
-an icon rail from `md`, and a bottom bar below that.
+count scales continuously with the viewport instead of stepping at hand-picked breakpoints. The
+top bar's layout toggle swaps the track width and the cover aspect together — 248px/16:9 for wide
+cards, 168px/2:3 for posters.
+
+The sidebar is a 248px panel from `lg`; below that it gives way to a 64px bottom tab bar carrying
+the first four destinations, with the rest behind a **More** sheet.
 
 ---
 
 ## Customisation
 
-Settings covers renaming any status (the new name propagates to the sidebar, filters, card menus
-and statistics immediately), reordering the platforms used by the "Platform" sort in every library
-view, reordering and hiding sidebar destinations, and JSON export/restore.
+**Settings** covers the account, the card highlight treatment (stroke or filled), platform order,
+cloud storage, the RAWG cache and JSON export/restore.
+
+**Advanced customization** — a collapsible panel inside Settings — re-themes and renames the
+interface, and every change is written to `user_profile`:
+
+| Group | What it changes |
+|---|---|
+| Accent colour | Five presets plus any custom hex; rewrites the `--tt-accent*` family live |
+| Background theme | Warm charcoal, Graphite, Midnight, Obsidian — swaps all seven surface tokens |
+| Trophy tone | Trophy gold, Bronze, Platinum — drives `--tt-gold` / `--tt-gold-hi` |
+| Interface names | App name and dashboard headline. RAWG game titles are never affected |
+| Status names | Renaming one updates chips, cards, filters and statistics at once |
+| Navigation | Rename, reorder and hide destinations |
+
+Only UI chrome is customisable; game records from RAWG are read-only.
+
+### Command palette
+
+`Cmd`/`Ctrl`+`K` opens one list over destinations, actions and the library itself; `Escape`
+closes it. Rows are tagged `GO` for a destination, `ACT` for an action, and the platform mark for
+a game.
 
 ---
 

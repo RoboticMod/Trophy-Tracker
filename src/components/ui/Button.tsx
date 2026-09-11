@@ -1,75 +1,65 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
 
-export type ButtonVariant = 'accent' | 'secondary' | 'negative' | 'positive';
-export type ButtonStyle = 'fill' | 'outline' | 'subtle';
-export type ButtonSize = 's' | 'm' | 'l';
+export type ButtonVariant = 'accent' | 'neutral' | 'outline' | 'ghost' | 'danger' | 'queued';
+export type ButtonSize = 's' | 'm' | 'l' | 'xl';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
-  buttonStyle?: ButtonStyle;
   size?: ButtonSize;
-  /** Renders the button as a perfect square for a single icon. */
+  /** Renders the button as a square for a single glyph. */
   iconOnly?: boolean;
 }
 
+/**
+ * Control heights come from the design's four rungs: 30px for a control tucked
+ * inside a row, 34px for a secondary action, 38px for a toolbar action, and
+ * 42px for the one primary action on a screen.
+ */
 const SIZE: Record<ButtonSize, string> = {
-  s: 'h-7 px-3 gap-1.5 text-75',
-  m: 'h-8 px-4 gap-2 text-100',
-  l: 'h-10 px-5 gap-2 text-100',
+  s: 'h-[30px] px-3 gap-1.5 text-[12px]',
+  m: 'h-[34px] px-3.5 gap-1.5 text-[13px]',
+  l: 'h-[38px] px-4 gap-[7px] text-[13px]',
+  xl: 'h-[42px] px-[18px] gap-2 text-[14px]',
 };
 
 const ICON_SIZE: Record<ButtonSize, string> = {
-  s: 'h-7 w-7',
-  m: 'h-8 w-8',
-  l: 'h-10 w-10',
+  s: 'h-[30px] w-[30px]',
+  m: 'h-[34px] w-[34px]',
+  l: 'h-[38px] w-[38px]',
+  xl: 'h-[42px] w-[42px]',
 };
 
-const FILL: Record<ButtonVariant, string> = {
-  accent: 'bg-accent-700 text-gray-1000 hover:bg-accent-800 active:bg-accent-600',
-  secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400',
-  negative: 'bg-negative-700 text-gray-1000 hover:bg-negative-900',
-  positive: 'bg-positive-700 text-gray-1000 hover:bg-positive-900',
-};
-
-const OUTLINE: Record<ButtonVariant, string> = {
-  accent: 'border border-accent-700 text-accent-900 hover:bg-accent-100',
-  secondary: 'border border-gray-300 text-gray-800 hover:bg-gray-200 hover:text-gray-900',
-  negative: 'border border-negative-700 text-negative-900 hover:bg-negative-100',
-  positive: 'border border-positive-700 text-positive-900 hover:bg-positive-100',
-};
-
-const SUBTLE: Record<ButtonVariant, string> = {
-  accent: 'text-accent-900 hover:bg-accent-100',
-  secondary: 'text-gray-700 hover:bg-gray-200 hover:text-gray-900',
-  negative: 'text-negative-900 hover:bg-negative-100',
-  positive: 'text-positive-900 hover:bg-positive-100',
+const VARIANT: Record<ButtonVariant, string> = {
+  accent: 'bg-accent text-accent-on hover:bg-accent-ink',
+  neutral: 'bg-surface-3 text-body hover:bg-line',
+  // Outlines carry their edge as an inset shadow, so hovering one never nudges
+  // the row it sits in by the width of a border.
+  outline: 'bg-transparent text-body hairline-2 hover:bg-surface-2',
+  ghost: 'bg-transparent text-muted hover:bg-surface-2 hover:text-ink',
+  danger:
+    'bg-transparent text-danger shadow-[inset_0_0_0_1px_rgb(242_104_111_/_.45)] hover:bg-danger-wash',
+  queued: 'bg-queued text-[#1d1204] hover:bg-[#eaa257]',
 };
 
 export const Button: React.FC<ButtonProps> = ({
-  variant = 'secondary',
-  buttonStyle = 'fill',
+  variant = 'neutral',
   size = 'm',
   iconOnly = false,
   className,
   type = 'button',
   ...rest
-}) => {
-  const tone =
-    buttonStyle === 'fill' ? FILL[variant] : buttonStyle === 'outline' ? OUTLINE[variant] : SUBTLE[variant];
-
-  return (
-    <button
-      type={type}
-      className={cn(
-        'inline-flex items-center justify-center rounded-sm font-semibold whitespace-nowrap',
-        'transition-colors duration-100',
-        'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-        iconOnly ? cn(ICON_SIZE[size], 'px-0') : SIZE[size],
-        tone,
-        className,
-      )}
-      {...rest}
-    />
-  );
-};
+}) => (
+  <button
+    type={type}
+    className={cn(
+      'inline-flex shrink-0 cursor-pointer items-center justify-center rounded-control border-0',
+      'font-display font-bold whitespace-nowrap transition-colors duration-100 ease-tt',
+      'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40',
+      iconOnly ? cn(ICON_SIZE[size], 'px-0') : SIZE[size],
+      VARIANT[variant],
+      className,
+    )}
+    {...rest}
+  />
+);

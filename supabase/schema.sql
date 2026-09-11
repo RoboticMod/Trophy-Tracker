@@ -56,6 +56,15 @@ create table if not exists public.user_profile (
   status_names   jsonb,
   platform_order text[],
   highlight_style text,
+  card_layout    text,
+  -- Advanced customization. The surface theme stores its preset key, not the
+  -- seven hexes it expands to, so a later change to a preset reaches accounts
+  -- that already chose it.
+  accent         text,
+  gold           text,
+  surface        text,
+  ui_app_name    text,
+  ui_dash_title  text,
   updated_at     timestamptz not null default now()
 );
 
@@ -96,6 +105,12 @@ alter table public.user_profile
   add column if not exists status_names    jsonb,
   add column if not exists platform_order  text[],
   add column if not exists highlight_style text,
+  add column if not exists card_layout     text,
+  add column if not exists accent          text,
+  add column if not exists gold            text,
+  add column if not exists surface         text,
+  add column if not exists ui_app_name     text,
+  add column if not exists ui_dash_title   text,
   add column if not exists updated_at      timestamptz not null default now();
 
 -- 5. Keep updated_at honest --------------------------------------------------

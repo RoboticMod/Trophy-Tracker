@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Clock, Loader2, KeyRound, WifiOff } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameStatus, RawgGameResult } from '../types';
 import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
-import { Button, Dialog, TextInput } from './ui';
+import { CloudOffIcon, PlusIcon, RefreshIcon, SearchIcon, UnlinkIcon } from './icons';
+import { Button, Dialog } from './ui';
 import { cn } from '../lib/cn';
 
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
@@ -45,10 +44,10 @@ export const QuickAddModal: React.FC = () => {
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      const res = await searchGames(searchQuery);
+      const response = await searchGames(searchQuery);
       if (cancelled) return;
-      setSearchResults(res.results);
-      setSearchError(res.error);
+      setSearchResults(response.results);
+      setSearchError(response.error);
       setIsSearching(false);
     }, 250);
 
@@ -116,90 +115,92 @@ export const QuickAddModal: React.FC = () => {
     <Dialog
       isOpen={isQuickAddOpen}
       onClose={close}
+      eyebrow="New entry"
       title="Add a game"
-      description="Search the catalog, or enter the details yourself"
-      icon={<Sparkles size={18} />}
+      size="l"
       footer={
         tab === 'custom' ? (
           <>
-            <Button buttonStyle="subtle" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              variant="accent"
-              onClick={handleSubmit}
-              disabled={!values.title.trim()}
-              type="submit"
-              form="quick-add-form"
-            >
-              <Plus size={15} />
-              Add to library
-            </Button>
+            <span />
+            <span className="flex gap-2">
+              <Button variant="outline" size="l" onClick={close}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="quick-add-form"
+                variant="accent"
+                size="l"
+                disabled={!values.title.trim()}
+                onClick={handleSubmit}
+              >
+                Add to library
+              </Button>
+            </span>
           </>
         ) : undefined
       }
     >
-      <div className="mb-5 flex gap-1 rounded-sm bg-gray-75 p-1">
+      <div className="flex gap-0.5 rounded-control bg-surface-2 p-[3px]">
         <TabButton active={tab === 'search'} onClick={() => setTab('search')}>
-          <Search size={15} />
+          <SearchIcon size={14} />
           Search catalog
         </TabButton>
         <TabButton active={tab === 'custom'} onClick={() => setTab('custom')}>
-          <Plus size={15} />
+          <PlusIcon size={14} />
           Enter details
         </TabButton>
       </div>
 
       {tab === 'search' ? (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3.5">
           <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600"
+            <SearchIcon
               size={16}
+              color="#9a9082"
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
             />
-            <TextInput
+            <input
               type="search"
               aria-label="Search the game catalog"
               placeholder="Elden Ring, Hollow Knight, Balatro…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="h-10 w-full rounded-control border-0 bg-surface-2 pl-10 pr-3 text-[14px] text-ink shadow-[inset_0_0_0_1px_var(--tt-line)] transition-shadow focus:shadow-[inset_0_0_0_1px_var(--tt-accent)] focus:outline-none"
             />
           </div>
 
           {isSearching ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-gray-700">
-              <Loader2 size={22} className="animate-spin" />
-              <p className="text-75">Searching…</p>
+            <div className="flex flex-col items-center gap-2 py-12 text-subtle">
+              <RefreshIcon size={20} className="animate-spin" />
+              <p className="m-0 text-[13px]">Searching…</p>
             </div>
           ) : searchResults.length === 0 ? (
             <SearchEmptyState error={searchError} query={searchQuery} />
           ) : (
-            <div className="grid max-h-[380px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            <div className="grid max-h-[380px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
               {searchResults.map((game) => (
-                <motion.button
+                <button
                   key={game.id}
                   type="button"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
                   onClick={() => selectGameFromSearch(game)}
-                  className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-gray-75 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
+                  className="group flex cursor-pointer items-center gap-3 rounded-inset border-0 bg-surface-2 p-2.5 text-left hairline transition-colors hover:bg-surface-3"
                 >
                   <CoverArt
                     src={game.background_image}
                     title={game.name}
-                    className="h-14 w-14 shrink-0 rounded-sm object-cover"
+                    className="h-14 w-14 shrink-0 overflow-hidden rounded-control object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-100 font-semibold text-gray-900 group-hover:text-accent-900">
+                    <h4 className="m-0 truncate font-display text-[13px] font-bold text-ink">
                       {game.name}
                     </h4>
-                    <p className="mt-0.5 text-75 text-gray-700">
-                      {game.released?.split('-')[0] || 'Unknown'} •{' '}
+                    <p className="m-0 mt-0.5 text-[11px] text-subtle">
+                      {game.released?.split('-')[0] || 'Unknown'} &middot;{' '}
                       {game.genres?.[0]?.name || 'Game'}
                     </p>
                   </div>
-                </motion.button>
+                </button>
               ))}
             </div>
           )}
@@ -214,8 +215,7 @@ export const QuickAddModal: React.FC = () => {
           collections={collections}
           profile={profile}
         >
-          <p className="flex items-center gap-1.5 text-50 text-gray-600">
-            <Clock size={12} />
+          <p className="m-0 text-[11px] text-faint">
             Added games sync to your account automatically.
           </p>
         </GameDetailsFields>
@@ -231,18 +231,18 @@ const SearchEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ e
   const [icon, title, body] =
     error === 'missing-key'
       ? [
-          <KeyRound size={20} key="k" />,
+          <UnlinkIcon size={20} key="k" />,
           'No RAWG key configured',
           'Catalog search runs on the RAWG API. Set VITE_RAWG_API_KEY, or use “Enter details” to add the game yourself.',
         ]
       : error === 'request-failed'
         ? [
-            <WifiOff size={20} key="w" />,
+            <CloudOffIcon size={20} key="w" />,
             'Could not reach RAWG',
             'The catalog request failed. Check your connection, or use “Enter details” to add the game yourself.',
           ]
         : [
-            <Search size={20} key="s" />,
+            <SearchIcon size={20} key="s" />,
             trimmed ? 'No matches' : 'Nothing to show yet',
             trimmed
               ? `RAWG has no titles matching “${trimmed}”.`
@@ -250,12 +250,12 @@ const SearchEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ e
           ];
 
   return (
-    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-75/60 px-6 py-10 text-center">
-      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-200 text-gray-700">
+    <div className="flex flex-col items-center gap-2 rounded-inset px-6 py-10 text-center hairline">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-subtle">
         {icon}
-      </div>
-      <h4 className="text-100 font-bold text-gray-1000">{title}</h4>
-      <p className="max-w-sm text-75 text-gray-700">{body}</p>
+      </span>
+      <h4 className="m-0 font-display text-[15px] font-bold text-ink">{title}</h4>
+      <p className="m-0 max-w-sm text-[12px] text-subtle [text-wrap:pretty]">{body}</p>
     </div>
   );
 };
@@ -270,8 +270,9 @@ const TabButton: React.FC<{
     onClick={onClick}
     aria-pressed={active}
     className={cn(
-      'flex flex-1 items-center justify-center gap-2 rounded-sm px-4 py-2 text-100 font-medium transition-colors',
-      active ? 'bg-accent-700 text-gray-1000' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900',
+      'flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[3px] border-0 py-2',
+      'font-display text-[13px] font-bold transition-colors',
+      active ? 'bg-surface-3 text-ink' : 'bg-transparent text-subtle hover:text-muted',
     )}
   >
     {children}

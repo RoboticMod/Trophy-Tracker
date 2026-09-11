@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { UserGame, GameStatus } from '../types';
-import { PLATFORMS } from '../lib/constants';
-import { PlatformIcon } from './PlatformIcon';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
+import { TrashIcon } from './icons';
 import { Button, Dialog } from './ui';
 
-const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered', 'dropped'];
+const STATUS_CHOICES: GameStatus[] = ['backlog', 'playing', 'completed', 'mastered', 'dropped'];
 
 interface EditGameModalProps {
   game: UserGame | null;
@@ -73,17 +71,20 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
+      eyebrow="Edit entry"
       title={game.title}
-      description={`${PLATFORMS[values.platform].name} • edit tracked details`}
-      icon={<PlatformIcon platform={values.platform} size={18} />}
+      size="l"
       footer={
-        <>
-          {confirmDelete ? (
-            <div className="mr-auto flex items-center gap-2">
-              <span className="text-75 text-gray-800">Delete this game permanently?</span>
+        confirmDelete ? (
+          <>
+            <span className="text-[13px] text-body">Delete this game permanently?</span>
+            <span className="flex gap-2">
+              <Button variant="ghost" size="l" onClick={() => setConfirmDelete(false)}>
+                Keep
+              </Button>
               <Button
-                variant="negative"
-                size="s"
+                variant="danger"
+                size="l"
                 onClick={() => {
                   deleteGame(game.id);
                   onClose();
@@ -91,41 +92,37 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
               >
                 Delete
               </Button>
-              <Button buttonStyle="subtle" size="s" onClick={() => setConfirmDelete(false)}>
-                Keep
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="negative"
-              buttonStyle="subtle"
-              className="mr-auto"
-              onClick={() => setConfirmDelete(true)}
-            >
-              <Trash2 size={14} />
-              Delete game
+            </span>
+          </>
+        ) : (
+          <>
+            <Button variant="danger" size="l" onClick={() => setConfirmDelete(true)}>
+              <TrashIcon size={14} />
+              Remove
             </Button>
-          )}
-
-          <Button buttonStyle="subtle" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            type="submit"
-            form="edit-game-form"
-            disabled={!values.title.trim()}
-          >
-            Save changes
-          </Button>
-        </>
+            <span className="flex gap-2">
+              <Button variant="outline" size="l" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="edit-game-form"
+                variant="accent"
+                size="l"
+                disabled={!values.title.trim()}
+              >
+                Save changes
+              </Button>
+            </span>
+          </>
+        )
       }
     >
       <GameDetailsFields
         formId="edit-game-form"
         onSubmit={handleSubmit}
         values={values}
-        onChange={patch => setValues(v => ({ ...v, ...patch }))}
+        onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
         statuses={STATUS_CHOICES}
         collections={collections}
         profile={profile}

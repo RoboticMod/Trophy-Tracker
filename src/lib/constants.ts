@@ -15,17 +15,17 @@ export const PLATFORMS: Record<Platform, PlatformConfig> = {
     id: 'steam',
     name: 'Steam',
     shortName: 'Steam',
+    mark: 'STEAM',
     color: '#66c0f4',
-    tint: 'rgb(102 192 244 / 0.22)',
-    surfaceClass: 'bg-steam-700/15 text-steam-900',
+    line: 'rgb(102 192 244 / .4)',
   },
   ps5: {
     id: 'ps5',
     name: 'PlayStation 5',
     shortName: 'PS5',
+    mark: 'PS5',
     color: '#4d9bf0',
-    tint: 'rgb(0 112 209 / 0.28)',
-    surfaceClass: 'bg-playstation-700/15 text-playstation-900',
+    line: 'rgb(77 155 240 / .4)',
   },
 };
 
@@ -70,8 +70,8 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     name: 'Backlog',
     description: 'Games queued to play',
     icon: 'Clock',
-    // Neutral, matching backlog everywhere else in the app.
-    color: '#a5a5ad',
+    // The queued hue, matching backlog everywhere else in the app.
+    color: '#d98b3a',
     isSystem: true,
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -80,7 +80,7 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     name: 'All-Time Favorites',
     description: 'Favorite games',
     icon: 'Heart',
-    color: '#ec5b62',
+    color: '#f2686f',
     isSystem: false,
     createdAt: '2026-01-02T00:00:00.000Z',
   },
@@ -89,7 +89,7 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     name: '100% Platinum Club',
     description: 'Games finished to 100%',
     icon: 'Trophy',
-    color: '#f2c14e',
+    color: '#ffd36b',
     isSystem: false,
     createdAt: '2026-01-03T00:00:00.000Z',
   },
@@ -114,11 +114,11 @@ export const withSystemColors = (collections: Collection[]): Collection[] =>
 export const COLLECTION_COLORS = [
   '#4d9bf0',
   '#66c0f4',
-  '#52c294',
-  '#f2c14e',
-  '#edaa30',
-  '#ec5b62',
-  '#c8c8cf',
+  '#4fc38a',
+  '#ffd36b',
+  '#d98b3a',
+  '#f2686f',
+  '#b8ae9f',
 ];
 
 export const DEFAULT_COLLECTION_COLOR = COLLECTION_COLORS[0];

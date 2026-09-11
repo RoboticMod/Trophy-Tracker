@@ -1,19 +1,39 @@
 import React from 'react';
+import { cn } from '../../lib/cn';
 
 interface EmptyStateProps {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
   description: string;
   action?: React.ReactNode;
+  className?: string;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action }) => (
-  <div className="mx-auto max-w-md space-y-3 rounded-lg border border-dashed border-gray-300 bg-gray-75/60 p-10 text-center">
-    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-gray-200 text-gray-700">
-      {icon}
-    </div>
-    <h3 className="text-200 font-bold text-gray-1000">{title}</h3>
-    <p className="text-75 text-gray-700">{description}</p>
-    {action ? <div className="flex justify-center pt-1">{action}</div> : null}
+/**
+ * An empty grid explains itself on the page ground rather than on a panel — a
+ * filled surface with nothing in it reads as content that failed to load.
+ */
+export const EmptyState: React.FC<EmptyStateProps> = ({
+  icon,
+  title,
+  description,
+  action,
+  className,
+}) => (
+  <div
+    className={cn(
+      'mx-auto flex w-full max-w-[460px] flex-col items-center gap-2.5 rounded-panel',
+      'px-6 py-14 text-center hairline',
+      className,
+    )}
+  >
+    {icon ? (
+      <span className="flex h-[46px] w-[46px] items-center justify-center rounded-full bg-surface-2 text-subtle">
+        {icon}
+      </span>
+    ) : null}
+    <h3 className="m-0 font-display text-[17px] font-bold text-ink">{title}</h3>
+    <p className="m-0 max-w-[40ch] text-[13px] text-subtle [text-wrap:pretty]">{description}</p>
+    {action ? <div className="mt-1.5 flex flex-wrap justify-center gap-2">{action}</div> : null}
   </div>
 );

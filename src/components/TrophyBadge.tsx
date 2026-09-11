@@ -35,10 +35,10 @@ const TROPHY_ART: Record<Platform, TrophyArt> = {
   steam: {
     src: steamArt,
     alt: 'Steam perfect game',
-    label: 'Perfect Game',
+    label: 'Perfect game',
     title: 'Steam — every achievement unlocked (Perfect Game)',
     noun: 'Achievements',
-    completeLabel: 'All Achievements Unlocked',
+    completeLabel: 'Perfect game',
     width: 147,
     height: 192,
   },
@@ -48,7 +48,7 @@ const TROPHY_ART: Record<Platform, TrophyArt> = {
     label: 'Platinum',
     title: 'PlayStation 5 — Platinum Trophy unlocked',
     noun: 'Trophies',
-    completeLabel: 'Platinum Trophy Unlocked',
+    completeLabel: 'Platinum secured',
     width: 119,
     height: 192,
   },
@@ -64,6 +64,7 @@ interface TrophyBadgeProps {
    */
   muted?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -80,6 +81,7 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
   size = 20,
   muted = false,
   className,
+  style,
 }) => {
   const art = TROPHY_ART[normalizePlatform(platform) ?? 'steam'];
 
@@ -89,7 +91,7 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
       // claim the completion the full-colour one announces.
       title={muted ? art.noun : art.title}
       className={cn('inline-flex shrink-0 select-none items-center justify-center', className)}
-      style={{ width: size, height: size }}
+      style={{ ...style, width: size, height: size }}
     >
       <img
         src={art.src}
@@ -126,9 +128,17 @@ export const awardProgressLabel = (platform: Platform | string, complete: boolea
 };
 
 /**
+ * The mark's own file URL, for the handful of places that need it as a CSS
+ * background rather than an <img> — leaderboard rows and chip glyphs, where the
+ * mark is decoration inside a sized box.
+ */
+export const trophySrc = (platform: Platform | string): string =>
+  TROPHY_ART[normalizePlatform(platform) ?? 'steam'].src;
+
+/**
  * Both completion marks as one lockup, for places that stand for achievements
- * in general rather than a single platform — navigation, page headers, and the
- * "100% completed" statistic.
+ * in general rather than a single platform — the brand mark, page headers, and
+ * the "100% completed" statistic.
  */
 export const TrophyPair: React.FC<{ size?: number; className?: string }> = ({
   size = 18,
@@ -139,6 +149,27 @@ export const TrophyPair: React.FC<{ size?: number; className?: string }> = ({
     aria-label="Achievements and trophies"
   >
     <TrophyBadge platform="steam" size={size} />
-    <TrophyBadge platform="ps5" size={size} className="-ml-1.5" />
+    <TrophyBadge platform="ps5" size={size} style={{ marginLeft: -(size * 0.36) }} />
+  </span>
+);
+
+/**
+ * The app's brand lockup: both marks in a warm chip with a gold hairline. Used
+ * in the sidebar, the mobile top bar and the sign-in card, so the product
+ * identifies itself the same way at every size.
+ */
+export const BrandMark: React.FC<{ size?: number; className?: string }> = ({
+  size = 17,
+  className,
+}) => (
+  <span
+    style={{
+      background: 'var(--color-gold-wash, #2a2013)',
+      boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--tt-gold, #e5a83c) 35%, transparent)`,
+      padding: `${Math.round(size * 0.42)}px ${Math.round(size * 0.47)}px`,
+    }}
+    className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-inset', className)}
+  >
+    <TrophyPair size={size} />
   </span>
 );

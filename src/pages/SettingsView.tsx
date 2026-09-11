@@ -1,128 +1,64 @@
 import React, { useState } from 'react';
-import {
-  Settings,
-  Database,
-  Key,
-  Download,
-  Upload,
-  Check,
-  RefreshCw,
-  User,
-  Sliders,
-  Play,
-  Gamepad2,
-  FolderKanban,
-  BarChart3,
-  Search,
-  Copy,
-  Code,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  Library,
-  RotateCcw,
-  LogOut,
-  Tags,
-  Palette,
-  X,
-  CloudOff,
-  Cloud,
-} from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import { clearUserCache } from '../lib/localCache';
-import { SidebarConfig, GameStatus, HighlightStyle, Platform, GAME_STATUSES } from '../types';
+import { GameStatus, GAME_STATUSES, Platform, SurfaceKey } from '../types';
 import { SUPABASE_SCHEMA_SQL } from '../lib/db';
 import { getRawgCacheCount, clearRawgCache } from '../lib/rawg';
 import {
-  DEFAULT_STATUS_NAMES,
   DEFAULT_PLATFORM_SORT_ORDER,
+  DEFAULT_STATUS_NAMES,
   PLATFORMS,
-  describePlatformOrder,
   normalizePlatform,
 } from '../lib/constants';
-import { validateStatusName, MAX_STATUS_NAME_LENGTH } from '../lib/status';
+import { statusLabel, validateStatusName, MAX_STATUS_NAME_LENGTH, STATUS_COLOR } from '../lib/status';
+import {
+  ACCENT_PRESETS,
+  DEFAULT_ACCENT,
+  DEFAULT_APP_NAME,
+  DEFAULT_DASH_TITLE,
+  DEFAULT_GOLD,
+  DEFAULT_SURFACE,
+  GOLD_PRESETS,
+  MAX_UI_NAME_LENGTH,
+  SURFACES,
+  SURFACE_KEYS,
+} from '../lib/theme';
+import {
+  DEFAULT_NAV_ORDER,
+  MAX_NAV_NAME_LENGTH,
+  allNavDestinationsInOrder,
+  isNavVisible,
+  navLabel,
+} from '../lib/navigation';
 import { fileToAvatarDataUrl } from '../lib/image';
-import { PlatformIcon } from '../components/PlatformIcon';
-import { TrophyPair } from '../components/TrophyBadge';
-import { Button, Card, Field, SectionHeader, Switch, TextInput } from '../components/ui';
+import { softEdge } from '../lib/tone';
+import {
+  Button,
+  Dot,
+  Eyebrow,
+  Field,
+  FieldLabel,
+  GroupHeading,
+  InsetRow,
+  Panel,
+  PanelHeading,
+  RowInput,
+  Switch,
+  SyncPill,
+  TextInput,
+} from '../components/ui';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CopyIcon,
+  DownloadIcon,
+  LogOutIcon,
+  RefreshIcon,
+  SlidersIcon,
+  UploadIcon,
+} from '../components/icons';
 import { cn } from '../lib/cn';
-
-const ALL_NAV_ITEMS = [
-  {
-    id: 'dashboard',
-    path: '/',
-    name: 'Library',
-    description: 'Overview and filters',
-    icon: Library,
-    configKey: null,
-    tone: 'bg-accent-100 text-accent-900',
-  },
-  {
-    id: 'playing',
-    path: '/playing',
-    name: 'Currently playing',
-    description: 'Active titles in progress',
-    icon: Play,
-    configKey: 'showCurrentlyPlaying' as const,
-    tone: 'bg-accent-100 text-accent-900',
-  },
-  {
-    id: 'achievements',
-    path: '/achievements',
-    name: 'Achievements & trophies',
-    description: 'Perfect games and platinums',
-    icon: null,
-    configKey: 'showAchievements' as const,
-    tone: 'bg-trophy-100',
-  },
-  {
-    id: 'search',
-    path: '/search',
-    name: 'Search & add',
-    description: 'Catalog search',
-    icon: Search,
-    configKey: 'showSearch' as const,
-    tone: 'bg-accent-100 text-accent-900',
-  },
-  {
-    id: 'backlog',
-    path: '/backlog',
-    name: 'Backlog',
-    description: 'Queue of unplayed games',
-    icon: Gamepad2,
-    configKey: 'showBacklog' as const,
-    tone: 'bg-gray-300 text-gray-800',
-  },
-  {
-    id: 'collections',
-    path: '/collections',
-    name: 'Collections',
-    description: 'Custom lists',
-    icon: FolderKanban,
-    configKey: 'showCollections' as const,
-    tone: 'bg-gray-200 text-gray-800',
-  },
-  {
-    id: 'stats',
-    path: '/stats',
-    name: 'Statistics',
-    description: 'Playtime and completion metrics',
-    icon: BarChart3,
-    configKey: 'showStats' as const,
-    tone: 'bg-positive-100 text-positive-900',
-  },
-];
-
-const DEFAULT_NAV_ORDER = [
-  '/',
-  '/playing',
-  '/achievements',
-  '/search',
-  '/backlog',
-  '/collections',
-  '/stats',
-];
 
 export const SettingsView: React.FC = () => {
   const {
@@ -134,21 +70,19 @@ export const SettingsView: React.FC = () => {
     updateSidebarConfig,
     replaceAll,
     refresh,
-    loading,
-    isOnline,
-    pendingWrites,
-    lastSyncedAt,
+    ui,
   } = useGame();
   const { user, signOut } = useAuth();
 
   const [usernameInput, setUsernameInput] = useState(profile.username || '');
+  const [savedName, setSavedName] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [showSqlSchema, setShowSqlSchema] = useState(false);
+  const [showSql, setShowSql] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [cacheCount, setCacheCount] = useState(() => getRawgCacheCount());
   const [statusErrors, setStatusErrors] = useState<Partial<Record<GameStatus, string>>>({});
+  const [advOpen, setAdvOpen] = useState(false);
 
   const platformOrder = profile.platformOrder?.length
     ? profile.platformOrder
@@ -156,11 +90,11 @@ export const SettingsView: React.FC = () => {
 
   /* -- Account ----------------------------------------------------------- */
 
-  const handleSaveAccount = (e: React.FormEvent) => {
+  const handleSaveName = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile({ username: usernameInput.trim() || 'Player' });
-    setSavedProfile(true);
-    setTimeout(() => setSavedProfile(false), 2000);
+    setSavedName(true);
+    setTimeout(() => setSavedName(false), 2000);
   };
 
   const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,64 +115,40 @@ export const SettingsView: React.FC = () => {
     await signOut();
   };
 
-  /* -- Status names ------------------------------------------------------- */
-
-  const handleStatusNameChange = (status: GameStatus, value: string) => {
-    const error = validateStatusName(value);
-    setStatusErrors((prev) => ({ ...prev, [status]: error ?? undefined }));
-    if (error) return;
-
-    updateProfile({
-      statusNames: { ...(profile.statusNames || {}), [status]: value.trim() },
-    });
-  };
-
-  const resetStatusName = (status: GameStatus) => {
-    const next = { ...(profile.statusNames || {}) };
-    delete next[status];
-    setStatusErrors((prev) => ({ ...prev, [status]: undefined }));
-    updateProfile({ statusNames: next });
-  };
-
-  /* -- Platform order ----------------------------------------------------- */
+  /* -- Ordering ---------------------------------------------------------- */
 
   const movePlatform = (index: number, direction: -1 | 1) => {
     const target = index + direction;
     if (target < 0 || target >= platformOrder.length) return;
-
     const next: Platform[] = [...platformOrder];
     [next[index], next[target]] = [next[target], next[index]];
     updateProfile({ platformOrder: next });
   };
 
-  /* -- Sidebar ordering --------------------------------------------------- */
+  const navDestinations = allNavDestinationsInOrder(sidebarConfig);
 
-  const currentNavOrder = sidebarConfig.navOrder?.length ? sidebarConfig.navOrder : DEFAULT_NAV_ORDER;
-
-  const orderedNavItems = [...ALL_NAV_ITEMS].sort((a, b) => {
-    const idxA = currentNavOrder.indexOf(a.path);
-    const idxB = currentNavOrder.indexOf(b.path);
-    return (
-      (idxA === -1 ? currentNavOrder.length : idxA) - (idxB === -1 ? currentNavOrder.length : idxB)
-    );
-  });
-
-  const navNames = sidebarConfig.navNames || {};
+  const moveNav = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= navDestinations.length) return;
+    const next = navDestinations.map((d) => d.path);
+    [next[index], next[target]] = [next[target], next[index]];
+    updateSidebarConfig({ navOrder: next });
+  };
 
   const renameNav = (path: string, value: string) => {
-    const next = { ...navNames };
+    const next = { ...(sidebarConfig.navNames || {}) };
     if (value.trim()) next[path] = value.trim();
     else delete next[path];
     updateSidebarConfig({ navNames: next });
   };
 
-  const moveNav = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= orderedNavItems.length) return;
+  /* -- Status names ------------------------------------------------------- */
 
-    const next = orderedNavItems.map((item) => item.path);
-    [next[index], next[target]] = [next[target], next[index]];
-    updateSidebarConfig({ navOrder: next });
+  const renameStatus = (status: GameStatus, value: string) => {
+    const error = validateStatusName(value);
+    setStatusErrors((prev) => ({ ...prev, [status]: error ?? undefined }));
+    if (error) return;
+    updateProfile({ statusNames: { ...(profile.statusNames || {}), [status]: value.trim() } });
   };
 
   /* -- Backup ------------------------------------------------------------- */
@@ -306,72 +216,88 @@ export const SettingsView: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const copySql = async () => {
+    try {
+      await navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
+      setCopiedSql(true);
+      setTimeout(() => setCopiedSql(false), 2000);
+    } catch {
+      // Clipboard access can be denied; the SQL is still readable via View SQL.
+      setShowSql(true);
+    }
+  };
+
+  const resetCustomization = () =>
+    updateProfile({
+      accent: DEFAULT_ACCENT,
+      gold: DEFAULT_GOLD,
+      surface: DEFAULT_SURFACE,
+      uiAppName: undefined,
+      uiDashTitle: undefined,
+      statusNames: undefined,
+    });
+
+  const avatarInitial = (profile.username || 'P').trim().charAt(0).toUpperCase() || 'P';
+  const usingPresetAccent = ACCENT_PRESETS.some((p) => p.color === ui.theme.accent);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-10">
-      <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-200 text-gray-800">
-          <Settings size={20} />
-        </div>
-        <div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Settings</h1>
-          <p className="text-75 text-gray-700">
-            Account, naming, ordering, navigation and data.
-          </p>
-        </div>
+    <section className="tt-rise mx-auto flex w-full max-w-[780px] flex-col gap-4">
+      <div>
+        <Eyebrow>Preferences</Eyebrow>
+        <h1 className="m-0 mt-1 font-display text-[clamp(28px,4.2vw,42px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">
+          Settings
+        </h1>
       </div>
 
-      {/* Account ------------------------------------------------------------ */}
-      <Card className="space-y-5">
-        <SectionHeader
-          icon={<User size={18} />}
-          title="Account"
-          description={user?.email ?? 'Signed in'}
-          action={
-            <Button variant="secondary" buttonStyle="outline" size="s" onClick={handleSignOut}>
-              <LogOut size={13} />
-              Sign out
-            </Button>
-          }
-        />
-
-        <div className="flex flex-col gap-4 rounded-md border border-gray-200 bg-gray-75 p-4 sm:flex-row sm:items-center">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 ring-1 ring-gray-300">
-            {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-500 font-bold text-gray-700">
-                {(profile.username || 'P').charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-
-          <div className="flex-1 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-sm bg-accent-700 px-4 text-100 font-semibold text-gray-1000 transition-colors hover:bg-accent-800">
-                <Upload size={13} />
-                <span>Upload image</span>
-                <input type="file" accept="image/*" onChange={handleAvatarFile} className="hidden" />
-              </label>
-              {profile.avatarUrl && (
-                <Button
-                  buttonStyle="subtle"
-                  size="s"
-                  variant="negative"
-                  onClick={() => updateProfile({ avatarUrl: undefined })}
-                >
-                  <X size={12} />
-                  Remove
-                </Button>
-              )}
-            </div>
-            <p className={cn('text-50', avatarError ? 'text-negative-900' : 'text-gray-600')}>
-              {avatarError ?? 'Resized to 256px and stored with your profile.'}
-            </p>
-          </div>
+      {/* Account ----------------------------------------------------------- */}
+      <Panel className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PanelHeading>Account</PanelHeading>
+          <Button variant="outline" size="s" onClick={handleSignOut}>
+            <LogOutIcon size={13} />
+            Sign out
+          </Button>
         </div>
 
-        <form onSubmit={handleSaveAccount} className="flex flex-wrap items-end gap-3">
-          <Field label="Display name" className="min-w-56 flex-1">
+        <InsetRow className="flex flex-wrap items-start gap-4 !p-4">
+          {profile.avatarUrl ? (
+            <img
+              src={profile.avatarUrl}
+              alt=""
+              className="h-[62px] w-[62px] shrink-0 rounded-full object-cover hairline-2"
+            />
+          ) : (
+            <span className="flex h-[62px] w-[62px] shrink-0 items-center justify-center rounded-full bg-surface-3 font-display text-[22px] font-bold text-muted hairline-2">
+              {avatarInitial}
+            </span>
+          )}
+
+          <div className="flex min-w-[200px] flex-1 flex-col items-start gap-2">
+            <span className="text-[13px] text-muted">{user?.email ?? 'Signed in'}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex h-[34px] cursor-pointer items-center gap-[7px] rounded-control bg-surface-3 px-3.5 font-display text-[13px] font-bold text-body transition-colors hover:bg-line">
+                <UploadIcon size={13} />
+                Upload image
+                <input type="file" accept="image/*" onChange={handleAvatarFile} className="hidden" />
+              </label>
+              {profile.avatarUrl ? (
+                <Button
+                  variant="ghost"
+                  size="s"
+                  onClick={() => updateProfile({ avatarUrl: undefined })}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            <span className={cn('text-[11px]', avatarError ? 'text-danger' : 'text-faint')}>
+              {avatarError ?? 'Resized to 256px and stored with your profile.'}
+            </span>
+          </div>
+        </InsetRow>
+
+        <form onSubmit={handleSaveName} className="flex flex-wrap items-end gap-2.5">
+          <Field label="Display name" className="min-w-[200px] flex-1">
             {(props) => (
               <TextInput
                 {...props}
@@ -381,412 +307,530 @@ export const SettingsView: React.FC = () => {
               />
             )}
           </Field>
-          <Button type="submit" variant="accent">
-            {savedProfile ? <Check size={14} /> : null}
-            {savedProfile ? 'Saved' : 'Save name'}
+          <Button type="submit" variant="accent" size="l">
+            {savedName ? 'Saved' : 'Save name'}
           </Button>
         </form>
-      </Card>
+      </Panel>
 
-      {/* Status names -------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Tags size={18} />}
-          title="Status names"
-          description="Rename any status — the new name appears everywhere at once"
-          iconClassName="bg-trophy-100 text-trophy-900"
-        />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {GAME_STATUSES.map((status) => {
-            const custom = profile.statusNames?.[status];
-            return (
-              <Field
-                key={status}
-                label={DEFAULT_STATUS_NAMES[status]}
-                error={statusErrors[status]}
-                description={
-                  statusErrors[status] ? undefined : `Up to ${MAX_STATUS_NAME_LENGTH} characters`
-                }
-                action={
-                  custom ? (
-                    <button
-                      type="button"
-                      onClick={() => resetStatusName(status)}
-                      className="rounded-sm text-50 text-gray-600 hover:text-gray-900"
-                    >
-                      Reset
-                    </button>
-                  ) : null
-                }
-              >
-                {(props) => (
-                  <TextInput
-                    {...props}
-                    defaultValue={custom ?? DEFAULT_STATUS_NAMES[status]}
-                    maxLength={MAX_STATUS_NAME_LENGTH + 8}
-                    onChange={(e) => handleStatusNameChange(status, e.target.value)}
-                    placeholder={DEFAULT_STATUS_NAMES[status]}
-                  />
-                )}
-              </Field>
-            );
-          })}
+      {/* Card highlight ---------------------------------------------------- */}
+      <Panel className="flex flex-col gap-3.5">
+        <div>
+          <PanelHeading>Card highlight</PanelHeading>
+          <p className="m-0 mt-1 text-[12px] text-subtle">
+            How a card signals that a game is in progress or fully completed.
+          </p>
         </div>
-      </Card>
-
-      {/* Card highlight ------------------------------------------------------ */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Palette size={18} />}
-          title="Card highlight"
-          description="How a game card signals that it is in progress or fully completed"
-          iconClassName="bg-accent-100 text-accent-900"
-        />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                id: 'stroke',
-                name: 'Stroke',
-                hint: 'A coloured outline around the card',
-                swatch: 'border-2 border-trophy-700 bg-gray-100',
-              },
-              {
-                id: 'fill',
-                name: 'Filled',
-                hint: 'The whole card tinted in the status colour',
-                swatch: 'border border-trophy-700/40 bg-trophy-100',
-              },
-            ] as { id: HighlightStyle; name: string; hint: string; swatch: string }[]
-          ).map((option) => {
-            const selected = (profile.highlightStyle ?? 'stroke') === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => updateProfile({ highlightStyle: option.id })}
-                aria-pressed={selected}
-                className={cn(
-                  'flex items-center gap-3 rounded-md border p-3 text-left transition-colors',
-                  selected
-                    ? 'border-accent-700 bg-accent-100'
-                    : 'border-gray-300 bg-gray-75 hover:border-gray-400',
-                )}
-              >
-                <span className={cn('h-10 w-14 shrink-0 rounded-sm', option.swatch)} />
-                <span className="min-w-0">
-                  <span className="block text-100 font-semibold text-gray-1000">{option.name}</span>
-                  <span className="block text-50 text-gray-700">{option.hint}</span>
-                </span>
-              </button>
-            );
-          })}
+        <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))]">
+          <HighlightOption
+            selected={ui.highlight === 'stroke'}
+            onClick={() => updateProfile({ highlightStyle: 'stroke' })}
+            title="Stroke"
+            description="A gold hairline around the card"
+            preview={
+              <span
+                style={{
+                  boxShadow: `inset 0 0 0 2px ${softEdge('var(--tt-gold, #e5a83c)', 70)}`,
+                }}
+                className="block h-10 w-14 shrink-0 rounded-md bg-surface"
+              />
+            }
+          />
+          <HighlightOption
+            selected={ui.highlight === 'fill'}
+            onClick={() => updateProfile({ highlightStyle: 'fill' })}
+            title="Filled"
+            description="The card body tinted in status colour"
+            preview={
+              <span
+                style={{
+                  background:
+                    'linear-gradient(165deg, var(--color-gold-wash), var(--tt-surface))',
+                  boxShadow: `inset 0 0 0 1px ${softEdge('var(--tt-gold, #e5a83c)', 40)}`,
+                }}
+                className="block h-10 w-14 shrink-0 rounded-md"
+              />
+            }
+          />
         </div>
-      </Card>
+      </Panel>
 
-      {/* Platform order ------------------------------------------------------ */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Sliders size={18} />}
-          title="Platform order"
-          description={`Used by the "Platform" sort in every library view — currently ${describePlatformOrder(platformOrder)}`}
-          iconClassName="bg-gray-200 text-gray-800"
-          action={
-            platformOrder.join() !== DEFAULT_PLATFORM_SORT_ORDER.join() ? (
-              <Button
-                variant="secondary"
-                buttonStyle="outline"
-                size="s"
-                onClick={() => updateProfile({ platformOrder: DEFAULT_PLATFORM_SORT_ORDER })}
-              >
-                <RotateCcw size={13} />
-                Reset
-              </Button>
-            ) : null
-          }
-        />
-
-        <div className="space-y-2">
+      {/* Platform order ---------------------------------------------------- */}
+      <Panel className="flex flex-col gap-3.5">
+        <div>
+          <PanelHeading>Platform order</PanelHeading>
+          <p className="m-0 mt-1 text-[12px] text-subtle">
+            Drives the “Platform” sort in every library view.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
           {platformOrder.map((platform, index) => (
-            <div
-              key={platform}
-              className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-75 p-2.5"
-            >
-              <span className="w-6 text-center text-75 font-bold text-gray-600">#{index + 1}</span>
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-sm"
-                style={{ color: PLATFORMS[platform]?.color }}
+            <InsetRow key={platform} className="flex items-center gap-3 !px-3 !py-2.5">
+              <span className="w-[22px] shrink-0 font-display text-[12px] font-bold text-faint">
+                {index + 1}
+              </span>
+              <span
+                style={{ color: PLATFORMS[platform].color }}
+                className="flex h-[30px] w-11 shrink-0 items-center justify-center rounded-control bg-bg-2 font-display text-[10px] font-bold tracking-[0.08em]"
               >
-                <PlatformIcon platform={platform} size={18} />
-              </div>
-              <span className="flex-1 text-100 text-gray-900">{PLATFORMS[platform]?.name}</span>
-              <div className="flex gap-1">
-                <Button
-                  size="s"
-                  iconOnly
-                  variant="secondary"
-                  buttonStyle="outline"
-                  disabled={index === 0}
-                  onClick={() => movePlatform(index, -1)}
-                  aria-label={`Move ${PLATFORMS[platform]?.name} up`}
-                >
-                  <ChevronUp size={14} />
-                </Button>
-                <Button
-                  size="s"
-                  iconOnly
-                  variant="secondary"
-                  buttonStyle="outline"
-                  disabled={index === platformOrder.length - 1}
-                  onClick={() => movePlatform(index, 1)}
-                  aria-label={`Move ${PLATFORMS[platform]?.name} down`}
-                >
-                  <ChevronDown size={14} />
-                </Button>
-              </div>
-            </div>
+                {PLATFORMS[platform].mark}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[14px] text-body">
+                {PLATFORMS[platform].name}
+              </span>
+              <MoveButtons
+                onUp={() => movePlatform(index, -1)}
+                onDown={() => movePlatform(index, 1)}
+                disableUp={index === 0}
+                disableDown={index === platformOrder.length - 1}
+              />
+            </InsetRow>
           ))}
         </div>
-      </Card>
+      </Panel>
 
-      {/* Navigation ---------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Sliders size={18} />}
-          title="Sidebar navigation"
-          description="Reorder destinations or hide the ones you don't use"
-          action={
-            <Button
-              variant="secondary"
-              buttonStyle="outline"
-              size="s"
-              onClick={() => updateSidebarConfig({ navOrder: DEFAULT_NAV_ORDER })}
-            >
-              <RotateCcw size={13} />
-              Reset order
-            </Button>
-          }
-        />
+      {/* Advanced customization -------------------------------------------- */}
+      <div className="rounded-panel bg-surface hairline">
+        <button
+          type="button"
+          onClick={() => setAdvOpen((open) => !open)}
+          aria-expanded={advOpen}
+          className="flex w-full cursor-pointer items-center gap-3.5 rounded-panel border-0 bg-transparent p-[clamp(16px,2.4vw,22px)] text-left transition-colors hover:bg-surface-2"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-inset bg-accent-soft text-accent-ink">
+            <SlidersIcon size={17} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-[16px] font-bold text-ink">
+              Advanced customization
+            </span>
+            <span className="mt-1 block text-[12px] text-subtle [text-wrap:pretty]">
+              Accents, interface names, statuses and tabs. Saved to your Supabase profile.
+            </span>
+          </span>
+          <SyncPill size="sm" className="hidden sm:inline-flex">
+            Synced
+          </SyncPill>
+          <ChevronDownIcon
+            size={17}
+            color="#9a9082"
+            className={cn(
+              'shrink-0 transition-transform duration-200 ease-tt',
+              advOpen && 'rotate-180',
+            )}
+          />
+        </button>
 
-        <div className="space-y-2">
-          {orderedNavItems.map((item, index) => {
-            const Icon = item.icon;
-            const visible = item.configKey
-              ? (sidebarConfig[item.configKey] as boolean)
-              : true;
+        {advOpen ? (
+          <div className="flex flex-col gap-6 px-[clamp(16px,2.4vw,22px)] pb-[clamp(16px,2.4vw,22px)] pt-1">
+            <div className="h-px bg-line" />
 
-            return (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-75 p-3"
-              >
-                <div className="flex min-w-56 flex-1 items-center gap-3">
-                  <span className="w-6 shrink-0 text-center text-75 font-bold text-gray-600">
-                    #{index + 1}
-                  </span>
-                  <div
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-sm',
-                      item.tone,
-                    )}
-                  >
-                    {Icon ? <Icon size={16} /> : <TrophyPair size={15} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <TextInput
-                      defaultValue={navNames[item.path] ?? item.name}
-                      onChange={(e) => renameNav(item.path, e.target.value)}
-                      aria-label={`Sidebar name for ${item.name}`}
-                      placeholder={item.name}
-                      className="h-8 text-75 font-semibold"
-                    />
-                    <div className="mt-1 truncate text-50 text-gray-700">{item.description}</div>
-                  </div>
+            {/* Accent ------------------------------------------------------ */}
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <GroupHeading>Accent colour</GroupHeading>
+                <p className="m-0 mt-1 text-[12px] text-subtle">
+                  Drives buttons, links, active tabs and progress meters across the app.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {ACCENT_PRESETS.map((preset) => (
+                  <SwatchPill
+                    key={preset.color}
+                    name={preset.name}
+                    selected={ui.theme.accent === preset.color}
+                    ringColor={preset.color}
+                    onClick={() => updateProfile({ accent: preset.color })}
+                    swatch={
+                      <span
+                        style={{ background: preset.color }}
+                        className="h-[22px] w-[22px] rounded-full"
+                      />
+                    }
+                  />
+                ))}
+
+                {/* The ring only appears once the accent is genuinely custom,
+                    so a preset never leaves two swatches looking selected. */}
+                <label
+                  style={{
+                    boxShadow: usingPresetAccent
+                      ? 'inset 0 0 0 1px var(--tt-line)'
+                      : `inset 0 0 0 2px ${ui.theme.accent}`,
+                  }}
+                  className="flex h-11 cursor-pointer items-center gap-2.5 rounded-full bg-surface-2 py-0 pl-2 pr-3.5"
+                >
+                  <input
+                    type="color"
+                    value={ui.theme.accent}
+                    onChange={(e) => updateProfile({ accent: e.target.value })}
+                    aria-label="Custom accent colour"
+                    className="h-[22px] w-[22px] shrink-0 cursor-pointer rounded-full border-0 bg-transparent p-0"
+                  />
+                  <span className="font-display text-[12px] font-bold text-muted">Custom</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Background theme -------------------------------------------- */}
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <GroupHeading>Background theme</GroupHeading>
+                <p className="m-0 mt-1 text-[12px] text-subtle">
+                  Sets every surface, from the page behind the cards to panel hairlines.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {SURFACE_KEYS.map((key: SurfaceKey) => (
+                  <SwatchPill
+                    key={key}
+                    name={SURFACES[key].name}
+                    selected={ui.theme.surface === key}
+                    ringColor="var(--tt-accent, #45c8ea)"
+                    onClick={() => updateProfile({ surface: key })}
+                    swatch={
+                      <span
+                        style={{
+                          background: `linear-gradient(135deg, ${SURFACES[key].vars['--tt-surface-3']}, ${SURFACES[key].vars['--tt-bg']})`,
+                        }}
+                        className="h-[22px] w-[22px] rounded-full hairline-2"
+                      />
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Trophy tone -------------------------------------------------- */}
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <GroupHeading>Trophy tone</GroupHeading>
+                <p className="m-0 mt-1 text-[12px] text-subtle">
+                  The metal used for 100% completion, platinum badges and highlights.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {GOLD_PRESETS.map((preset) => (
+                  <SwatchPill
+                    key={preset.color}
+                    name={preset.name}
+                    selected={ui.theme.gold === preset.color}
+                    ringColor={preset.color}
+                    onClick={() => updateProfile({ gold: preset.color })}
+                    swatch={
+                      <span
+                        style={{ background: preset.color }}
+                        className="h-[22px] w-[22px] rounded-full"
+                      />
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Interface names ---------------------------------------------- */}
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <GroupHeading>Interface names</GroupHeading>
+                <p className="m-0 mt-1 text-[12px] text-subtle">
+                  Rename the app and its landing headline. Game titles come from RAWG and are never
+                  touched.
+                </p>
+              </div>
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
+                <div className="flex flex-col gap-1.5">
+                  <FieldLabel htmlFor="tt-appname">App name</FieldLabel>
+                  <TextInput
+                    id="tt-appname"
+                    value={profile.uiAppName ?? ''}
+                    maxLength={MAX_UI_NAME_LENGTH}
+                    placeholder={DEFAULT_APP_NAME}
+                    onChange={(e) => updateProfile({ uiAppName: e.target.value })}
+                  />
                 </div>
-
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    size="s"
-                    iconOnly
-                    variant="secondary"
-                    buttonStyle="outline"
-                    disabled={index === 0}
-                    onClick={() => moveNav(index, -1)}
-                    aria-label={`Move ${item.name} up`}
-                  >
-                    <ChevronUp size={14} />
-                  </Button>
-                  <Button
-                    size="s"
-                    iconOnly
-                    variant="secondary"
-                    buttonStyle="outline"
-                    disabled={index === orderedNavItems.length - 1}
-                    onClick={() => moveNav(index, 1)}
-                    aria-label={`Move ${item.name} down`}
-                  >
-                    <ChevronDown size={14} />
-                  </Button>
-
-                  {item.configKey ? (
-                    <Switch
-                      checked={visible}
-                      onChange={() =>
-                        updateSidebarConfig({
-                          [item.configKey as keyof SidebarConfig]: !visible,
-                        })
-                      }
-                      label={`${visible ? 'Hide' : 'Show'} ${item.name} in the sidebar`}
-                    />
-                  ) : (
-                    <span className="w-11 text-center text-50 font-medium text-gray-600">
-                      Always
-                    </span>
-                  )}
+                <div className="flex flex-col gap-1.5">
+                  <FieldLabel htmlFor="tt-dashtitle">Dashboard headline</FieldLabel>
+                  <TextInput
+                    id="tt-dashtitle"
+                    value={profile.uiDashTitle ?? ''}
+                    maxLength={MAX_UI_NAME_LENGTH}
+                    placeholder={DEFAULT_DASH_TITLE}
+                    onChange={(e) => updateProfile({ uiDashTitle: e.target.value })}
+                  />
                 </div>
               </div>
-            );
-          })}
+            </div>
+
+            {/* Status names -------------------------------------------------- */}
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <GroupHeading>Status names</GroupHeading>
+                <p className="m-0 mt-1 text-[12px] text-subtle">
+                  Rename any status and it updates everywhere at once. Up to{' '}
+                  {MAX_STATUS_NAME_LENGTH} characters.
+                </p>
+              </div>
+              <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))]">
+                {GAME_STATUSES.map((status) => (
+                  <div key={status} className="flex flex-col gap-1.5">
+                    <FieldLabel className="flex items-center gap-1.5">
+                      <Dot color={STATUS_COLOR[status]} size={7} />
+                      {DEFAULT_STATUS_NAMES[status]}
+                    </FieldLabel>
+                    <RowInput
+                      defaultValue={statusLabel(status, profile)}
+                      maxLength={MAX_STATUS_NAME_LENGTH}
+                      aria-label={`Name for ${DEFAULT_STATUS_NAMES[status]}`}
+                      onChange={(e) => renameStatus(status, e.target.value)}
+                    />
+                    {statusErrors[status] ? (
+                      <span className="text-[11px] text-danger">{statusErrors[status]}</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Navigation ---------------------------------------------------- */}
+            <div className="flex flex-col gap-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <GroupHeading>Navigation</GroupHeading>
+                  <p className="m-0 mt-1 text-[12px] text-subtle">
+                    Reorder destinations, rename them, or hide what you don’t use.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="s"
+                  onClick={() => updateSidebarConfig({ navOrder: DEFAULT_NAV_ORDER })}
+                >
+                  Reset order
+                </Button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {navDestinations.map((destination, index) => {
+                  const visible = isNavVisible(destination, sidebarConfig);
+                  return (
+                    <InsetRow
+                      key={destination.path}
+                      className="flex flex-wrap items-center gap-3 !p-3"
+                    >
+                      <span className="w-[22px] shrink-0 font-display text-[12px] font-bold text-faint">
+                        {index + 1}
+                      </span>
+
+                      <span className="flex min-w-[180px] flex-1 flex-col gap-1">
+                        <RowInput
+                          className="!bg-surface font-display font-semibold"
+                          defaultValue={navLabel(destination, sidebarConfig)}
+                          maxLength={MAX_NAV_NAME_LENGTH}
+                          aria-label={`Name for ${destination.name}`}
+                          onChange={(e) => renameNav(destination.path, e.target.value)}
+                        />
+                        <span className="truncate text-[11px] text-faint">
+                          {destination.description}
+                        </span>
+                      </span>
+
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <MoveButtons
+                          onUp={() => moveNav(index, -1)}
+                          onDown={() => moveNav(index, 1)}
+                          disableUp={index === 0}
+                          disableDown={index === navDestinations.length - 1}
+                        />
+                        {/* The dashboard is the fallback route, so it has no
+                            switch — hiding it would leave nowhere to land. */}
+                        {destination.configKey ? (
+                          <Switch
+                            checked={visible}
+                            label={`Show ${destination.name} in navigation`}
+                            onChange={(next) =>
+                              updateSidebarConfig({ [destination.configKey!]: next })
+                            }
+                          />
+                        ) : (
+                          <span className="w-[46px]" />
+                        )}
+                      </span>
+                    </InsetRow>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+              <span className="text-[12px] text-faint">Saved to Supabase as you change them.</span>
+              <Button variant="outline" size="m" onClick={resetCustomization}>
+                Reset customization
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Cloud storage ------------------------------------------------------ */}
+      <Panel className="flex flex-col gap-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <PanelHeading>Cloud storage</PanelHeading>
+            <p className="m-0 mt-1 text-[12px] text-subtle">
+              Your library lives in Supabase, scoped to your account.
+            </p>
+          </div>
+          <SyncPill>Synced</SyncPill>
         </div>
-      </Card>
-
-      {/* Cloud --------------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Database size={18} />}
-          title="Cloud storage"
-          description="Your library lives in Supabase and is scoped to your account"
-          iconClassName="bg-positive-100 text-positive-900"
-          action={
-            <span
-              className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-75 font-semibold',
-                !isOnline
-                  ? 'border-notice-700 bg-notice-100 text-notice-900'
-                  : pendingWrites > 0
-                    ? 'border-accent-400 bg-accent-100 text-accent-900'
-                    : 'border-positive-700 bg-positive-100 text-positive-900',
-              )}
-            >
-              {isOnline ? <Cloud size={13} /> : <CloudOff size={13} />}
-              {!isOnline ? 'Offline' : pendingWrites > 0 ? `${pendingWrites} pending` : 'Synced'}
-            </span>
-          }
-        />
-
-        <p className="text-75 text-gray-700">
-          Changes save to Supabase as you make them. When you are offline they queue locally and
-          are sent as soon as the connection returns.
-          {lastSyncedAt
-            ? ` Last write: ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-            : ''}
+        <p className="m-0 text-[13px] text-muted [text-wrap:pretty]">
+          Changes save as you make them. Offline edits queue locally and send as soon as the
+          connection returns.
         </p>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={refresh} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span>Reload from cloud</span>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="neutral" size="m" onClick={() => void refresh()}>
+            <RefreshIcon size={13} />
+            Reload from cloud
           </Button>
-
-          <Button
-            variant="secondary"
-            buttonStyle="outline"
-            onClick={() => {
-              navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
-              setCopiedSql(true);
-              setTimeout(() => setCopiedSql(false), 2000);
-            }}
-          >
-            {copiedSql ? <Check size={14} className="text-positive-900" /> : <Copy size={14} />}
-            <span>{copiedSql ? 'Schema copied' : 'Copy schema SQL'}</span>
+          <Button variant="outline" size="m" onClick={copySql}>
+            <CopyIcon size={13} />
+            {copiedSql ? 'Copied' : 'Copy schema SQL'}
           </Button>
-
-          <Button buttonStyle="subtle" onClick={() => setShowSqlSchema(!showSqlSchema)}>
-            <Code size={14} />
-            <span>{showSqlSchema ? 'Hide SQL' : 'View SQL'}</span>
-            {showSqlSchema ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          <Button variant="ghost" size="m" onClick={() => setShowSql((open) => !open)}>
+            {showSql ? 'Hide SQL' : 'View SQL'}
           </Button>
         </div>
-
-        {showSqlSchema && (
-          <pre className="max-h-72 overflow-auto rounded-md border border-gray-200 bg-gray-25 p-4 text-75 leading-relaxed text-gray-800">
+        {showSql ? (
+          <pre className="m-0 overflow-x-auto rounded-inset bg-bg p-3.5 font-mono text-[11px] leading-[1.6] text-muted hairline">
             {SUPABASE_SCHEMA_SQL}
           </pre>
-        )}
-      </Card>
+        ) : null}
+      </Panel>
 
-      {/* RAWG ---------------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Key size={18} />}
-          title="Catalog cache"
-          description="RAWG search results are cached locally for 24 hours"
-          action={
-            <span className="rounded-full border border-gray-300 bg-gray-200 px-3 py-1 text-75 font-semibold text-gray-800">
-              {cacheCount} cached
-            </span>
-          }
-        />
-
-        <p className="text-75 text-gray-700">
-          Set <code className="rounded-sm bg-gray-200 px-1.5 py-0.5 text-accent-900">VITE_RAWG_API_KEY</code>{' '}
-          to search the catalog. Without a key, catalog search returns nothing and games have to be
-          entered by hand.{' '}
-          <a
-            href="https://rawg.io/apidocs"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-sm font-semibold text-accent-900 underline"
-          >
-            Get a free key
-          </a>
-          .
-        </p>
-
+      {/* Catalog cache ------------------------------------------------------ */}
+      <Panel className="flex flex-col gap-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <PanelHeading>Catalog cache</PanelHeading>
+            <p className="m-0 mt-1 text-[12px] text-subtle">
+              RAWG results are cached locally for 24 hours.
+            </p>
+          </div>
+          <span className="rounded-full bg-surface-2 px-3 py-1.5 font-display text-[12px] font-bold tabular-nums text-body hairline">
+            {cacheCount} cached
+          </span>
+        </div>
         <Button
-          variant="secondary"
-          buttonStyle="outline"
+          variant="outline"
+          size="m"
+          className="w-fit"
           onClick={() => {
             clearRawgCache();
-            setCacheCount(0);
+            setCacheCount(getRawgCacheCount());
           }}
         >
-          <Trash2 size={13} />
-          <span>Clear search cache</span>
+          Clear search cache
         </Button>
-      </Card>
+      </Panel>
 
-      {/* Backup -------------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Download size={18} />}
-          title="Backup & restore"
-          description="Export a portable JSON copy, or restore one into your account"
-          iconClassName="bg-gray-200 text-gray-800"
-        />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={handleExport}>
-            <Download size={14} />
-            <span>Export JSON</span>
+      {/* Backup ------------------------------------------------------------- */}
+      <Panel className="flex flex-col gap-3.5">
+        <div>
+          <PanelHeading>Backup &amp; restore</PanelHeading>
+          <p className="m-0 mt-1 text-[12px] text-subtle">
+            Export a portable JSON copy, or restore one into your account.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="neutral" size="m" onClick={handleExport}>
+            <DownloadIcon size={13} />
+            Export JSON
           </Button>
-
-          <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-sm bg-gray-200 px-4 text-100 font-semibold text-gray-900 transition-colors hover:bg-gray-300">
-            <Upload size={14} />
-            <span>Restore backup</span>
-            <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+          <label className="inline-flex h-[34px] cursor-pointer items-center gap-[7px] rounded-control px-3.5 font-display text-[13px] font-bold text-body hairline-2 transition-colors hover:bg-surface-2">
+            <UploadIcon size={13} />
+            Restore backup
+            <input type="file" accept="application/json" onChange={handleImport} className="hidden" />
           </label>
         </div>
-
-        <p className="text-50 text-gray-600">
-          Restoring replaces your library in the cloud. Games on platforms this app no longer
-          supports are skipped.
+        {importStatus ? <p className="m-0 text-[12px] text-muted">{importStatus}</p> : null}
+        <p className="m-0 text-[11px] text-faint [text-wrap:pretty]">
+          Restoring replaces your cloud library. Games on unsupported platforms are skipped.
         </p>
-
-        {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
-      </Card>
-    </div>
+      </Panel>
+    </section>
   );
 };
+
+/* -------------------------------------------------------------------------- */
+
+const HighlightOption: React.FC<{
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  description: string;
+  preview: React.ReactNode;
+}> = ({ selected, onClick, title, description, preview }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={selected}
+    style={{
+      background: selected ? 'var(--tt-accent-soft, #12313c)' : 'var(--tt-surface-2, #221e1a)',
+      boxShadow: `inset 0 0 0 1px ${selected ? 'var(--tt-accent, #45c8ea)' : 'var(--tt-line, #35302a)'}`,
+    }}
+    className="flex cursor-pointer items-center gap-3 rounded-inset border-0 p-3 text-left"
+  >
+    {preview}
+    <span className="min-w-0">
+      <span className="block font-display text-[14px] font-bold text-ink">{title}</span>
+      <span className="block text-[11px] text-subtle">{description}</span>
+    </span>
+  </button>
+);
+
+const SwatchPill: React.FC<{
+  name: string;
+  selected: boolean;
+  ringColor: string;
+  onClick: () => void;
+  swatch: React.ReactNode;
+}> = ({ name, selected, ringColor, onClick, swatch }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={name}
+    aria-pressed={selected}
+    style={{
+      boxShadow: selected
+        ? `inset 0 0 0 2px ${ringColor}`
+        : 'inset 0 0 0 1px var(--tt-line, #35302a)',
+      color: selected ? '#f7f3ec' : '#b8ae9f',
+    }}
+    className="flex h-11 cursor-pointer items-center gap-2.5 rounded-full border-0 bg-surface-2 py-0 pl-2 pr-3.5"
+  >
+    {swatch}
+    <span className="font-display text-[12px] font-bold">{name}</span>
+  </button>
+);
+
+const MoveButtons: React.FC<{
+  onUp: () => void;
+  onDown: () => void;
+  disableUp: boolean;
+  disableDown: boolean;
+}> = ({ onUp, onDown, disableUp, disableDown }) => (
+  <span className="flex shrink-0 gap-1">
+    <Button variant="outline" size="s" iconOnly aria-label="Move up" disabled={disableUp} onClick={onUp}>
+      <ChevronUpIcon size={14} />
+    </Button>
+    <Button
+      variant="outline"
+      size="s"
+      iconOnly
+      aria-label="Move down"
+      disabled={disableDown}
+      onClick={onDown}
+    >
+      <ChevronDownIcon size={14} />
+    </Button>
+  </span>
+);

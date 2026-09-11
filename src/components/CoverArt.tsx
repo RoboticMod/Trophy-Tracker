@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Gamepad2 } from 'lucide-react';
+import { GridIcon } from './icons';
 import { cn } from '../lib/cn';
 
 interface CoverArtProps {
@@ -9,6 +9,11 @@ interface CoverArtProps {
   className?: string;
   /** Extra classes for the <img> only, e.g. hover transforms. */
   imageClassName?: string;
+  /**
+   * Size of the fallback letter. The card default fills a cover tile; list rows
+   * pass something smaller so the placeholder matches the row it sits in.
+   */
+  letterSize?: number;
 }
 
 /**
@@ -16,7 +21,13 @@ interface CoverArtProps {
  * a plain lettered tile. Deliberately not a stock photo: an unrelated image
  * reads as real cover art and misrepresents the game.
  */
-export const CoverArt: React.FC<CoverArtProps> = ({ src, title, className, imageClassName }) => {
+export const CoverArt: React.FC<CoverArtProps> = ({
+  src,
+  title,
+  className,
+  imageClassName,
+  letterSize = 44,
+}) => {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -30,14 +41,20 @@ export const CoverArt: React.FC<CoverArtProps> = ({ src, title, className, image
       <div
         aria-hidden
         className={cn(
-          'flex items-center justify-center bg-gray-200 text-gray-600',
+          'flex items-center justify-center',
+          'bg-[linear-gradient(150deg,var(--tt-surface-3),var(--tt-bg-2)_60%)]',
           className,
         )}
       >
         {initial ? (
-          <span className="text-400 font-bold leading-none text-gray-700">{initial}</span>
+          <span
+            style={{ fontSize: letterSize }}
+            className="font-display font-bold leading-none tracking-[-0.02em] text-line"
+          >
+            {initial}
+          </span>
         ) : (
-          <Gamepad2 size={20} />
+          <GridIcon size={20} className="text-line-2" />
         )}
       </div>
     );

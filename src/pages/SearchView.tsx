@@ -1,34 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Search, Sparkles, Plus, Bookmark, Check, Filter, KeyRound, WifiOff } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
 import { RawgGameResult, Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel } from '../lib/status';
+import { ratingColor } from '../lib/rating';
+import { navLabel, NAV_DESTINATIONS } from '../lib/navigation';
 import { CoverArt } from '../components/CoverArt';
-import { PlatformIcon } from '../components/PlatformIcon';
-import { RatingValue } from '../components/Rating';
-import { Button, EmptyState, OverlayBadge, TextInput } from '../components/ui';
-import { cn } from '../lib/cn';
+import { Button, Chip, ChipRowLabel, EmptyState, Eyebrow } from '../components/ui';
+import { CheckIcon, CloudOffIcon, SearchIcon, StarIcon, UnlinkIcon } from '../components/icons';
+
+const SEARCH = NAV_DESTINATIONS.find((d) => d.path === '/search')!;
 
 export const SearchView: React.FC = () => {
-  const { games, addGame, profile } = useGame();
+  const { games, addGame, profile, sidebarConfig, setIsQuickAddOpen } = useGame();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RawgGameResult[]>([]);
   const [error, setError] = useState<CatalogError | undefined>();
   const [loading, setLoading] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
+  const [target, setTarget] = useState<Platform | 'all'>('all');
   const [addedIds, setAddedIds] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       setLoading(true);
-      const res = await searchGames(query);
+      const response = await searchGames(query);
       if (cancelled) return;
-      setResults(res.results);
-      setError(res.error);
+      setResults(response.results);
+      setError(response.error);
       setLoading(false);
     }, 250);
 
@@ -38,8 +38,8 @@ export const SearchView: React.FC = () => {
     };
   }, [query]);
 
-  const handleQuickAdd = (game: RawgGameResult, toBacklog: boolean) => {
-    const platform = selectedPlatform !== 'all' ? selectedPlatform : detectPlatformFromRawg(game);
+  const quickAdd = (game: RawgGameResult, toBacklog: boolean) => {
+    const platform = target !== 'all' ? target : detectPlatformFromRawg(game);
     // RAWG scores out of 5; this app stores out of 100.
     const rating = game.rating ? Math.round(Math.min(5, Math.max(0, game.rating)) * 20) : undefined;
 
@@ -61,175 +61,189 @@ export const SearchView: React.FC = () => {
     setAddedIds((prev) => ({ ...prev, [game.id]: true }));
   };
 
-  const isAlreadyAdded = (title: string) =>
+  const alreadyAdded = (title: string) =>
     games.some((g) => g.title.toLowerCase() === title.toLowerCase());
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-6 pb-10">
-      <div className="space-y-2 border-b border-gray-200 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-100 text-accent-900">
-            <Sparkles size={18} />
-          </div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Search &amp; add</h1>
-        </div>
-        <p className="text-75 text-gray-700">
-          Search the RAWG catalog and add titles to your Steam or PlayStation library.
+    <section className="tt-rise flex flex-col gap-[clamp(20px,2.6vw,28px)]">
+      <div>
+        <Eyebrow>RAWG catalog</Eyebrow>
+        <h1 className="m-0 mt-1 font-display text-[clamp(28px,4.2vw,42px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">
+          {navLabel(SEARCH, sidebarConfig)}
+        </h1>
+        <p className="m-0 mt-2 max-w-[56ch] text-[14px] text-muted [text-wrap:pretty]">
+          Find a title in the catalog and file it under Steam or PlayStation.
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-3.5">
         <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-600"
+          <SearchIcon
             size={18}
+            color="#9a9082"
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
           />
-          <TextInput
+          <input
             type="search"
-            aria-label="Search the game catalog"
-            placeholder="Search by title or genre — Elden Ring, roguelike, Resident Evil…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-12 pl-12 text-200"
+            aria-label="Search the game catalog"
+            placeholder="Elden Ring, roguelike, Resident Evil…"
+            className="h-13 w-full rounded-control border-0 bg-surface pl-[46px] pr-4 text-[16px] text-ink shadow-[inset_0_0_0_1px_var(--tt-line)] transition-shadow focus:shadow-[inset_0_0_0_1px_var(--tt-accent)] focus:outline-none"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 flex items-center gap-1 text-75 font-semibold text-gray-700">
-            <Filter size={13} />
-            Add to
-          </span>
-
-          <Chip selected={selectedPlatform === 'all'} onClick={() => setSelectedPlatform('all')}>
+          <ChipRowLabel>Add to</ChipRowLabel>
+          <Chip size="md" selected={target === 'all'} onClick={() => setTarget('all')}>
             Auto-detect
           </Chip>
-
           {PLATFORM_IDS.map((p) => (
             <Chip
               key={p}
-              selected={selectedPlatform === p}
-              onClick={() => setSelectedPlatform(p)}
+              size="md"
+              tone={PLATFORMS[p].color}
               title={PLATFORMS[p].name}
+              selected={target === p}
+              onClick={() => setTarget(p)}
             >
-              <PlatformIcon platform={p} size={15} />
-              <span>{PLATFORMS[p].shortName}</span>
+              {PLATFORMS[p].shortName}
             </Chip>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-75 text-gray-700">
+      <div className="flex items-center justify-between text-[12px] text-subtle">
         <span>
           {results.length} result{results.length === 1 ? '' : 's'}{' '}
-          {query.trim() ? `for “${query}”` : 'from what RAWG ranks as popular now'}
+          {query.trim() ? `for “${query.trim()}”` : 'from what RAWG ranks as popular now'}
         </span>
-        {loading && <span className="animate-pulse font-semibold text-accent-900">Searching…</span>}
+        {loading ? (
+          <span className="animate-pulse font-display font-semibold text-accent">Searching…</span>
+        ) : null}
       </div>
 
-      {!loading && results.length === 0 && (
-        <CatalogEmptyState error={error} query={query} />
-      )}
+      {!loading && results.length === 0 ? (
+        <CatalogEmptyState error={error} query={query} onAddManually={() => setIsQuickAddOpen(true)} />
+      ) : null}
 
       <div className="grid-cards">
         {results.map((game) => {
-          const added = isAlreadyAdded(game.name) || addedIds[game.id];
-          const platform =
-            selectedPlatform !== 'all' ? selectedPlatform : detectPlatformFromRawg(game);
-          const cfg = PLATFORMS[platform];
+          const added = alreadyAdded(game.name) || addedIds[game.id];
+          const platform = target !== 'all' ? target : detectPlatformFromRawg(game);
+          const config = PLATFORMS[platform];
+          const score = game.rating ? Math.round(game.rating * 20) : 0;
 
           return (
-            <motion.div
+            <div
               key={game.id}
-              whileHover={{ y: -3 }}
-              className="group flex flex-col justify-between overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-colors hover:border-gray-300"
+              className="group flex h-full flex-col overflow-hidden rounded-panel bg-surface hairline transition-[transform,box-shadow] duration-200 ease-tt hover:-translate-y-[3px] hover:shadow-[0_12px_32px_-12px_rgb(0_0_0_/_.8)]"
             >
-              <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-25">
+              <div className="relative aspect-[16/9] w-full bg-bg">
                 <CoverArt
                   src={game.background_image}
                   title={game.name}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="absolute inset-0 h-full w-full object-cover object-center"
                 />
-                <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-gray-25/70 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gray-25 via-gray-25/50 to-transparent" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_top,#080706_2%,rgb(8_7_6_/_.82)_26%,rgb(8_7_6_/_.1)_58%,rgb(8_7_6_/_.45))]" />
 
-                <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
-                  <OverlayBadge tint={cfg.tint} title={cfg.name}>
-                    <PlatformIcon platform={platform} size={13} className="text-gray-1000" />
-                    <span className="text-gray-1000">{cfg.shortName}</span>
-                  </OverlayBadge>
+                <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+                  <span
+                    style={{ boxShadow: `inset 0 0 0 1px ${config.line}`, color: config.color }}
+                    className="inline-flex h-6 items-center gap-[5px] rounded-control bg-[rgb(8_7_6_/_.78)] px-2 font-display text-[10px] font-bold tracking-[0.1em] backdrop-blur-[6px]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{ background: config.color }}
+                      className="h-1.5 w-1.5 rounded-full"
+                    />
+                    {config.mark}
+                  </span>
+
+                  {score > 0 ? (
+                    <span
+                      style={{ color: ratingColor(score) }}
+                      title={`RAWG score ${score} out of 100`}
+                      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-control bg-[rgb(8_7_6_/_.78)] px-2 font-display text-[11px] font-bold tabular-nums backdrop-blur-[6px] hairline"
+                    >
+                      <StarIcon size={10} />
+                      {score}
+                    </span>
+                  ) : null}
                 </div>
 
-                {game.rating ? (
-                  <div className="absolute right-2.5 top-2.5">
-                    <OverlayBadge>
-                      <RatingValue value={Math.round(game.rating * 20)} size="xs" />
-                    </OverlayBadge>
-                  </div>
-                ) : null}
-
-                <div className="absolute inset-x-3 bottom-2">
-                  <h3 className="truncate text-100 font-bold text-gray-1000">{game.name}</h3>
-                  <p className="text-50 text-gray-700">
-                    {game.released?.split('-')[0] || 'TBA'} •{' '}
+                <div className="pointer-events-none absolute inset-x-3.5 bottom-3">
+                  <h3 className="m-0 line-clamp-2 font-display text-[16px] font-bold leading-[1.15] tracking-[-0.01em] text-ink">
+                    {game.name}
+                  </h3>
+                  <p className="m-0 mt-1 text-[12px] text-muted">
+                    {game.released?.split('-')[0] || 'TBA'} &middot;{' '}
                     {game.genres?.[0]?.name || 'Video game'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 border-t border-gray-200 p-3">
+              <div className="flex flex-1 items-center gap-2 px-3.5 pb-3.5 pt-3">
                 {added ? (
-                  <div className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700 bg-positive-100 py-1.5 text-75 font-semibold text-positive-900">
-                    <Check size={14} />
+                  <span className="flex w-full items-center justify-center gap-1.5 rounded-control bg-positive-wash py-2 font-display text-[12px] font-bold text-positive shadow-[inset_0_0_0_1px_rgb(79_195_138_/_.35)]">
+                    <CheckIcon size={14} />
                     In your library
-                  </div>
+                  </span>
                 ) : (
                   <>
                     <Button
                       variant="accent"
-                      size="s"
+                      size="m"
                       className="flex-1"
-                      onClick={() => handleQuickAdd(game, false)}
+                      onClick={() => quickAdd(game, false)}
                     >
-                      <Plus size={14} />
                       {statusLabel('playing', profile)}
                     </Button>
                     <Button
-                      variant="secondary"
-                      size="s"
-                      onClick={() => handleQuickAdd(game, true)}
+                      variant="neutral"
+                      size="m"
+                      onClick={() => quickAdd(game, true)}
                       title={`Add to ${statusLabel('backlog', profile)}`}
                     >
-                      <Bookmark size={14} />
                       {statusLabel('backlog', profile)}
                     </Button>
                   </>
                 )}
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };
 
 /** Explains an empty catalog grid — no key, a failed call, or no matches. */
-const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ error, query }) => {
+const CatalogEmptyState: React.FC<{
+  error?: CatalogError;
+  query: string;
+  onAddManually: () => void;
+}> = ({ error, query, onAddManually }) => {
   if (error === 'missing-key') {
     return (
       <EmptyState
-        icon={<KeyRound size={20} />}
+        icon={<UnlinkIcon size={20} />}
         title="No RAWG key configured"
-        description="Catalog search runs on the RAWG API. Set VITE_RAWG_API_KEY to search real titles, or add a game by hand from the library."
+        description="Catalog search runs on the RAWG API. Set VITE_RAWG_API_KEY to search real titles, or add a game by hand."
         action={
-          <a
-            href="https://rawg.io/apidocs"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-8 items-center rounded-sm border border-accent-700 px-4 text-100 font-semibold text-accent-900 transition-colors hover:bg-accent-100"
-          >
-            Get a free key
-          </a>
+          <>
+            <a
+              href="https://rawg.io/apidocs"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center rounded-control bg-accent px-4 font-display text-[13px] font-bold text-accent-on hover:bg-accent-ink hover:text-accent-on"
+            >
+              Get a free key
+            </a>
+            <Button variant="neutral" size="l" onClick={onAddManually}>
+              Add manually
+            </Button>
+          </>
         }
       />
     );
@@ -238,7 +252,7 @@ const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ 
   if (error === 'request-failed') {
     return (
       <EmptyState
-        icon={<WifiOff size={20} />}
+        icon={<CloudOffIcon size={20} />}
         title="Could not reach RAWG"
         description="The catalog request failed. Check your connection and try the search again."
       />
@@ -247,7 +261,7 @@ const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ 
 
   return (
     <EmptyState
-      icon={<Search size={20} />}
+      icon={<SearchIcon size={20} />}
       title={query.trim() ? 'No matches' : 'Nothing to show yet'}
       description={
         query.trim()
@@ -257,25 +271,3 @@ const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ 
     />
   );
 };
-
-const Chip: React.FC<{
-  selected: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}> = ({ selected, onClick, title, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    aria-pressed={selected}
-    className={cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
-      selected
-        ? 'border-accent-700 bg-accent-100 text-accent-900'
-        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
-    )}
-  >
-    {children}
-  </button>
-);

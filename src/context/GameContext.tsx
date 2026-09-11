@@ -3,19 +3,31 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import { CELEBRATION_MS } from '../components/Celebration';
 import {
+  CardLayout,
   Collection,
   GameStatus,
+  HighlightStyle,
   Platform,
   SidebarConfig,
   UserGame,
   UserProfile,
 } from '../types';
+import {
+  DEFAULT_ACCENT,
+  DEFAULT_APP_NAME,
+  DEFAULT_DASH_TITLE,
+  DEFAULT_GOLD,
+  DEFAULT_SURFACE,
+  ThemeSettings,
+  applyTheme,
+} from '../lib/theme';
 import {
   DEFAULT_COLLECTIONS,
   DEFAULT_COLLECTION_COLOR,
@@ -50,6 +62,16 @@ interface GameContextType {
   collections: Collection[];
   profile: UserProfile;
   sidebarConfig: SidebarConfig;
+
+  /** Resolved interface chrome, defaults already applied. */
+  ui: {
+    appName: string;
+    dashTitle: string;
+    cardLayout: CardLayout;
+    highlight: HighlightStyle;
+    theme: ThemeSettings;
+  };
+  setCardLayout: (layout: CardLayout) => void;
 
   loading: boolean;
   /** Message shown when a write could not reach the cloud. */
@@ -441,12 +463,57 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (userId) await load(userId);
   }, [userId, load]);
 
+  /* ---------------------------------------------------------------------- */
+  /* Interface chrome                                                        */
+  /* ---------------------------------------------------------------------- */
+
+  const ui = useMemo(
+    () => ({
+      appName: profile.uiAppName?.trim() || DEFAULT_APP_NAME,
+      dashTitle: profile.uiDashTitle?.trim() || DEFAULT_DASH_TITLE,
+      cardLayout: profile.cardLayout === 'poster' ? ('poster' as const) : ('wide' as const),
+      highlight: profile.highlightStyle === 'fill' ? ('fill' as const) : ('stroke' as const),
+      theme: {
+        accent: profile.accent || DEFAULT_ACCENT,
+        gold: profile.gold || DEFAULT_GOLD,
+        surface: profile.surface || DEFAULT_SURFACE,
+      },
+    }),
+    [
+      profile.uiAppName,
+      profile.uiDashTitle,
+      profile.cardLayout,
+      profile.highlightStyle,
+      profile.accent,
+      profile.gold,
+      profile.surface,
+    ],
+  );
+
+  // The accent lives on :root, so writing it here repaints the whole app —
+  // shell, cards and overlays — without any component re-rendering. Applied in
+  // a layout effect so a hydrated profile never flashes the default accent.
+  useLayoutEffect(() => {
+    applyTheme(ui.theme);
+  }, [ui.theme]);
+
+  const setCardLayout = useCallback(
+    (cardLayout: CardLayout) => {
+      const next = { ...latest.current.profile, cardLayout };
+      setProfile(next);
+      void push({ kind: 'profile', op: 'upsert', profile: next });
+    },
+    [push],
+  );
+
   const value = useMemo<GameContextType>(
     () => ({
       games,
       collections,
       profile,
       sidebarConfig: profile.sidebarConfig || DEFAULT_SIDEBAR_CONFIG,
+      ui,
+      setCardLayout,
       loading,
       error,
       dismissError: () => setError(null),
@@ -475,6 +542,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       games,
       collections,
       profile,
+      ui,
+      setCardLayout,
       loading,
       error,
       isOnline,
