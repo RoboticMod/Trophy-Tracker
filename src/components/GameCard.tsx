@@ -16,9 +16,11 @@ import { cn } from '../lib/cn';
 
 interface GameCardProps {
   game: UserGame;
+  /** Rendered below the progress row, for actions specific to one view. */
+  action?: React.ReactNode;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, action }) => {
   const { profile, celebration } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const celebrating = celebration?.gameId === game.id;
@@ -196,6 +198,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
           label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
         />
       </div>
+
+      {action ? <div className="border-t border-gray-200 p-3">{action}</div> : null}
 
       {celebrating && <Celebration key={celebration.token} platform={game.platform} />}
 

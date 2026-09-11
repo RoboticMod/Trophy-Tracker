@@ -30,11 +30,7 @@ export const BacklogView: React.FC = () => {
 
   const potentialAchievements = backlogGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
 
-  /** Promotes the first game in the current platform order to "playing". */
-  const startNext = () => {
-    const next = sorted[0];
-    if (next) updateGame(next.id, { status: 'playing' });
-  };
+  const startLabel = `Start ${statusLabel('playing', profile).toLowerCase()}`;
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
@@ -47,17 +43,10 @@ export const BacklogView: React.FC = () => {
             <h1 className="text-600 font-bold tracking-tight text-gray-1000">
               {statusLabel('backlog', profile)}
             </h1>
-            <p className="text-75 text-gray-700">Games queued and waiting to be played</p>
+            <p className="text-75 text-gray-700">
+              Games queued and waiting to be played — start any of them from its card
+            </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {sorted.length > 0 && (
-            <Button variant="positive" size="l" onClick={startNext}>
-              <Play size={14} />
-              <span>Start next game</span>
-            </Button>
-          )}
         </div>
       </div>
 
@@ -102,7 +91,21 @@ export const BacklogView: React.FC = () => {
       <div className="grid-cards">
         <AnimatePresence>
           {filtered.map((game) => (
-            <GameCard key={game.id} game={game} />
+            <GameCard
+              key={game.id}
+              game={game}
+              action={
+                <Button
+                  variant="positive"
+                  size="s"
+                  className="w-full"
+                  onClick={() => updateGame(game.id, { status: 'playing' })}
+                >
+                  <Play size={14} />
+                  {startLabel}
+                </Button>
+              }
+            />
           ))}
         </AnimatePresence>
       </div>

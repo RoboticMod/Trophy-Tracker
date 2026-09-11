@@ -231,6 +231,15 @@
     0 2px 14px -2px color-mix(in srgb, var(--color-trophy-900) 45%, transparent);
 }
 
+/* Lifts an earned award mark off whatever it sits on. drop-shadow rather than
+   box-shadow so the halo follows the artwork's own silhouette instead of its
+   bounding box — both marks are cut out, not rectangular. */
+@utility trophy-icon-glow {
+  filter:
+    drop-shadow(0 0 1.5px color-mix(in srgb, var(--color-gray-1000) 40%, transparent))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--color-trophy-900) 50%, transparent));
+}
+
 /* ---------------------------------------------------------------------------
    Completion burst. Fires once on the card that was just finished: a warm wash,
    a shockwave ring, and a spray of particles. Each particle carries its own

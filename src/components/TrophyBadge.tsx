@@ -101,7 +101,8 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
         draggable={false}
         className={cn(
           'pointer-events-none h-full w-full object-contain',
-          muted && 'opacity-45 grayscale'
+          // An unearned mark is a placeholder, so it stays flat and unlit.
+          muted ? 'opacity-45 grayscale' : 'trophy-icon-glow',
         )}
       />
     </span>
