@@ -36,7 +36,10 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
       rot: `${((Math.random() - 0.5) * 200).toFixed(0)}deg`,
       size: 3 + Math.random() * 4,
       radius: Math.random() > 0.5 ? '9999px' : '1px',
+      // Staggered starts and uneven durations, so the spray scatters rather
+      // than rising and fading as a single block.
       delay: `${Math.round(Math.random() * 520)}ms`,
+      duration: `${Math.round(1100 + Math.random() * 600)}ms`,
       color: palette[i % palette.length],
     }));
   }, [platform]);
@@ -74,6 +77,7 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
                 '--drift': s.drift,
                 '--rise': s.rise,
                 '--rot': s.rot,
+                '--dur': s.duration,
                 left: s.dx,
                 width: s.size,
                 height: s.size,

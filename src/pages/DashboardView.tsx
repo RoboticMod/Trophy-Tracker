@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { AnimatePresence } from 'motion/react';
 import {
   Gamepad2,
   Hourglass,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameCard } from '../components/GameCard';
+import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
 import { PLATFORMS, comparePlatformOrder, describePlatformOrder } from '../lib/constants';
@@ -159,15 +159,6 @@ export const DashboardView: React.FC = () => {
     sortBy,
     platformOrder,
   ]);
-
-  /** Null while one platform is filtered to — there is nothing to group then. */
-  const platformGroups = useMemo(() => {
-    if (activePlatformFilter !== 'all') return null;
-    return [...PLATFORM_IDS]
-      .sort((a, b) => comparePlatformOrder(a, b, platformOrder))
-      .map((p) => ({ platform: p, games: processedGames.filter((g) => g.platform === p) }))
-      .filter((group) => group.games.length > 0);
-  }, [processedGames, activePlatformFilter, platformOrder]);
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
@@ -343,39 +334,12 @@ export const DashboardView: React.FC = () => {
         <div className="flex justify-center py-16 text-gray-600">
           <Loader2 size={24} className="animate-spin" aria-label="Loading library" />
         </div>
-      ) : platformGroups ? (
-        // With no platform filter the library splits into per-platform sections.
-        // The heading carries the platform, so the cards drop their own chip.
-        <div className="space-y-7">
-          {platformGroups.map(({ platform: p, games: list }) => (
-            <section key={p} className="space-y-3">
-              <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
-                <span style={{ color: PLATFORMS[p].color }} className="flex items-center">
-                  <PlatformIcon platform={p} size={17} />
-                </span>
-                <h3 className="text-200 font-bold text-gray-1000">{PLATFORMS[p].name}</h3>
-                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-50 font-medium text-gray-700">
-                  {list.length}
-                </span>
-              </div>
-              <div className="grid-cards">
-                <AnimatePresence>
-                  {list.map((game) => (
-                    <GameCard key={game.id} game={game} hidePlatform />
-                  ))}
-                </AnimatePresence>
-              </div>
-            </section>
-          ))}
-        </div>
       ) : (
-        <div className="grid-cards">
-          <AnimatePresence>
-            {processedGames.map((game) => (
-              <GameCard key={game.id} game={game} />
-            ))}
-          </AnimatePresence>
-        </div>
+        <GameGrid
+          games={processedGames}
+          grouped={activePlatformFilter === 'all'}
+          platformOrder={platformOrder}
+        />
       )}
 
       {!loading && processedGames.length === 0 && (

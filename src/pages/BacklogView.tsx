@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { AnimatePresence } from 'motion/react';
 import { Hourglass, Plus, Play, Filter } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { GameCard } from '../components/GameCard';
+import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
@@ -88,27 +87,22 @@ export const BacklogView: React.FC = () => {
         })}
       </div>
 
-      <div className="grid-cards">
-        <AnimatePresence>
-          {filtered.map((game) => (
-            <GameCard
-              key={game.id}
-              game={game}
-              action={
-                <Button
-                  variant="positive"
-                  size="s"
-                  className="w-full"
-                  onClick={() => updateGame(game.id, { status: 'playing' })}
-                >
-                  <Play size={14} />
-                  {startLabel}
-                </Button>
-              }
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+      <GameGrid
+        games={filtered}
+        grouped={platformFilter === 'all'}
+        platformOrder={platformOrder}
+        renderAction={(game) => (
+          <Button
+            variant="positive"
+            size="s"
+            className="w-full"
+            onClick={() => updateGame(game.id, { status: 'playing' })}
+          >
+            <Play size={14} />
+            {startLabel}
+          </Button>
+        )}
+      />
 
       {filtered.length === 0 && (
         <EmptyState

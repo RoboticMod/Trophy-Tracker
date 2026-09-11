@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { AnimatePresence } from 'motion/react';
 import { Play, Clock } from 'lucide-react';
 import { TrophyPair } from '../components/TrophyBadge';
 import { useGame } from '../context/GameContext';
-import { GameCard } from '../components/GameCard';
+import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
 import { statusLabel } from '../lib/status';
 import { Card, EmptyState } from '../components/ui';
@@ -69,13 +68,7 @@ export const CurrentlyPlayingView: React.FC = () => {
         />
       </div>
 
-      <div className="grid-cards">
-        <AnimatePresence>
-          {playingGames.map((game) => (
-            <GameCard key={game.id} game={game} />
-          ))}
-        </AnimatePresence>
-      </div>
+      <GameGrid games={playingGames} platformOrder={platformOrder} />
 
       {playingGames.length === 0 && (
         <EmptyState

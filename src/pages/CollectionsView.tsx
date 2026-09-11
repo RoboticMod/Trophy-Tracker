@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { AnimatePresence } from 'motion/react';
 import { FolderKanban, Plus, Trash2, Folder, Check } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { GameCard } from '../components/GameCard';
+import { GameGrid } from '../components/GameGrid';
 import {
   COLLECTION_COLORS,
   DEFAULT_COLLECTION_COLOR,
@@ -200,13 +199,7 @@ export const CollectionsView: React.FC = () => {
         </Card>
       )}
 
-      <div className="grid-cards">
-        <AnimatePresence>
-          {collectionGames.map((game) => (
-            <GameCard key={game.id} game={game} />
-          ))}
-        </AnimatePresence>
-      </div>
+      <GameGrid games={collectionGames} platformOrder={platformOrder} />
 
       {collectionGames.length === 0 && (
         <EmptyState

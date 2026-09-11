@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { AnimatePresence } from 'motion/react';
 import { Sparkles } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { GameCard } from '../components/GameCard';
+import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
 import { PLATFORMS, comparePlatformOrder, describePlatformOrder } from '../lib/constants';
@@ -111,13 +110,11 @@ export const AchievementsView: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid-cards">
-        <AnimatePresence>
-          {displayedGames.map((game) => (
-            <GameCard key={game.id} game={game} />
-          ))}
-        </AnimatePresence>
-      </div>
+      <GameGrid
+        games={displayedGames}
+        grouped={selectedPlatform === 'all'}
+        platformOrder={platformOrder}
+      />
 
       {displayedGames.length === 0 && (
         <EmptyState

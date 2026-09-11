@@ -267,8 +267,13 @@
     transform: translate3d(0, 0, 0) scale(0.3);
     opacity: 0;
   }
-  20% {
+  /* Eased in over the first stretch of the climb rather than appearing at
+     full strength, so a spark reads as catching the light on its way up. */
+  22% {
     opacity: 1;
+  }
+  70% {
+    opacity: 0.9;
   }
   100% {
     transform: translate3d(var(--drift), var(--rise), 0) scale(1) rotate(var(--rot));
@@ -299,8 +304,13 @@
   }
 }
 
+/* `both`, not `forwards`: with a delay and forwards alone, a spark spends its
+   wait painted in its natural state — full opacity, unscaled, sitting at the
+   foot of the card — and then snaps into motion. Backwards fill holds the 0%
+   frame through the delay so it is simply not there yet. Each spark carries its
+   own duration so the spray does not move as one body. */
 @utility celebration-particle {
-  animation: celebration-particle 1450ms cubic-bezier(0.33, 0.9, 0.4, 1) forwards;
+  animation: celebration-particle var(--dur, 1450ms) cubic-bezier(0.33, 0.9, 0.4, 1) both;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
