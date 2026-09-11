@@ -21,18 +21,15 @@ export function clampRating(value: number | undefined | null): number | undefine
 }
 
 /**
- * A score climbs from the neutral text ramp into the trophy metal, so a high
- * rating reads as the same kind of achievement the completion states do. A
- * free hue sweep would have put arbitrary reds and greens next to the gold and
- * broken that reading.
+ * Red at 0, yellow at 50, green at 100 — the familiar scoring ramp, so the
+ * colour alone reads as a verdict. Hue 0-120 is exactly that sweep.
  */
 export function ratingColor(value: number): string {
   const v = Math.max(0, Math.min(MAX_RATING, value));
-  if (v >= 90) return 'var(--tt-gold-hi, #ffd36b)';
-  if (v >= 75) return 'var(--tt-gold, #e5a83c)';
-  if (v >= 60) return '#c9b487';
-  if (v >= 40) return '#b8ae9f';
-  return '#9a9082';
+  const hue = (v / MAX_RATING) * 120;
+  const saturation = 78 + (v / MAX_RATING) * 12;
+  const lightness = 47 + (v / MAX_RATING) * 11;
+  return `hsl(${hue.toFixed(0)} ${saturation.toFixed(0)}% ${lightness.toFixed(0)}%)`;
 }
 
 /** Coarse label used in tooltips and filter chips. */

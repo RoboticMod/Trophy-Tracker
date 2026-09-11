@@ -21,10 +21,10 @@ interface CelebrationProps {
 export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
   const sparks = useMemo(() => {
     const palette = [
-      'var(--tt-gold-hi, #ffd36b)',
-      'var(--tt-gold, #e5a83c)',
-      PLATFORMS[platform]?.color ?? 'var(--tt-accent, #45c8ea)',
-      '#f7f3ec',
+      'var(--color-trophy-900)',
+      'var(--color-trophy-700)',
+      PLATFORMS[platform]?.color ?? 'var(--color-accent-900)',
+      'var(--color-gray-1000)',
     ];
 
     return Array.from({ length: SPARK_COUNT }, (_, i) => ({
@@ -44,13 +44,13 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-30 overflow-hidden rounded-panel"
+      className="pointer-events-none absolute inset-0 z-30 overflow-hidden rounded-lg"
     >
       <div
         className="celebration-glow absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--tt-gold-hi, #ffd36b) 24%, transparent), transparent 70%)',
+            'radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--color-trophy-900) 24%, transparent), transparent 70%)',
         }}
       />
 
@@ -59,7 +59,7 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
         style={{
           top: '50%',
           background:
-            'linear-gradient(to top, transparent, color-mix(in srgb, var(--tt-gold-hi, #ffd36b) 34%, transparent) 55%, transparent)',
+            'linear-gradient(to top, transparent, color-mix(in srgb, var(--color-trophy-900) 34%, transparent) 55%, transparent)',
         }}
       />
 

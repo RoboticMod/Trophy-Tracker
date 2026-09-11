@@ -1,219 +1,240 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Trophy Tracker token layer
+   Adobe Spectrum 2 token layer (dark theme)
 
-   Two tiers. The `--tt-*` custom properties on :root are the live theme — the
-   Advanced customization panel rewrites them at runtime, so every surface,
-   accent and trophy tone in the app follows one set of variables. The @theme
-   block below maps Tailwind utilities onto those variables, so components are
-   still written as `bg-surface text-ink` rather than inline hex.
-
-   Only the theme reads raw hex. Components compose the tokens.
+   This block is the single source of truth for colour, type, radius, elevation
+   and motion in this app. Components must compose these tokens through Tailwind
+   utilities (bg-gray-100, text-200, rounded-md, ...) and must NOT introduce raw
+   hex values or arbitrary-value classes such as text-[11px] or bg-[#18181b].
 --------------------------------------------------------------------------- */
-:root {
-  /* Accent — primary action, links, active nav, progress meters. */
-  --tt-accent: #45c8ea;
-  --tt-accent-ink: #a9ecfb;
-  --tt-accent-on: #071c23;
-  --tt-accent-soft: #12313c;
+@theme {
+  /* -- Gray ramp -----------------------------------------------------------
+     25/50   canvas          75/100  layer + elevated surface
+     200/300 borders         400/500 disabled + separators
+     600-800 secondary text  900/1000 primary text                          */
+  --color-gray-25: #050505;
+  --color-gray-50: #0d0d0f;
+  --color-gray-75: #151518;
+  --color-gray-100: #1c1c20;
+  --color-gray-200: #26262b;
+  --color-gray-300: #323238;
+  --color-gray-400: #414148;
+  --color-gray-500: #5c5c64;
+  --color-gray-600: #7c7c85;
+  --color-gray-700: #a5a5ad;
+  --color-gray-800: #c8c8cf;
+  --color-gray-900: #e9e9ee;
+  --color-gray-1000: #ffffff;
 
-  /* Trophy metal — completion, platinum, group headings. */
-  --tt-gold: #e5a83c;
-  --tt-gold-hi: #ffd36b;
+  /* -- Accent (Spectrum blue) --------------------------------------------- */
+  --color-accent-100: #0c1e3d;
+  --color-accent-200: #102b56;
+  --color-accent-400: #1a4a9c;
+  --color-accent-600: #2270d8;
+  --color-accent-700: #2680eb;
+  --color-accent-800: #378ef0;
+  --color-accent-900: #5aa9f6;
+  --color-accent-1000: #8cc5fa;
 
-  /* Surfaces — swapped as a set by the "Background theme" picker. */
-  --tt-bg: #100e0c;
-  --tt-bg-2: #16130f;
-  --tt-surface: #1a1714;
-  --tt-surface-2: #221e1a;
-  --tt-surface-3: #2b2620;
-  --tt-line: #35302a;
-  --tt-line-2: #4a433a;
-}
+  /* -- Semantic ----------------------------------------------------------- */
+  --color-positive-100: #0a2b21;
+  --color-positive-700: #2d9d78;
+  --color-positive-900: #52c294;
 
-@theme inline {
-  /* -- Surfaces, wired to the live theme vars ----------------------------- */
-  --color-bg: var(--tt-bg);
-  --color-bg-2: var(--tt-bg-2);
-  --color-surface: var(--tt-surface);
-  --color-surface-2: var(--tt-surface-2);
-  --color-surface-3: var(--tt-surface-3);
-  --color-line: var(--tt-line);
-  --color-line-2: var(--tt-line-2);
+  --color-negative-100: #3b1114;
+  --color-negative-700: #d7373f;
+  --color-negative-900: #ec5b62;
 
-  --color-accent: var(--tt-accent);
-  --color-accent-ink: var(--tt-accent-ink);
-  --color-accent-on: var(--tt-accent-on);
-  --color-accent-soft: var(--tt-accent-soft);
+  --color-notice-100: #3a2708;
+  --color-notice-700: #cb8000;
+  --color-notice-900: #edaa30;
 
-  --color-gold: var(--tt-gold);
-  --color-gold-hi: var(--tt-gold-hi);
+  /* -- Expressive accents (the gaming flavour) ----------------------------
+     Trophy gold carries "mastered / platinum"; the platform hues carry
+     Steam and PlayStation identity. Nothing else may invent a colour.      */
+  --color-trophy-100: #33260a;
+  --color-trophy-700: #d19c26;
+  --color-trophy-900: #f2c14e;
 
-  /* -- Text ramp. Fixed: legibility must not move with the accent. -------- */
-  --color-ink: #f7f3ec; /* headings, primary                       */
-  --color-body: #ded6c9; /* body copy                               */
-  --color-muted: #b8ae9f; /* secondary                               */
-  --color-subtle: #9a9082; /* tertiary, labels, placeholders          */
-  --color-faint: #8a8175; /* quaternary, eyebrows inside panels      */
+  --color-steam-700: #3d8fc4;
+  --color-steam-900: #66c0f4;
+  --color-playstation-700: #0070d1;
+  --color-playstation-900: #4d9bf0;
 
-  /* -- Identity and status hues ------------------------------------------ */
-  --color-steam: #66c0f4;
-  --color-ps5: #4d9bf0;
-  --color-queued: #d98b3a; /* backlog                                 */
-  --color-positive: #4fc38a; /* completed, synced                       */
-  --color-danger: #f2686f;
+  /* -- Type ramp ----------------------------------------------------------- */
+  --text-50: 0.6875rem; /* 11px */
+  --text-50--line-height: 1rem;
+  --text-75: 0.75rem; /* 12px */
+  --text-75--line-height: 1.125rem;
+  --text-100: 0.875rem; /* 14px */
+  --text-100--line-height: 1.25rem;
+  --text-200: 1rem; /* 16px */
+  --text-200--line-height: 1.4rem;
+  --text-300: 1.125rem; /* 18px */
+  --text-300--line-height: 1.5rem;
+  --text-400: 1.25rem; /* 20px */
+  --text-400--line-height: 1.625rem;
+  --text-500: 1.375rem; /* 22px */
+  --text-500--line-height: 1.75rem;
+  --text-600: 1.5625rem; /* 25px */
+  --text-600--line-height: 2rem;
+  --text-700: 1.75rem; /* 28px */
+  --text-700--line-height: 2.25rem;
+  --text-800: 2rem; /* 32px */
+  --text-800--line-height: 2.5rem;
+  --text-900: 2.25rem; /* 36px */
+  --text-900--line-height: 2.75rem;
 
-  /* Panel washes that pair with the hues above. */
-  --color-gold-wash: #2a2013;
-  --color-queued-wash: #2e2114;
-  --color-positive-wash: #14251f;
-  --color-danger-wash: #2e1416;
+  /* -- Corner radii, applied by role -------------------------------------- */
+  --radius-sm: 8px; /* controls: buttons, inputs, pills   */
+  --radius-md: 10px; /* wells, nested surfaces             */
+  --radius-lg: 16px; /* cards, panels                      */
+  --radius-xl: 20px; /* dialogs                            */
 
-  /* -- Type -------------------------------------------------------------- */
-  --font-display: 'Chakra Petch', system-ui, -apple-system, sans-serif;
-  --font-sans: 'Manrope', system-ui, -apple-system, sans-serif;
+  /* -- Elevation ----------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 16px 48px rgb(0 0 0 / 0.6);
 
-  /* -- Radius, applied by role ------------------------------------------- */
-  --radius-control: 4px; /* buttons, inputs, chips                  */
-  --radius-inset: 8px; /* rows nested inside a panel              */
-  --radius-panel: 14px; /* panels, cards, dialogs                  */
-
-  /* -- Motion ------------------------------------------------------------ */
-  --ease-tt: cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  --breakpoint-3xl: 120rem;
+  /* -- Breakpoints --------------------------------------------------------- */
+  --breakpoint-3xl: 120rem; /* 1920px */
+  --breakpoint-4xl: 160rem; /* 2560px */
 }
 
 @layer base {
   html {
-    background-color: var(--tt-bg);
+    background-color: var(--color-gray-50);
   }
 
   body {
-    margin: 0;
-    background-color: var(--tt-bg);
-    color: var(--color-body);
-    font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.5;
+    background-color: var(--color-gray-50);
+    color: var(--color-gray-900);
+    font-family: 'Adobe Clean', system-ui, -apple-system, BlinkMacSystemFont,
+      'Segoe UI', Roboto, sans-serif;
+    font-size: var(--text-100);
+    line-height: var(--text-100--line-height);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
 
-  a {
-    color: var(--tt-accent);
-    text-decoration: none;
-  }
-  a:hover {
-    color: var(--tt-accent-ink);
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--color-subtle);
-  }
-
+  /* Spectrum focus indicator: 2px accent ring, 2px offset. The previous UI had
+     no keyboard focus styling at all. */
   :focus-visible {
-    outline: 2px solid var(--tt-accent);
+    outline: 2px solid var(--color-accent-800);
     outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
 
   ::selection {
-    background-color: var(--tt-accent-soft);
-    color: var(--color-ink);
+    background-color: var(--color-accent-400);
+    color: var(--color-gray-1000);
   }
+}
+
+/* Card grids size intrinsically so column count scales continuously with the
+   viewport instead of stepping at three hand-picked breakpoints. */
+@utility grid-cards {
+  display: grid;
+  gap: --spacing(5);
+  align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+}
+
+@utility grid-metrics {
+  display: grid;
+  gap: --spacing(3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
+/* Frosted scrim shared by every indicator that sits on top of cover art, so
+   they stay legible over bright artwork instead of blending into it. */
+@utility overlay-scrim {
+  background-color: rgb(0 0 0 / 0.72);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), var(--shadow-sm);
 }
 
 @layer components {
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--tt-bg);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--tt-line);
-    border-radius: 999px;
-    border: 2px solid var(--tt-bg);
+    background: var(--color-gray-300);
+    border-radius: var(--radius-sm);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--tt-line-2);
+    background: var(--color-gray-400);
   }
 }
 
 /* ---------------------------------------------------------------------------
-   Borders are drawn as inset shadows rather than real borders, so a state
-   change (hover, selection, completion) never shifts layout by a pixel.
+   100% completion treatment
+
+   Reserved for a fully unlocked game. Built only from trophy tokens so the
+   celebration reads as part of the system rather than a one-off flourish.
 --------------------------------------------------------------------------- */
-@utility hairline {
-  box-shadow: inset 0 0 0 1px var(--tt-line);
-}
-
-@utility hairline-2 {
-  box-shadow: inset 0 0 0 1px var(--tt-line-2);
-}
-
-/* The library card grid. Column width is the only thing the layout toggle
-   changes — wide cards are 16/9, posters 2/3, both fill their track. */
-@utility grid-cards {
-  display: grid;
-  gap: 14px;
-  align-items: stretch;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
-}
-
-@utility grid-cards-poster {
-  display: grid;
-  gap: 14px;
-  align-items: stretch;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr));
-}
-
-/* Route enter. Content re-mounts per view, so the transition reads as the page
-   arriving rather than the whole shell redrawing. */
-@keyframes tt-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes tt-fade {
-  from {
+@keyframes trophy-sweep {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
     opacity: 0;
   }
-  to {
+  10% {
     opacity: 1;
+  }
+  45% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    transform: translateX(360%) skewX(-18deg);
+    opacity: 0;
   }
 }
 
-@utility tt-rise {
-  animation: tt-rise 320ms var(--ease-tt);
+/* A slow specular highlight travelling across the cover art. */
+@utility trophy-sweep {
+  position: absolute;
+  inset-block: 0;
+  width: 35%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-trophy-900) 26%, transparent),
+    transparent
+  );
+  animation: trophy-sweep 7s ease-in-out infinite;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
+    opacity: 0;
   }
 }
 
-@utility tt-fade {
-  animation: tt-fade 200ms var(--ease-tt);
+/* Warm outer glow that lifts a completed card off the canvas. */
+@utility trophy-glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-trophy-700) 55%, transparent),
+    0 6px 24px -6px color-mix(in srgb, var(--color-trophy-900) 30%, transparent);
+}
 
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
+/* Soft gold halo behind the round completion emblem on a finished card. */
+@utility trophy-emblem {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-trophy-900) 12%, transparent),
+    0 2px 14px -2px color-mix(in srgb, var(--color-trophy-900) 45%, transparent);
 }
 
 /* ---------------------------------------------------------------------------
    Completion burst. Fires once on the card that was just finished: a warm wash,
-   a band of light travelling up the art, and a spray of particles. Each
-   particle carries its own --drift/--rise/--rot so one keyframe set covers the
-   whole spray.
+   a shockwave ring, and a spray of particles. Each particle carries its own
+   --dx/--dy/--rot so one keyframe set covers the whole spray.
 --------------------------------------------------------------------------- */
 @keyframes celebration-glow {
   0% {
@@ -244,6 +265,7 @@
   }
 }
 
+/* A band of light travelling up the card, ahead of the sparkles. */
 @keyframes celebration-shine {
   0% {
     transform: translateY(60%);
@@ -260,6 +282,10 @@
 
 @utility celebration-glow {
   animation: celebration-glow 1400ms ease-out forwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: 1200ms;
+  }
 }
 
 @utility celebration-particle {

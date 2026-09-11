@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { FolderKanban, Plus, Trash2, Folder, Check } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameCard } from '../components/GameCard';
 import {
@@ -6,52 +8,32 @@ import {
   DEFAULT_COLLECTION_COLOR,
   comparePlatformOrder,
 } from '../lib/constants';
-import { navLabel, NAV_DESTINATIONS } from '../lib/navigation';
-import {
-  Button,
-  Chip,
-  Dot,
-  EmptyState,
-  Eyebrow,
-  Field,
-  Panel,
-  PanelHeading,
-  TextInput,
-} from '../components/ui';
-import { CheckIcon, FolderIcon, PlusIcon, TrashIcon } from '../components/icons';
-
-const COLLECTIONS = NAV_DESTINATIONS.find((d) => d.path === '/collections')!;
+import { Button, Card, EmptyState, Field, TextInput } from '../components/ui';
+import { cn } from '../lib/cn';
 
 export const CollectionsView: React.FC = () => {
-  const {
-    collections,
-    createCollection,
-    deleteCollection,
-    games,
-    profile,
-    sidebarConfig,
-    ui,
-    setIsQuickAddOpen,
-  } = useGame();
+  const { collections, createCollection, deleteCollection, games, setIsQuickAddOpen, profile } =
+    useGame();
 
-  const [activeId, setActiveId] = useState('');
+  const [activeCollectionId, setActiveCollectionId] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(DEFAULT_COLLECTION_COLOR);
 
-  const active = collections.find((c) => c.id === activeId) ?? collections[0] ?? null;
+  const activeCollection =
+    collections.find((c) => c.id === activeCollectionId) ?? collections[0] ?? null;
   const platformOrder = profile.platformOrder;
 
   const collectionGames = useMemo(() => {
-    if (!active) return [];
+    if (!activeCollection) return [];
     return games
-      .filter((g) => g.collections?.includes(active.id))
+      .filter((g) => g.collections?.includes(activeCollection.id))
       .sort((a, b) => {
-        const diff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-        return diff !== 0 ? diff : a.title.localeCompare(b.title);
+        const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
+        return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
       });
-  }, [games, active, platformOrder]);
+  }, [games, activeCollection, platformOrder]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,34 +44,35 @@ export const CollectionsView: React.FC = () => {
     setIsCreating(false);
   };
 
-  const gridClass = ui.cardLayout === 'poster' ? 'grid-cards-poster' : 'grid-cards';
-
   return (
-    <section className="tt-rise flex flex-col gap-[clamp(20px,2.6vw,28px)]">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <Eyebrow>Your own shelves</Eyebrow>
-          <h1 className="m-0 mt-1 font-display text-[clamp(28px,4.2vw,42px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">
-            {navLabel(COLLECTIONS, sidebarConfig)}
-          </h1>
+    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+      <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-100 text-accent-900">
+            <FolderKanban size={20} />
+          </div>
+          <div>
+            <h1 className="text-600 font-bold tracking-tight text-gray-1000">Collections</h1>
+            <p className="text-75 text-gray-700">Custom lists across your library</p>
+          </div>
         </div>
 
-        <Button variant="accent" size="xl" onClick={() => setIsCreating(true)}>
-          <PlusIcon size={16} />
-          New collection
+        <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
+          <Plus size={16} />
+          <span>New collection</span>
         </Button>
       </div>
 
-      {isCreating ? (
-        <Panel className="flex max-w-lg flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <PanelHeading>Create collection</PanelHeading>
-            <Button variant="ghost" size="s" onClick={() => setIsCreating(false)}>
+      {isCreating && (
+        <Card className="max-w-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-200 font-bold text-gray-1000">Create collection</h2>
+            <Button buttonStyle="subtle" size="s" onClick={() => setIsCreating(false)}>
               Cancel
             </Button>
           </div>
 
-          <form onSubmit={handleCreate} className="flex flex-col gap-4">
+          <form onSubmit={handleCreate} className="space-y-4">
             <Field label="Name">
               {(props) => (
                 <TextInput
@@ -113,110 +96,135 @@ export const CollectionsView: React.FC = () => {
               )}
             </Field>
 
-            <fieldset className="m-0 border-0 p-0">
-              <legend className="mb-2 p-0 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-subtle">
-                Colour accent
-              </legend>
-              <div className="flex flex-wrap gap-2">
+            <fieldset>
+              <legend className="mb-1.5 text-75 font-semibold text-gray-800">Colour accent</legend>
+              <div className="flex gap-2">
                 {COLLECTION_COLORS.map((preset) => (
                   <button
                     key={preset}
                     type="button"
                     onClick={() => setColor(preset)}
+                    style={{ backgroundColor: preset }}
                     aria-label={`Use colour ${preset}`}
                     aria-pressed={color === preset}
-                    style={{
-                      background: preset,
-                      boxShadow:
-                        color === preset ? '0 0 0 2px var(--tt-surface), 0 0 0 4px #f7f3ec' : 'none',
-                    }}
-                    className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border-0"
+                    className={cn(
+                      'flex h-6 w-6 items-center justify-center rounded-full transition-transform',
+                      color === preset ? 'scale-110 ring-2 ring-gray-1000' : 'opacity-80 hover:opacity-100',
+                    )}
                   >
-                    {color === preset ? <CheckIcon size={12} color="#100e0c" /> : null}
+                    {color === preset && <Check size={12} className="text-gray-25" />}
                   </button>
                 ))}
               </div>
             </fieldset>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="l" onClick={() => setIsCreating(false)}>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button buttonStyle="subtle" onClick={() => setIsCreating(false)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="accent" size="l" disabled={!name.trim()}>
+              <Button type="submit" variant="accent">
                 Save collection
               </Button>
             </div>
           </form>
-        </Panel>
-      ) : null}
+        </Card>
+      )}
 
-      {collections.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {collections.map((collection) => {
-            const tone = collection.color || DEFAULT_COLLECTION_COLOR;
-            const count = games.filter((g) => g.collections?.includes(collection.id)).length;
-            return (
-              <Chip
-                key={collection.id}
-                size="lg"
-                tone={tone}
-                selected={active?.id === collection.id}
-                onClick={() => setActiveId(collection.id)}
-              >
-                <Dot color={tone} />
-                {collection.name}
-                <span className="rounded-full bg-[rgb(8_7_6_/_.45)] px-1.5 text-[11px] tabular-nums">
-                  {count}
+      {/* Tabs -------------------------------------------------------------- */}
+      <div className="flex flex-wrap items-center gap-2">
+        {collections.map((col) => {
+          const isSelected = activeCollection?.id === col.id;
+          const count = games.filter((g) => g.collections?.includes(col.id)).length;
+          return (
+            <button
+              key={col.id}
+              type="button"
+              onClick={() => setActiveCollectionId(col.id)}
+              aria-pressed={isSelected}
+              style={
+                isSelected
+                  ? { borderColor: col.color, backgroundColor: `${col.color}22` }
+                  : undefined
+              }
+              className={cn(
+                'inline-flex h-8 items-center gap-2 rounded-sm border px-3 text-75 font-semibold transition-colors',
+                isSelected
+                  ? 'text-gray-1000'
+                  : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
+              )}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: col.color || DEFAULT_COLLECTION_COLOR }}
+              />
+              <span>{col.name}</span>
+              <span className="rounded-full bg-gray-25/40 px-1.5 text-50 opacity-80">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {activeCollection && (
+        <Card className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: activeCollection.color }}
+              />
+              <h2 className="text-200 font-bold text-gray-1000">{activeCollection.name}</h2>
+              {activeCollection.isSystem && (
+                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-50 font-medium text-gray-700">
+                  Default
                 </span>
-              </Chip>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {active ? (
-        <Panel className="flex flex-wrap items-center justify-between gap-3 !p-[18px]">
-          <div className="min-w-0">
-            <h2 className="m-0 flex items-center gap-2.5 font-display text-[18px] font-bold text-ink">
-              <Dot color={active.color || DEFAULT_COLLECTION_COLOR} size={10} />
-              {active.name}
-            </h2>
-            {active.description ? (
-              <p className="m-0 mt-1 text-[13px] text-muted">{active.description}</p>
-            ) : null}
+              )}
+            </div>
+            {activeCollection.description && (
+              <p className="text-75 text-gray-700">{activeCollection.description}</p>
+            )}
           </div>
 
-          {!active.isSystem ? (
-            <Button variant="danger" size="s" onClick={() => deleteCollection(active.id)}>
-              <TrashIcon size={13} />
-              Delete
-            </Button>
-          ) : null}
-        </Panel>
-      ) : null}
+          <div className="flex items-center gap-2">
+            {!activeCollection.isSystem && (
+              <Button
+                variant="negative"
+                buttonStyle="outline"
+                size="s"
+                onClick={() => deleteCollection(activeCollection.id)}
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
 
-      {collectionGames.length > 0 ? (
-        <div className={gridClass}>
+      <div className="grid-cards">
+        <AnimatePresence>
           {collectionGames.map((game) => (
             <GameCard key={game.id} game={game} />
           ))}
-        </div>
-      ) : (
+        </AnimatePresence>
+      </div>
+
+      {collectionGames.length === 0 && (
         <EmptyState
-          icon={<FolderIcon size={20} />}
-          title={active ? 'This collection is empty' : 'No collections yet'}
+          icon={<Folder size={24} />}
+          title={activeCollection ? 'This collection is empty' : 'No collections yet'}
           description={
-            active
+            activeCollection
               ? 'Assign a game to this collection from its edit dialog, or add a new one.'
               : 'Create a collection to group games however you like.'
           }
           action={
-            <Button variant="accent" size="m" onClick={() => setIsQuickAddOpen(true)}>
+            <Button variant="accent" onClick={() => setIsQuickAddOpen(true)}>
+              <Plus size={14} />
               Add game
             </Button>
           }
         />
       )}
-    </section>
+    </div>
   );
 };

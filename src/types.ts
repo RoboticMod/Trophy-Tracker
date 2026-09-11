@@ -1,7 +1,3 @@
-import type { SurfaceKey } from './lib/theme';
-
-export type { SurfaceKey };
-
 /** The only two platforms this tracker supports. */
 export type Platform = 'steam' | 'ps5';
 
@@ -70,9 +66,6 @@ export interface SidebarConfig {
   navNames?: Record<string, string>;
 }
 
-/** Cover shape for every card in a library grid, chosen from the top bar. */
-export type CardLayout = 'wide' | 'poster';
-
 export interface UserProfile {
   id: string;
   username: string;
@@ -85,32 +78,18 @@ export interface UserProfile {
   platformOrder?: Platform[];
   /** How a card signals its status: a coloured stroke, or a filled tint. */
   highlightStyle?: HighlightStyle;
-  /** Cover shape for library grids. */
-  cardLayout?: CardLayout;
-
-  /* -- Advanced customization ------------------------------------------- */
-  /** Accent hex driving buttons, links, active nav and progress meters. */
-  accent?: string;
-  /** Trophy metal for completion, platinum badges and highlights. */
-  gold?: string;
-  /** Key of the surface preset — never the hexes it expands to. */
-  surface?: SurfaceKey;
-  /** Renames the app itself. Never affects RAWG game titles. */
-  uiAppName?: string;
-  /** Headline on the dashboard. */
-  uiDashTitle?: string;
 }
 
 export interface PlatformConfig {
   id: Platform;
   name: string;
   shortName: string;
-  /** All-caps wordmark used on card overlays and rank chips. */
-  mark: string;
-  /** Identity hue — meters, chart fills, chip ink. */
+  /** Identity hue — meters, chart fills, overlay tints. */
   color: string;
-  /** The hue at 40% alpha, for a hairline that names the platform. */
-  line: string;
+  /** Low-alpha identity tint layered above the overlay scrim on cover art. */
+  tint: string;
+  /** Token classes for the platform on an ordinary (non-overlay) surface. */
+  surfaceClass: string;
 }
 
 export interface RawgGameResult {

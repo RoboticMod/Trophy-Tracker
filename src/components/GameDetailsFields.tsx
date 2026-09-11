@@ -1,12 +1,12 @@
 import React from 'react';
+import { Clock, Minus, Plus } from 'lucide-react';
 import { Collection, GameStatus, Platform, PLATFORM_IDS, UserProfile } from '../types';
 import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
-import { statusLabel, STATUS_COLOR } from '../lib/status';
-import { ratingColor } from '../lib/rating';
-import { chipStyle } from '../lib/tone';
-import { TrophyBadge, awardNoun, trophySrc } from './TrophyBadge';
-import { ClockIcon, PlusIcon } from './icons';
-import { Button, Dot, Field, FieldLabel, RangeInput, TextArea, TextInput } from './ui';
+import { statusLabel, STATUS_SELECTED_CLASS } from '../lib/status';
+import { PlatformIcon } from './PlatformIcon';
+import { TrophyBadge, awardNoun } from './TrophyBadge';
+import { RatingControl } from './Rating';
+import { Button, Field, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 
@@ -37,6 +37,41 @@ interface GameDetailsFieldsProps {
   /** Appended below the fields, e.g. a note about syncing. */
   children?: React.ReactNode;
 }
+
+/**
+ * A pair of nudge buttons under a count field, so ticking a single unlock off
+ * does not mean selecting the number and retyping it.
+ */
+const CountStepper: React.FC<{
+  label: string;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  canDecrement: boolean;
+  canIncrement: boolean;
+}> = ({ label, onDecrement, onIncrement, canDecrement, canIncrement }) => (
+  <div className="flex gap-1.5">
+    <Button
+      buttonStyle="outline"
+      size="s"
+      onClick={onDecrement}
+      disabled={!canDecrement}
+      aria-label={`Decrease ${label}`}
+      className="flex-1"
+    >
+      <Minus size={14} />
+    </Button>
+    <Button
+      buttonStyle="outline"
+      size="s"
+      onClick={onIncrement}
+      disabled={!canIncrement}
+      aria-label={`Increase ${label}`}
+      className="flex-1"
+    >
+      <Plus size={14} />
+    </Button>
+  </div>
+);
 
 /**
  * The single game form, shared by the add and edit dialogs so the two collect
@@ -71,7 +106,9 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   const noun = awardNoun(platform);
   const nounLower = noun.toLowerCase();
 
-  const hoursField = useNumericField(hoursPlayed, (n) => onChange({ hoursPlayed: Math.max(0, n) }));
+  const hoursField = useNumericField(hoursPlayed, (n) =>
+    onChange({ hoursPlayed: Math.max(0, n) }),
+  );
   const unlockedField = useNumericField(achievementsUnlocked, (n) =>
     onChange({ achievementsUnlocked: Math.max(0, n) }),
   );
@@ -80,7 +117,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   );
 
   return (
-    <form id={formId} onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form id={formId} onSubmit={onSubmit} className="space-y-5">
       <Field label="Title">
         {(props) => (
           <TextInput
@@ -93,205 +130,238 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
         )}
       </Field>
 
-      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="p-0">
-          <FieldLabel>Platform</FieldLabel>
-        </legend>
-        <div className="flex gap-2">
-          {PLATFORM_IDS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => onChange({ platform: p })}
-              aria-pressed={platform === p}
-              style={chipStyle(platform === p, PLATFORMS[p].color)}
-              className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-[7px] rounded-control border-0 font-display text-[13px] font-bold"
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  backgroundImage: `url(${trophySrc(p)})`,
-                  backgroundSize: 'contain',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center',
-                }}
-                className="inline-block h-4 w-4"
-              />
-              {PLATFORMS[p].name}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <fieldset>
+          <legend className="mb-1.5 text-75 font-semibold text-gray-800">Platform</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {PLATFORM_IDS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onChange({ platform: p })}
+                aria-pressed={platform === p}
+                className={cn(
+                  'flex h-9 items-center justify-center gap-2 rounded-sm border text-75 font-semibold transition-colors',
+                  platform === p
+                    ? 'border-accent-700 bg-accent-100 text-accent-900'
+                    : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
+                )}
+              >
+                <PlatformIcon platform={p} size={15} />
+                {PLATFORMS[p].shortName}
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
-      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="p-0">
-          <FieldLabel>Status</FieldLabel>
-        </legend>
-        <div className="flex flex-wrap gap-2">
+        <Field label="Cover image URL" description="Optional — blank leaves a plain lettered tile">
+          {(props) => (
+            <TextInput
+              {...props}
+              type="url"
+              value={coverImage}
+              onChange={(e) => onChange({ coverImage: e.target.value })}
+              placeholder="https://…"
+            />
+          )}
+        </Field>
+      </div>
+
+      <fieldset>
+        <legend className="mb-1.5 text-75 font-semibold text-gray-800">Status</legend>
+        <div
+          className={cn(
+            'grid grid-cols-2 gap-2',
+            statuses.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
+          )}
+        >
           {statuses.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => onChange({ status: s })}
               aria-pressed={status === s}
-              style={chipStyle(status === s, STATUS_COLOR[s])}
-              className="inline-flex h-[34px] cursor-pointer items-center gap-[7px] rounded-control border-0 px-3 font-display text-[12px] font-semibold"
+              className={cn(
+                'rounded-sm border px-3 py-2 text-75 font-semibold transition-colors',
+                status === s
+                  ? STATUS_SELECTED_CLASS[s]
+                  : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
+              )}
             >
-              <Dot color={STATUS_COLOR[s]} size={7} />
               {statusLabel(s, profile)}
             </button>
           ))}
         </div>
       </fieldset>
 
-      <Field label="Cover image URL" description="Optional — blank leaves a plain lettered tile">
-        {(props) => (
-          <TextInput
-            {...props}
-            type="url"
-            value={coverImage}
-            onChange={(e) => onChange({ coverImage: e.target.value })}
-            placeholder="https://…"
-          />
-        )}
-      </Field>
-
-      {/* Counts ------------------------------------------------------------ */}
-      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr))]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Hours played">
           {(props) => (
-            <div className="relative">
-              <ClockIcon
-                size={14}
-                color="#9a9082"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-              />
-              <TextInput
-                {...props}
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={0.5}
-                {...hoursField}
-                className="pl-9 font-display tabular-nums"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Clock
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-600"
+                />
+                <TextInput
+                  {...props}
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={0.5}
+                  {...hoursField}
+                  className="pl-9"
+                />
+              </div>
+              <Button
+                size="m"
+                variant="secondary"
+                onClick={() => onChange({ hoursPlayed: hoursPlayed + 1 })}
+              >
+                +1h
+              </Button>
+              <Button
+                size="m"
+                variant="secondary"
+                onClick={() => onChange({ hoursPlayed: hoursPlayed + 5 })}
+              >
+                +5h
+              </Button>
             </div>
           )}
         </Field>
 
-        <Field label="Unlocked">
-          {(props) => (
-            <TextInput
-              {...props}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={achievementsTotal}
-              {...unlockedField}
-              className="font-display tabular-nums"
-            />
-          )}
-        </Field>
-
-        <Field label="Total">
-          {(props) => (
-            <TextInput
-              {...props}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              {...totalField}
-              className="font-display tabular-nums"
-            />
-          )}
-        </Field>
+        <div className="space-y-1.5">
+          <span className="text-75 font-semibold text-gray-800">Game rating</span>
+          <RatingControl value={rating} onChange={(next) => onChange({ rating: next })} />
+          <p className="text-50 text-gray-600">
+            The game itself, scored out of 100. The colour runs red at the bottom through to green
+            at 100.
+          </p>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="s" variant="neutral" onClick={() => onChange({ hoursPlayed: hoursPlayed + 1 })}>
-          <PlusIcon size={12} />
-          1h
-        </Button>
-        <Button size="s" variant="neutral" onClick={() => onChange({ hoursPlayed: hoursPlayed + 5 })}>
-          <PlusIcon size={12} />
-          5h
-        </Button>
-        <span className="mx-1 h-4 w-px bg-line" />
-        <Button
-          size="s"
-          variant="neutral"
-          disabled={achievementsUnlocked >= achievementsTotal}
-          onClick={() =>
-            onChange({
-              achievementsUnlocked: Math.min(achievementsTotal, achievementsUnlocked + 1),
-            })
-          }
-        >
-          <PlusIcon size={12} />
-          One {nounLower.replace(/s$/, '')}
-        </Button>
-        <Button
-          size="s"
-          variant="neutral"
-          disabled={achievementsTotal === 0 || achievementsUnlocked >= achievementsTotal}
-          onClick={() => onChange({ achievementsUnlocked: achievementsTotal })}
-        >
-          <TrophyBadge platform={platform} size={13} />
-          Set to 100%
-        </Button>
+      <div className="space-y-3 rounded-md border border-gray-200 bg-gray-75 p-4">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-75 font-semibold text-gray-800">
+            <TrophyBadge platform={platform} size={15} />
+            {noun}
+          </span>
+          <Button
+            buttonStyle="subtle"
+            size="s"
+            disabled={achievementsTotal === 0}
+            onClick={() => onChange({ achievementsUnlocked: achievementsTotal })}
+          >
+            Set to 100%
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Field label="Unlocked">
+              {(props) => (
+                <TextInput
+                  {...props}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={achievementsTotal}
+                  {...unlockedField}
+                />
+              )}
+            </Field>
+            <CountStepper
+              label={`${nounLower} unlocked`}
+              canDecrement={achievementsUnlocked > 0}
+              canIncrement={achievementsUnlocked < achievementsTotal}
+              onDecrement={() =>
+                onChange({ achievementsUnlocked: Math.max(0, achievementsUnlocked - 1) })
+              }
+              onIncrement={() =>
+                onChange({
+                  achievementsUnlocked: Math.min(achievementsTotal, achievementsUnlocked + 1),
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Field label="Total available">
+              {(props) => (
+                <TextInput
+                  {...props}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  {...totalField}
+                />
+              )}
+            </Field>
+            <CountStepper
+              label={`total ${nounLower}`}
+              canDecrement={achievementsTotal > 0}
+              canIncrement
+              onDecrement={() => {
+                const next = Math.max(0, achievementsTotal - 1);
+                // Lowering the total can strand the unlocked count above it.
+                onChange({
+                  achievementsTotal: next,
+                  achievementsUnlocked: Math.min(achievementsUnlocked, next),
+                });
+              }}
+              onIncrement={() => onChange({ achievementsTotal: achievementsTotal + 1 })}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5 border-t border-gray-200 pt-3">
+          <span className="text-75 font-semibold text-gray-800">{noun} rating</span>
+          <RatingControl
+            value={achievementRating}
+            onChange={(next) => onChange({ achievementRating: next })}
+          />
+          <p className="text-50 text-gray-600">
+            How good the {nounLower} were to earn — separate from how good the game is.
+          </p>
+        </div>
       </div>
 
-      {/* Ratings ----------------------------------------------------------- */}
-      <RatingRow
-        label="Game rating"
-        value={rating}
-        accent="var(--tt-gold, #e5a83c)"
-        valueColor={ratingColor(rating)}
-        description="The game itself, scored out of 100."
-        onChange={(next) => onChange({ rating: next })}
-      />
-
-      <RatingRow
-        label="Grind rating"
-        value={achievementRating}
-        accent="var(--tt-accent, #45c8ea)"
-        valueColor={ratingColor(achievementRating)}
-        description={`How good the ${nounLower} were to earn — separate from how good the game is.`}
-        onChange={(next) => onChange({ achievementRating: next })}
-      />
-
-      {collections.length > 0 ? (
-        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-          <legend className="p-0">
-            <FieldLabel>Collections</FieldLabel>
-          </legend>
+      {collections.length > 0 && (
+        <fieldset>
+          <legend className="mb-1.5 text-75 font-semibold text-gray-800">Collections</legend>
           <div className="flex flex-wrap gap-2">
-            {collections.map((collection) => {
-              const tone = collection.color || DEFAULT_COLLECTION_COLOR;
-              const selected = selectedCollections.includes(collection.id);
+            {collections.map((col) => {
+              const selected = selectedCollections.includes(col.id);
               return (
                 <button
-                  key={collection.id}
+                  key={col.id}
                   type="button"
-                  aria-pressed={selected}
-                  style={chipStyle(selected, tone)}
                   onClick={() =>
                     onChange({
                       collections: selected
-                        ? selectedCollections.filter((c) => c !== collection.id)
-                        : [...selectedCollections, collection.id],
+                        ? selectedCollections.filter((c) => c !== col.id)
+                        : [...selectedCollections, col.id],
                     })
                   }
-                  className="inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-control border-0 px-3 font-display text-[12px] font-semibold"
+                  aria-pressed={selected}
+                  className={cn(
+                    'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-medium transition-colors',
+                    selected
+                      ? 'border-accent-700 bg-accent-100 text-accent-900'
+                      : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400',
+                  )}
                 >
-                  <Dot color={tone} />
-                  {collection.name}
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: col.color || DEFAULT_COLLECTION_COLOR }}
+                  />
+                  {col.name}
                 </button>
               );
             })}
           </div>
         </fieldset>
-      ) : null}
+      )}
 
       <Field label="Notes" description="Optional">
         {(props) => (
@@ -309,32 +379,3 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
     </form>
   );
 };
-
-/** Label, live value, and a slider whose thumb carries the section's colour. */
-const RatingRow: React.FC<{
-  label: string;
-  value: number;
-  accent: string;
-  valueColor: string;
-  description: string;
-  onChange: (next: number) => void;
-}> = ({ label, value, accent, valueColor, description, onChange }) => (
-  <div className="flex flex-col gap-2.5">
-    <div className="flex items-center justify-between gap-2">
-      <FieldLabel>{label}</FieldLabel>
-      <span
-        style={{ color: value ? valueColor : '#9a9082' }}
-        className={cn('font-display text-[15px] font-bold tabular-nums')}
-      >
-        {value || '—'}
-      </span>
-    </div>
-    <RangeInput
-      accent={accent}
-      value={value}
-      aria-label={`${label} out of 100`}
-      onChange={(e) => onChange(Number(e.target.value))}
-    />
-    <p className="m-0 text-[11px] text-faint [text-wrap:pretty]">{description}</p>
-  </div>
-);

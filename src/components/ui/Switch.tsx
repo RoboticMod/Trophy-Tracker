@@ -8,7 +8,6 @@ interface SwitchProps {
   className?: string;
 }
 
-/** 46×26 track, 20px knob. Accent when on, the stronger hairline when off. */
 export const Switch: React.FC<SwitchProps> = ({ checked, onChange, label, className }) => (
   <button
     type="button"
@@ -18,16 +17,14 @@ export const Switch: React.FC<SwitchProps> = ({ checked, onChange, label, classN
     title={label}
     onClick={() => onChange(!checked)}
     className={cn(
-      'relative block h-[26px] w-[46px] shrink-0 cursor-pointer rounded-full border-0 p-[3px]',
-      'transition-colors duration-100 ease-tt',
-      checked ? 'bg-accent' : 'bg-line-2',
+      'relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors',
+      checked ? 'bg-accent-700' : 'bg-gray-300',
       className,
     )}
   >
     <span
       className={cn(
-        'block h-5 w-5 rounded-full bg-ink shadow-[0_1px_2px_rgb(0_0_0_/_.5)]',
-        'transition-transform duration-100 ease-tt',
+        'block h-5 w-5 rounded-full bg-gray-1000 shadow-sm transition-transform',
         checked ? 'translate-x-5' : 'translate-x-0',
       )}
     />

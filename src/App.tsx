@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { CloudOffIcon, RefreshIcon } from './components/icons';
+import { Loader2, DatabaseZap } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -18,20 +18,18 @@ import { SettingsView } from './pages/SettingsView';
 /** Shown instead of a broken app when Supabase credentials are absent. */
 function SetupNotice() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg p-6">
-      <div className="flex max-w-md flex-col gap-4 rounded-panel bg-surface p-7 hairline">
-        <span className="flex h-12 w-12 items-center justify-center rounded-inset bg-queued-wash text-queued">
-          <CloudOffIcon size={22} />
-        </span>
-        <h1 className="m-0 font-display text-[22px] font-bold text-ink">
-          {APP_NAME} needs Supabase
-        </h1>
-        <p className="m-0 text-[14px] text-muted [text-wrap:pretty]">
+    <div className="flex min-h-dvh items-center justify-center bg-gray-50 p-6">
+      <div className="max-w-md space-y-4 rounded-lg border border-gray-200 bg-gray-100 p-7">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-notice-100 text-notice-900">
+          <DatabaseZap size={22} />
+        </div>
+        <h1 className="text-400 font-bold text-gray-1000">{APP_NAME} needs Supabase</h1>
+        <p className="text-100 text-gray-700">
           Sign-in and your library both live in Supabase. Create a project, run the schema from the
-          repository README, then add these to a <code className="text-ink">.env.local</code> file
-          and restart the dev server:
+          repository README, then add these to a <code className="text-gray-900">.env.local</code>{' '}
+          file and restart the dev server:
         </p>
-        <pre className="m-0 overflow-x-auto rounded-inset bg-bg-2 p-3 font-mono text-[12px] leading-relaxed text-body hairline">
+        <pre className="overflow-x-auto rounded-md border border-gray-200 bg-gray-25 p-3 text-75 text-gray-800">
           {'VITE_SUPABASE_URL="https://<project>.supabase.co"\nVITE_SUPABASE_ANON_KEY="<anon key>"'}
         </pre>
       </div>
@@ -41,9 +39,8 @@ function SetupNotice() {
 
 function Splash() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg">
-      <RefreshIcon size={28} className="animate-spin text-subtle" />
-      <span className="sr-only">Loading</span>
+    <div className="flex min-h-dvh items-center justify-center bg-gray-50">
+      <Loader2 size={28} className="animate-spin text-gray-600" aria-label="Loading" />
     </div>
   );
 }

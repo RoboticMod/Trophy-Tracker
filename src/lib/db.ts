@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import { normalizePlatform } from './constants';
 import { clampRating, normalizeRating } from './rating';
-import { DEFAULT_ACCENT, DEFAULT_GOLD, isSurfaceKey, normalizeHex } from './theme';
 import {
   Collection,
   GameStatus,
@@ -137,12 +136,6 @@ interface ProfileRow {
   status_names: Partial<Record<GameStatus, string>> | null;
   platform_order: string[] | null;
   highlight_style: string | null;
-  card_layout: string | null;
-  accent: string | null;
-  gold: string | null;
-  surface: string | null;
-  ui_app_name: string | null;
-  ui_dash_title: string | null;
 }
 
 const toProfile = (row: ProfileRow): UserProfile => ({
@@ -157,14 +150,6 @@ const toProfile = (row: ProfileRow): UserProfile => ({
       ?.map(normalizePlatform)
       .filter((p): p is Platform => p !== null)) ?? undefined,
   highlightStyle: row.highlight_style === 'fill' ? 'fill' : 'stroke',
-  cardLayout: row.card_layout === 'poster' ? 'poster' : 'wide',
-  // A malformed or hand-edited colour falls back to the default rather than
-  // reaching the theme, where an unparseable hex would break the derived ink.
-  accent: row.accent ? normalizeHex(row.accent, DEFAULT_ACCENT) : undefined,
-  gold: row.gold ? normalizeHex(row.gold, DEFAULT_GOLD) : undefined,
-  surface: isSurfaceKey(row.surface) ? row.surface : undefined,
-  uiAppName: row.ui_app_name ?? undefined,
-  uiDashTitle: row.ui_dash_title ?? undefined,
 });
 
 const fromProfile = (profile: UserProfile, userId: string) => ({
@@ -176,12 +161,6 @@ const fromProfile = (profile: UserProfile, userId: string) => ({
   status_names: profile.statusNames ?? null,
   platform_order: profile.platformOrder ?? null,
   highlight_style: profile.highlightStyle ?? 'stroke',
-  card_layout: profile.cardLayout ?? 'wide',
-  accent: profile.accent ?? null,
-  gold: profile.gold ?? null,
-  surface: profile.surface ?? null,
-  ui_app_name: profile.uiAppName ?? null,
-  ui_dash_title: profile.uiDashTitle ?? null,
 });
 
 /* -------------------------------------------------------------------------- */

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { Loader2, LogIn, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { BrandMark } from '../components/TrophyBadge';
+import { TrophyPair } from '../components/TrophyBadge';
 import { APP_NAME } from '../lib/constants';
 import { getRememberMe } from '../lib/supabase';
-import { Button, FieldLabel, Switch } from '../components/ui';
-import { LockIcon, MailIcon, RefreshIcon } from '../components/icons';
-import { cn } from '../lib/cn';
+import { Button, Field, TextInput } from '../components/ui';
 
 type Mode = 'signin' | 'signup';
 
@@ -44,23 +44,23 @@ export const AuthView: React.FC = () => {
   if (confirmationSent) {
     return (
       <Shell>
-        <div className="flex flex-col items-center gap-4 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-inset bg-positive-wash text-positive">
-            <MailIcon size={22} />
-          </span>
-          <h1 className="m-0 font-display text-[24px] font-bold text-ink">Confirm your email</h1>
-          <p className="m-0 text-[14px] text-muted [text-wrap:pretty]">
-            We sent a confirmation link to <span className="text-ink">{email}</span>. Open it, then
-            come back and sign in.
+        <div className="space-y-4 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-positive-100 text-positive-900">
+            <Mail size={22} />
+          </div>
+          <h1 className="text-400 font-bold text-gray-1000">Confirm your email</h1>
+          <p className="text-100 text-gray-700">
+            We sent a confirmation link to <span className="text-gray-900">{email}</span>. Open it,
+            then come back and sign in.
           </p>
           <Button
-            variant="outline"
-            size="xl"
+            variant="secondary"
+            buttonStyle="outline"
+            size="l"
             className="w-full"
             onClick={() => {
               setConfirmationSent(false);
               setMode('signin');
-              setPassword('');
             }}
           >
             Back to sign in
@@ -72,112 +72,104 @@ export const AuthView: React.FC = () => {
 
   return (
     <Shell>
-      <div className="flex flex-col items-start gap-3">
-        <BrandMark size={20} />
-        <div>
-          <h1 className="m-0 font-display text-[30px] font-bold leading-[1.1] tracking-[-0.02em] text-ink">
-            {APP_NAME}
-          </h1>
-          <p className="m-0 mt-1.5 text-[13px] text-muted [text-wrap:pretty]">
-            One cabinet for every Steam achievement and PlayStation platinum you have earned.
-          </p>
+      <div className="mb-6 space-y-2 text-center">
+        {/* Same brand lockup as the sidebar: both award marks, not a glyph. */}
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-gray-200">
+          <TrophyPair size={22} />
         </div>
+        <h1 className="text-500 font-bold tracking-tight text-gray-1000">{APP_NAME}</h1>
+        <p className="text-100 text-gray-700">
+          {mode === 'signin'
+            ? 'Sign in to reach your library on any device.'
+            : 'Create an account to start tracking.'}
+        </p>
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Sign in or create an account"
-        className="flex gap-0.5 rounded-control bg-surface-2 p-[3px]"
-      >
-        <ModeTab active={mode === 'signin'} onClick={() => setMode('signin')}>
-          Sign in
-        </ModeTab>
-        <ModeTab active={mode === 'signup'} onClick={() => setMode('signup')}>
-          Create account
-        </ModeTab>
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Email">
+          {(props) => (
+            <TextInput
+              {...props}
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+          )}
+        </Field>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <FieldLabel htmlFor="tt-auth-email">Email address</FieldLabel>
-          <input
-            id="tt-auth-email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="player@example.com"
-            className="h-12 w-full rounded-control border-0 bg-surface-2 px-3.5 text-[15px] text-ink shadow-[inset_0_0_0_1px_var(--tt-line)] transition-shadow focus:shadow-[inset_0_0_0_1px_var(--tt-accent)] focus:outline-none"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <FieldLabel htmlFor="tt-auth-password">Password</FieldLabel>
-          <input
-            id="tt-auth-password"
-            type="password"
-            required
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-            className="h-12 w-full rounded-control border-0 bg-surface-2 px-3.5 text-[15px] text-ink shadow-[inset_0_0_0_1px_var(--tt-line)] transition-shadow focus:shadow-[inset_0_0_0_1px_var(--tt-accent)] focus:outline-none"
-          />
-        </div>
+        <Field
+          label="Password"
+          description={mode === 'signup' ? 'At least 8 characters.' : undefined}
+        >
+          {(props) => (
+            <TextInput
+              {...props}
+              type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          )}
+        </Field>
 
         {mode === 'signin' ? (
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[13px] text-muted">Keep me signed in on this device</span>
-            <Switch checked={remember} onChange={setRemember} label="Keep me signed in" />
-          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-75 text-gray-800">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 cursor-pointer rounded-sm border-gray-300 accent-accent-700"
+            />
+            <span>Keep me signed in on this device</span>
+          </label>
         ) : null}
 
         {error ? (
           <p
             role="alert"
-            className="m-0 rounded-control bg-danger-wash px-3 py-2.5 text-[13px] text-danger shadow-[inset_0_0_0_1px_rgb(242_104_111_/_.35)]"
+            className="rounded-sm border border-negative-700 bg-negative-100 px-3 py-2 text-75 text-negative-900"
           >
             {error}
           </p>
         ) : null}
 
-        <Button type="submit" variant="accent" size="xl" disabled={busy} className="w-full">
-          {busy ? (
-            <RefreshIcon size={16} className="animate-spin" />
-          ) : (
-            <LockIcon size={16} />
-          )}
-          {mode === 'signin' ? 'Sign in' : 'Create account'}
+        <Button type="submit" variant="accent" size="l" className="w-full" disabled={busy}>
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
+          <span>{mode === 'signin' ? 'Sign in' : 'Create account'}</span>
         </Button>
       </form>
+
+      <p className="mt-5 text-center text-75 text-gray-700">
+        {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === 'signin' ? 'signup' : 'signin');
+            setError(null);
+          }}
+          className="rounded-sm font-semibold text-accent-900 hover:underline"
+        >
+          {mode === 'signin' ? 'Create one' : 'Sign in'}
+        </button>
+      </p>
     </Shell>
   );
 };
 
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(circle_at_50%_0%,var(--tt-surface-2),var(--tt-bg)_62%)] p-6">
-    <div className="flex w-full max-w-[420px] flex-col gap-6 rounded-panel bg-surface p-[clamp(24px,5vw,40px)] shadow-[inset_0_0_0_1px_var(--tt-line),0_32px_80px_-24px_rgb(0_0_0_/_.9)]">
+  <div className="flex min-h-dvh items-center justify-center bg-gray-50 p-6">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="w-full max-w-sm rounded-lg border border-gray-200 bg-gray-100 p-7 shadow-lg"
+    >
       {children}
-    </div>
+    </motion.div>
   </div>
-);
-
-const ModeTab: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({
-  active,
-  onClick,
-  children,
-}) => (
-  <button
-    type="button"
-    role="tab"
-    aria-selected={active}
-    onClick={onClick}
-    className={cn(
-      'h-8 flex-1 cursor-pointer rounded-[3px] border-0 font-display text-[13px] font-bold transition-colors',
-      active ? 'bg-surface-3 text-ink' : 'bg-transparent text-subtle hover:text-muted',
-    )}
-  >
-    {children}
-  </button>
 );

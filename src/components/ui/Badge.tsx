@@ -1,51 +1,32 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
-import { Dot } from './Chip';
 
-interface SyncPillProps {
+export type BadgeTone = 'neutral' | 'accent' | 'positive' | 'negative' | 'notice' | 'trophy';
+
+const TONE: Record<BadgeTone, string> = {
+  neutral: 'bg-gray-200 text-gray-800 border-gray-300',
+  accent: 'bg-accent-100 text-accent-900 border-accent-400',
+  positive: 'bg-positive-100 text-positive-900 border-positive-700',
+  negative: 'bg-negative-100 text-negative-900 border-negative-700',
+  notice: 'bg-notice-100 text-notice-900 border-notice-700',
+  trophy: 'bg-trophy-100 text-trophy-900 border-trophy-700',
+};
+
+interface BadgeProps {
+  tone?: BadgeTone;
   children: React.ReactNode;
-  /** Compact form for the sidebar footer. */
-  size?: 'sm' | 'md';
   className?: string;
+  title?: string;
 }
 
-/** The green "Synced" pill. The only place the positive hue appears as chrome. */
-export const SyncPill: React.FC<SyncPillProps> = ({ children, size = 'md', className }) => (
+/** Compact status label. One height, one radius, one type size — everywhere. */
+export const Badge: React.FC<BadgeProps> = ({ tone = 'neutral', children, className, title }) => (
   <span
+    title={title}
     className={cn(
-      'inline-flex shrink-0 items-center gap-[7px] rounded-full bg-positive-wash',
-      'font-display font-bold uppercase text-positive',
-      'shadow-[inset_0_0_0_1px_rgb(79_195_138_/_.35)]',
-      size === 'sm'
-        ? 'h-[26px] px-[11px] text-[10px] tracking-[0.12em]'
-        : 'h-7 px-3 text-[11px] tracking-[0.12em]',
-      className,
-    )}
-  >
-    <Dot color="#4fc38a" size={6} />
-    {children}
-  </span>
-);
-
-interface CountPillProps {
-  children: React.ReactNode;
-  /** Ink colour; the wash is derived from it. */
-  color: string;
-  background: string;
-  className?: string;
-}
-
-/** The number beside a nav row: playing on the accent, trophies on gold. */
-export const CountPill: React.FC<CountPillProps> = ({
-  children,
-  color,
-  background,
-  className,
-}) => (
-  <span
-    style={{ color, background }}
-    className={cn(
-      'shrink-0 rounded-full px-2 py-px font-display text-[11px] font-bold tabular-nums',
+      'inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5',
+      'text-50 font-semibold whitespace-nowrap',
+      TONE[tone],
       className,
     )}
   >
