@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Search, Sparkles, Plus, Clock, Loader2, KeyRound, WifiOff } from 'lucide-react';
 import { useGame } from '../context/GameContext';
@@ -34,10 +34,19 @@ export const QuickAddModal: React.FC = () => {
   const [searchError, setSearchError] = useState<CatalogError | undefined>();
   const [isSearching, setIsSearching] = useState(false);
 
+  const searchRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<GameDetailsValues>(EMPTY_GAME);
   const [releaseDate, setReleaseDate] = useState<string | undefined>();
   const [genres, setGenres] = useState<string[]>([]);
   const [rawgId, setRawgId] = useState<number | undefined>();
+
+  // Focus the search box on open so typing can start straight away. Deferred a
+  // frame: the dialog moves focus to its own panel as it mounts.
+  useEffect(() => {
+    if (!isQuickAddOpen || tab !== 'search') return;
+    const frame = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [isQuickAddOpen, tab]);
 
   useEffect(() => {
     if (!isQuickAddOpen) return;
@@ -158,6 +167,7 @@ export const QuickAddModal: React.FC = () => {
               size={16}
             />
             <TextInput
+              ref={searchRef}
               type="search"
               aria-label="Search the game catalog"
               placeholder="Elden Ring, Hollow Knight, Balatro…"

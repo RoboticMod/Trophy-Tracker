@@ -106,8 +106,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   const noun = awardNoun(platform);
   const nounLower = noun.toLowerCase();
 
+  // Rounded to a tenth: hours accept decimals, but float arithmetic would
+  // otherwise leave values like 12.300000000000001 in the record.
   const hoursField = useNumericField(hoursPlayed, (n) =>
-    onChange({ hoursPlayed: Math.max(0, n) }),
+    onChange({ hoursPlayed: Math.max(0, Math.round(n * 10) / 10) }),
   );
   const unlockedField = useNumericField(achievementsUnlocked, (n) =>
     onChange({ achievementsUnlocked: Math.max(0, n) }),
@@ -208,7 +210,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                   type="number"
                   inputMode="decimal"
                   min={0}
-                  step={0.5}
+                  step={0.1}
                   {...hoursField}
                   className="pl-9"
                 />

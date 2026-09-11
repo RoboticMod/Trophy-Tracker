@@ -57,10 +57,12 @@
   --color-trophy-700: #d19c26;
   --color-trophy-900: #f2c14e;
 
-  --color-steam-700: #3d8fc4;
-  --color-steam-900: #66c0f4;
-  --color-playstation-700: #0070d1;
-  --color-playstation-900: #4d9bf0;
+  /* Steam takes the deeper blue and PlayStation the lighter one, so the two
+     platforms stay apart at a glance rather than sitting a shade from each. */
+  --color-steam-700: #1f5f96;
+  --color-steam-900: #2f7fc1;
+  --color-playstation-700: #5fb4f5;
+  --color-playstation-900: #8fd0ff;
 
   /* -- Type ramp ----------------------------------------------------------- */
   --text-50: 0.6875rem; /* 11px */

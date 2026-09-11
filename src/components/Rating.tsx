@@ -1,5 +1,5 @@
 import React from 'react';
-import { MAX_RATING, ratingColor, ratingLabel } from '../lib/rating';
+import { MAX_RATING, RATING_STEP, formatRating, ratingColor, ratingLabel, snapRating } from '../lib/rating';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 
@@ -24,12 +24,12 @@ export const RatingValue: React.FC<RatingValueProps> = ({
   className,
   label = 'Rated',
 }) => {
-  const clamped = Math.max(0, Math.min(MAX_RATING, Math.round(value)));
+  const clamped = snapRating(value);
   const color = ratingColor(clamped);
 
   return (
     <span
-      title={`${label} ${clamped} out of ${MAX_RATING} — ${ratingLabel(clamped)}`}
+      title={`${label} ${formatRating(clamped)} out of ${MAX_RATING} — ${ratingLabel(clamped)}`}
       style={{ color, borderColor: color, backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)` }}
       className={cn(
         'inline-flex items-center justify-center rounded-sm border font-bold tabular-nums',
@@ -62,13 +62,12 @@ export const RatingControl: React.FC<RatingControlProps> = ({
   id,
   ...rest
 }) => {
-  const clamped = Math.max(0, Math.min(MAX_RATING, Math.round(value)));
+  const clamped = snapRating(value);
   const color = ratingColor(clamped);
   const isRated = clamped > 0;
 
-  const ratingField = useNumericField(clamped, (n) =>
-    onChange(Math.max(0, Math.min(MAX_RATING, n))),
-  );
+  const ratingField = useNumericField(clamped, (n) => onChange(snapRating(n)));
+  const fillPercent = (clamped / MAX_RATING) * 100;
 
   return (
     <div className="flex items-center gap-3">
@@ -77,24 +76,25 @@ export const RatingControl: React.FC<RatingControlProps> = ({
         type="range"
         min={0}
         max={MAX_RATING}
-        step={1}
+        step={RATING_STEP}
         value={clamped}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-label="Rating out of 100"
+        onChange={(e) => onChange(snapRating(Number(e.target.value)))}
+        aria-label={`Rating out of ${MAX_RATING}`}
         {...rest}
         className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300 accent-current"
         style={{
           color,
-          background: `linear-gradient(90deg, ${color} ${clamped}%, var(--color-gray-300) ${clamped}%)`,
+          background: `linear-gradient(90deg, ${color} ${fillPercent}%, var(--color-gray-300) ${fillPercent}%)`,
         }}
       />
 
       {!compact && (
         <input
           type="number"
-          inputMode="numeric"
+          inputMode="decimal"
           min={0}
           max={MAX_RATING}
+          step={RATING_STEP}
           {...ratingField}
           aria-label="Rating value"
           style={{ color, borderColor: isRated ? color : undefined }}

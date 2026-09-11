@@ -20,6 +20,7 @@ import { statusLabel } from '../lib/status';
 import { GameStatus, Platform, PLATFORM_IDS } from '../types';
 import { Button, EmptyState, MetricCard, Select, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
+import { oneOf, usePersistentState } from '../lib/usePersistentState';
 
 type SortOption =
   | 'platform'
@@ -29,7 +30,26 @@ type SortOption =
   | 'hours-desc'
   | 'completion-desc'
   | 'title-asc';
-type RatingFilterOption = 'all' | '90+' | '75+' | '60+' | '40+' | 'unrated';
+type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
+
+const SORT_OPTIONS = [
+  'platform',
+  'recent',
+  'rating-desc',
+  'achievement-rating-desc',
+  'hours-desc',
+  'completion-desc',
+  'title-asc',
+] as const satisfies readonly SortOption[];
+
+const RATING_FILTERS = [
+  'all',
+  '9+',
+  '7.5+',
+  '6+',
+  '4+',
+  'unrated',
+] as const satisfies readonly RatingFilterOption[];
 
 const STATUS_FILTERS: (GameStatus | 'all')[] = [
   'all',
@@ -52,8 +72,18 @@ export const DashboardView: React.FC = () => {
   } = useGame();
 
   const [localSearch, setLocalSearch] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('platform');
-  const [ratingFilter, setRatingFilter] = useState<RatingFilterOption>('all');
+  // Sort and rating filter persist: they describe how you like the library laid
+  // out, and re-picking them after every reload was busywork.
+  const [sortBy, setSortBy] = usePersistentState<SortOption>(
+    'library-sort',
+    'platform',
+    oneOf(SORT_OPTIONS),
+  );
+  const [ratingFilter, setRatingFilter] = usePersistentState<RatingFilterOption>(
+    'library-rating',
+    'all',
+    oneOf(RATING_FILTERS),
+  );
 
   const backlogGames = games.filter((g) => g.status === 'backlog');
   const currentlyPlaying = games.filter((g) => g.status === 'playing');
@@ -81,10 +111,10 @@ export const DashboardView: React.FC = () => {
 
       if (ratingFilter !== 'all') {
         const r = g.rating || 0;
-        if (ratingFilter === '90+' && r < 90) return false;
-        if (ratingFilter === '75+' && r < 75) return false;
-        if (ratingFilter === '60+' && r < 60) return false;
-        if (ratingFilter === '40+' && r < 40) return false;
+        if (ratingFilter === '9+' && r < 9) return false;
+        if (ratingFilter === '7.5+' && r < 7.5) return false;
+        if (ratingFilter === '6+' && r < 6) return false;
+        if (ratingFilter === '4+' && r < 4) return false;
         if (ratingFilter === 'unrated' && r > 0) return false;
       }
 
@@ -129,6 +159,15 @@ export const DashboardView: React.FC = () => {
     sortBy,
     platformOrder,
   ]);
+
+  /** Null while one platform is filtered to — there is nothing to group then. */
+  const platformGroups = useMemo(() => {
+    if (activePlatformFilter !== 'all') return null;
+    return [...PLATFORM_IDS]
+      .sort((a, b) => comparePlatformOrder(a, b, platformOrder))
+      .map((p) => ({ platform: p, games: processedGames.filter((g) => g.platform === p) }))
+      .filter((group) => group.games.length > 0);
+  }, [processedGames, activePlatformFilter, platformOrder]);
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
@@ -266,10 +305,10 @@ export const DashboardView: React.FC = () => {
               className="w-auto"
             >
               <option value="all">Any rating</option>
-              <option value="90+">Rated 90 or more</option>
-              <option value="75+">Rated 75 or more</option>
-              <option value="60+">Rated 60 or more</option>
-              <option value="40+">Rated 40 or more</option>
+              <option value="9+">Rated 9 or more</option>
+              <option value="7.5+">Rated 7.5 or more</option>
+              <option value="6+">Rated 6 or more</option>
+              <option value="4+">Rated 4 or more</option>
               <option value="unrated">Unrated only</option>
             </Select>
           </div>
@@ -303,6 +342,31 @@ export const DashboardView: React.FC = () => {
       {loading && games.length === 0 ? (
         <div className="flex justify-center py-16 text-gray-600">
           <Loader2 size={24} className="animate-spin" aria-label="Loading library" />
+        </div>
+      ) : platformGroups ? (
+        // With no platform filter the library splits into per-platform sections.
+        // The heading carries the platform, so the cards drop their own chip.
+        <div className="space-y-7">
+          {platformGroups.map(({ platform: p, games: list }) => (
+            <section key={p} className="space-y-3">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+                <span style={{ color: PLATFORMS[p].color }} className="flex items-center">
+                  <PlatformIcon platform={p} size={17} />
+                </span>
+                <h3 className="text-200 font-bold text-gray-1000">{PLATFORMS[p].name}</h3>
+                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-50 font-medium text-gray-700">
+                  {list.length}
+                </span>
+              </div>
+              <div className="grid-cards">
+                <AnimatePresence>
+                  {list.map((game) => (
+                    <GameCard key={game.id} game={game} hidePlatform />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </section>
+          ))}
         </div>
       ) : (
         <div className="grid-cards">

@@ -18,9 +18,11 @@ interface GameCardProps {
   game: UserGame;
   /** Rendered below the progress row, for actions specific to one view. */
   action?: React.ReactNode;
+  /** Drops the platform chip where a surrounding heading already states it. */
+  hidePlatform?: boolean;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, action }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
   const { profile, celebration } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const celebrating = celebration?.gameId === game.id;
@@ -87,9 +89,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action }) => {
 
         {/* Identity + status indicators. Every chip is the same height. */}
         <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
-          <OverlayBadge square tint={platform.tint} title={platform.name}>
-            <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
-          </OverlayBadge>
+          {!hidePlatform && (
+            <OverlayBadge square tint={platform.tint} title={platform.name}>
+              <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
+            </OverlayBadge>
+          )}
 
           {/* Every game states its status here, in that status's own colour.
               Only an in-progress game pulses. */}
