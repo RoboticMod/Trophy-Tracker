@@ -9,6 +9,12 @@ interface RatingValueProps {
   className?: string;
   /** Names what was scored, so two chips on one card read differently. */
   label?: string;
+  /**
+   * Drops the chip's own outline, tint and rounding, leaving just the coloured
+   * number. For placements that already sit inside a container of their own,
+   * where a second bordered shape nested inside the first only adds clutter.
+   */
+  bare?: boolean;
 }
 
 const SIZE: Record<NonNullable<RatingValueProps['size']>, string> = {
@@ -17,12 +23,20 @@ const SIZE: Record<NonNullable<RatingValueProps['size']>, string> = {
   md: 'h-6 min-w-10 px-2 text-75',
 };
 
+/** Bare scores carry no box of their own, so they need no height or padding. */
+const SIZE_BARE: Record<NonNullable<RatingValueProps['size']>, string> = {
+  xs: 'text-50',
+  sm: 'text-50',
+  md: 'text-75',
+};
+
 /** Read-only score chip. Colour carries the value, red through to gold. */
 export const RatingValue: React.FC<RatingValueProps> = ({
   value,
   size = 'sm',
   className,
   label = 'Rated',
+  bare = false,
 }) => {
   const clamped = snapRating(value);
   const color = ratingColor(clamped);
@@ -30,14 +44,22 @@ export const RatingValue: React.FC<RatingValueProps> = ({
   return (
     <span
       title={`${label} ${formatRating(clamped)} out of ${MAX_RATING} — ${ratingLabel(clamped)}`}
-      style={{ color, borderColor: color, backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)` }}
+      style={
+        bare
+          ? { color }
+          : {
+              color,
+              borderColor: color,
+              backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
+            }
+      }
       className={cn(
-        'inline-flex items-center justify-center rounded-sm border font-bold tabular-nums',
-        SIZE[size],
+        'inline-flex items-center justify-center font-bold tabular-nums',
+        bare ? SIZE_BARE[size] : cn('rounded-sm border', SIZE[size]),
         className,
       )}
     >
-      {clamped}
+      {formatRating(clamped)}
     </span>
   );
 };

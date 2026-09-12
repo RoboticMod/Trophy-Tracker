@@ -23,11 +23,11 @@ interface GameCardProps {
 }
 
 export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
-  const { profile, celebration, recentlyAddedId } = useGame();
+  const { profile, celebration, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const celebrating = celebration?.gameId === game.id;
 
-  const justAdded = recentlyAddedId === game.id;
+  const followToken = follow?.gameId === game.id ? follow.token : null;
 
   /**
    * Sorting and grouping can drop a new game well down the page, so bring it
@@ -39,11 +39,13 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
    * first copy rather than fighting each other to their own.
    */
   useEffect(() => {
-    if (!justAdded) return;
+    if (followToken === null) return;
     let fallback: number | undefined;
 
-    // Deferred past layout: grouping and the card's own entrance both move
-    // things, and a rect read too early scrolls to where nothing ended up.
+    // Deferred past layout and past the exit animation of any copy leaving the
+    // page — the spotlight tile of a game that just stopped being played. Read
+    // too early and that departing copy still counts as visible, so the scroll
+    // to the copy that actually remains never happens.
     const timer = window.setTimeout(() => {
       const copies = [
         ...document.querySelectorAll<HTMLElement>(`[data-game-id="${CSS.escape(game.id)}"]`),
@@ -66,13 +68,13 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       fallback = window.setTimeout(() => {
         if (window.scrollY === startedAt) target.scrollIntoView({ block: 'center' });
       }, 250);
-    }, 150);
+    }, 400);
 
     return () => {
       window.clearTimeout(timer);
       if (fallback !== undefined) window.clearTimeout(fallback);
     };
-  }, [justAdded, game.id]);
+  }, [followToken, game.id]);
 
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
   const progress =
@@ -175,11 +177,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         {/* Status, collections and deletion all live in the edit dialog, so the
             control opens it directly rather than repeating a subset in a menu. */}
         <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5">
-          {/* The scrim keeps the score legible over bright cover art; the chip
-              inside carries its own colour and tooltip. */}
+          {/* Bare inside the badge: the scrim is already the box, so the score
+              needs no outline of its own nested within it. */}
           {game.rating ? (
-            <OverlayBadge className="px-1.5">
-              <RatingValue value={game.rating} size="xs" label="Game rated" />
+            <OverlayBadge>
+              <RatingValue value={game.rating} size="xs" label="Game rated" bare />
             </OverlayBadge>
           ) : null}
 

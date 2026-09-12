@@ -44,7 +44,7 @@ import {
 } from '../lib/localCache';
 
 /** How long a new game stays flagged for its card to scroll itself into view. */
-const RECENTLY_ADDED_MS = 4000;
+const FOLLOW_GAME_MS = 4000;
 
 export const DEFAULT_SIDEBAR_CONFIG: SidebarConfig = {
   showCurrentlyPlaying: true,
@@ -95,8 +95,12 @@ interface GameContextType {
   /** The game currently celebrating. The token restarts the burst on repeats. */
   celebration: { gameId: string; token: number } | null;
   triggerCelebration: (gameId: string, delayMs?: number) => void;
-  /** The game just added, so its card can bring itself on screen. */
-  recentlyAddedId: string | null;
+  /**
+   * A game to bring on screen: just added, or just re-filed by a status change.
+   * The token makes flagging the same game twice a fresh event — without it, a
+   * game added and then moved moments later would only ever be followed once.
+   */
+  follow: { gameId: string; token: number } | null;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -142,15 +146,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [celebration, setCelebration] = useState<{ gameId: string; token: number } | null>(null);
   const celebrationTimers = useRef<number[]>([]);
-  const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
-  const recentlyAddedTimer = useRef<number | null>(null);
+  const [follow, setFollow] = useState<{ gameId: string; token: number } | null>(null);
+  const followTimer = useRef<number | null>(null);
 
   useEffect(
     () => () => {
-      if (recentlyAddedTimer.current !== null) window.clearTimeout(recentlyAddedTimer.current);
+      if (followTimer.current !== null) window.clearTimeout(followTimer.current);
     },
     [],
   );
+
+  /**
+   * Marks a game for its card to bring itself on screen. Used whenever a change
+   * moves a game somewhere the eye was not already looking — added to the
+   * library, or promoted out of the backlog into another section entirely.
+   */
+  const followGame = useCallback((gameId: string) => {
+    setFollow({ gameId, token: Date.now() });
+    if (followTimer.current !== null) window.clearTimeout(followTimer.current);
+    followTimer.current = window.setTimeout(() => setFollow(null), FOLLOW_GAME_MS);
+  }, []);
 
   const clearCelebrationTimers = () => {
     celebrationTimers.current.forEach(window.clearTimeout);
@@ -339,13 +354,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       void push({ kind: 'game', op: 'upsert', game });
 
       // Sorting and platform grouping decide where a new game lands, which is
-      // often out of sight. Flagging it lets its card bring itself into view.
-      setRecentlyAddedId(game.id);
-      if (recentlyAddedTimer.current !== null) window.clearTimeout(recentlyAddedTimer.current);
-      recentlyAddedTimer.current = window.setTimeout(
-        () => setRecentlyAddedId(null),
-        RECENTLY_ADDED_MS,
-      );
+      // often out of sight.
+      followGame(game.id);
 
       // Held back so the new card can land and run its progress bar up to full
       // first — firing on mount put the burst behind the dialog that was still
@@ -354,7 +364,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         triggerCelebration(game.id, ADD_CELEBRATION_DELAY_MS);
       }
     },
-    [push, triggerCelebration],
+    [push, triggerCelebration, followGame],
   );
 
   const updateGame = useCallback(
@@ -381,11 +391,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Unlocking the last one counts even when the status never changes.
       const celebrate = becameFinished || (!isPerfect(current) && isPerfect(merged));
 
+      // A status change re-files a game: out of the backlog, into another
+      // section, sometimes off the current view entirely. Follow it so the move
+      // is something you watch rather than something you go looking for.
+      if (updates.status !== undefined && updates.status !== current.status) {
+        followGame(id);
+      }
+
       setGames((prev) => prev.map((game) => (game.id === id ? merged : game)));
       void push({ kind: 'game', op: 'upsert', game: merged });
       if (celebrate) triggerCelebration(id);
     },
-    [push, triggerCelebration],
+    [push, triggerCelebration, followGame],
   );
 
   const deleteGame = useCallback(
@@ -511,7 +528,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replaceAll,
       celebration,
       triggerCelebration,
-      recentlyAddedId,
+      follow,
     }),
     [
       games,
@@ -536,7 +553,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replaceAll,
       celebration,
       triggerCelebration,
-      recentlyAddedId,
+      follow,
     ],
   );
 
