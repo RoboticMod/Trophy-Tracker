@@ -51,14 +51,60 @@ export const writeSnapshot = (
   snapshot: Omit<CachedSnapshot, 'cachedAt'>,
 ): void => write(cacheKey(userId), { ...snapshot, cachedAt: new Date().toISOString() });
 
+/** Collapsed on the way out too, so a queue stacked up before this existed
+ *  shrinks on the next read rather than waiting for another edit. */
 export const readQueue = (userId: string): PendingWrite[] =>
-  read<PendingWrite[]>(queueKey(userId)) ?? [];
+  collapseQueue(read<PendingWrite[]>(queueKey(userId)) ?? []);
 
 export const writeQueue = (userId: string, queue: PendingWrite[]): void =>
   write(queueKey(userId), queue);
 
+/**
+ * Identifies the row a write lands on. Two writes sharing a key target the same
+ * row, so only the later one can matter.
+ *
+ * Collection batches key on the exact set they carry: a repeat of that set is a
+ * newer copy of those rows, while a different set is its own work.
+ */
+const rowKey = (entry: PendingWrite): string => {
+  switch (entry.kind) {
+    case 'profile':
+      return 'profile';
+    case 'game':
+      return `game:${entry.op === 'upsert' ? entry.game.id : entry.id}`;
+    case 'collection':
+      return `collection:${entry.id}`;
+    case 'collections':
+      return `collections:${entry.collections.map((c) => c.id).sort().join(',')}`;
+  }
+};
+
+/**
+ * Drops queued writes that a later one already covers.
+ *
+ * Every write here replaces a whole row, so a queue holding fifty edits of one
+ * row still only needs the last. Without this, a queue that cannot drain — an
+ * offline spell, or a column the database does not have yet — grows another
+ * copy of the same row on every single edit, and reports a pending count that
+ * says far more is outstanding than really is.
+ */
+export function collapseQueue(queue: PendingWrite[]): PendingWrite[] {
+  const kept: PendingWrite[] = [];
+  const seen = new Set<string>();
+
+  // Walked backwards, so the newest write for each row is the one that lives.
+  for (let i = queue.length - 1; i >= 0; i -= 1) {
+    const key = rowKey(queue[i]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(queue[i]);
+  }
+
+  return kept.reverse();
+}
+
 export const enqueue = (userId: string, entry: PendingWrite): void =>
-  writeQueue(userId, [...readQueue(userId), entry]);
+  writeQueue(userId, collapseQueue([...readQueue(userId), entry]));
 
 /** Clears everything held for a user. Called on sign-out. */
 export function clearUserCache(userId: string): void {
