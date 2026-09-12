@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform } from '../types';
-import { normalizePlatform } from '../lib/constants';
+import { PLATFORMS, normalizePlatform } from '../lib/constants';
 import { cn } from '../lib/cn';
 // Imported as modules rather than referenced from /public: Vite then rewrites
 // each URL against the configured base, so the marks resolve correctly when the
@@ -81,7 +81,8 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
   muted = false,
   className,
 }) => {
-  const art = TROPHY_ART[normalizePlatform(platform) ?? 'steam'];
+  const resolved = normalizePlatform(platform) ?? 'steam';
+  const art = TROPHY_ART[resolved];
 
   return (
     <span
@@ -99,6 +100,9 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
         loading="lazy"
         decoding="async"
         draggable={false}
+        // The halo picks up this platform's own blue, the colour already in the
+        // artwork, rather than a tint borrowed from somewhere else.
+        style={muted ? undefined : ({ '--glow': PLATFORMS[resolved].color } as React.CSSProperties)}
         className={cn(
           'pointer-events-none h-full w-full object-contain',
           // An unearned mark is a placeholder, so it stays flat and unlit.

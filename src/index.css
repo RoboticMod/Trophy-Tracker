@@ -235,11 +235,15 @@
 
 /* Lifts an earned award mark off whatever it sits on. drop-shadow rather than
    box-shadow so the halo follows the artwork's own silhouette instead of its
-   bounding box — both marks are cut out, not rectangular. */
+   bounding box — both marks are cut out, not rectangular.
+
+   The hue comes from --glow, which each mark sets to its own platform blue, so
+   the halo reads as the badge giving off light rather than a gold wash sitting
+   on top of artwork that has no gold in it. */
 @utility trophy-icon-glow {
   filter:
-    drop-shadow(0 0 1.5px color-mix(in srgb, var(--color-gray-1000) 40%, transparent))
-    drop-shadow(0 0 5px color-mix(in srgb, var(--color-trophy-900) 50%, transparent));
+    drop-shadow(0 0 1.5px color-mix(in srgb, var(--glow, var(--color-steam-900)) 55%, transparent))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--glow, var(--color-steam-900)) 65%, transparent));
 }
 
 /* ---------------------------------------------------------------------------

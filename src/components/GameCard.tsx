@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock, MoreVertical } from 'lucide-react';
 import { UserGame } from '../types';
@@ -23,9 +23,56 @@ interface GameCardProps {
 }
 
 export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
-  const { profile, celebration } = useGame();
+  const { profile, celebration, recentlyAddedId } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const celebrating = celebration?.gameId === game.id;
+
+  const justAdded = recentlyAddedId === game.id;
+
+  /**
+   * Sorting and grouping can drop a new game well down the page, so bring it
+   * into view — but only when it is genuinely out of sight.
+   *
+   * A game can be on screen twice, in the spotlight row and again in its
+   * platform section. Every copy is considered: if any one of them is already
+   * visible the page stays put, and otherwise they all scroll to the same
+   * first copy rather than fighting each other to their own.
+   */
+  useEffect(() => {
+    if (!justAdded) return;
+    let fallback: number | undefined;
+
+    // Deferred past layout: grouping and the card's own entrance both move
+    // things, and a rect read too early scrolls to where nothing ended up.
+    const timer = window.setTimeout(() => {
+      const copies = [
+        ...document.querySelectorAll<HTMLElement>(`[data-game-id="${CSS.escape(game.id)}"]`),
+      ];
+      if (copies.length === 0) return;
+
+      const onScreen = copies.some((node) => {
+        const { top, bottom } = node.getBoundingClientRect();
+        return top >= 0 && bottom <= window.innerHeight;
+      });
+      if (onScreen) return;
+
+      const target = copies[0];
+      const startedAt = window.scrollY;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Smooth scrolling is silently ignored in some engines, which would leave
+      // the new game exactly as unfindable as before. If nothing has moved by
+      // the time a smooth scroll would have started, jump there instead.
+      fallback = window.setTimeout(() => {
+        if (window.scrollY === startedAt) target.scrollIntoView({ block: 'center' });
+      }, 250);
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (fallback !== undefined) window.clearTimeout(fallback);
+    };
+  }, [justAdded, game.id]);
 
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
   const progress =
@@ -55,6 +102,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
   return (
     <motion.div
+      data-game-id={game.id}
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
@@ -126,7 +174,15 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         {/* Options ----------------------------------------------------------- */}
         {/* Status, collections and deletion all live in the edit dialog, so the
             control opens it directly rather than repeating a subset in a menu. */}
-        <div className="absolute right-3 top-3 z-30">
+        <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5">
+          {/* The scrim keeps the score legible over bright cover art; the chip
+              inside carries its own colour and tooltip. */}
+          {game.rating ? (
+            <OverlayBadge className="px-1.5">
+              <RatingValue value={game.rating} size="xs" label="Game rated" />
+            </OverlayBadge>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setIsEditOpen(true)}
@@ -161,9 +217,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
               <Clock size={12} />
               {game.hoursPlayed}h played
             </span>
-            {game.rating ? (
-              <RatingValue value={game.rating} size="xs" label="Game rated" />
-            ) : null}
           </div>
         </div>
       </div>

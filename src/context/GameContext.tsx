@@ -14,6 +14,7 @@ import { CELEBRATION_MS } from '../components/Celebration';
  * finish sweeping up to full before the burst answers it.
  */
 const ADD_CELEBRATION_DELAY_MS = 750;
+
 import {
   Collection,
   GameStatus,
@@ -41,6 +42,9 @@ import {
   writeQueue,
   writeSnapshot,
 } from '../lib/localCache';
+
+/** How long a new game stays flagged for its card to scroll itself into view. */
+const RECENTLY_ADDED_MS = 4000;
 
 export const DEFAULT_SIDEBAR_CONFIG: SidebarConfig = {
   showCurrentlyPlaying: true,
@@ -91,6 +95,8 @@ interface GameContextType {
   /** The game currently celebrating. The token restarts the burst on repeats. */
   celebration: { gameId: string; token: number } | null;
   triggerCelebration: (gameId: string, delayMs?: number) => void;
+  /** The game just added, so its card can bring itself on screen. */
+  recentlyAddedId: string | null;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -136,6 +142,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [celebration, setCelebration] = useState<{ gameId: string; token: number } | null>(null);
   const celebrationTimers = useRef<number[]>([]);
+  const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+  const recentlyAddedTimer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (recentlyAddedTimer.current !== null) window.clearTimeout(recentlyAddedTimer.current);
+    },
+    [],
+  );
 
   const clearCelebrationTimers = () => {
     celebrationTimers.current.forEach(window.clearTimeout);
@@ -322,6 +337,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
+
+      // Sorting and platform grouping decide where a new game lands, which is
+      // often out of sight. Flagging it lets its card bring itself into view.
+      setRecentlyAddedId(game.id);
+      if (recentlyAddedTimer.current !== null) window.clearTimeout(recentlyAddedTimer.current);
+      recentlyAddedTimer.current = window.setTimeout(
+        () => setRecentlyAddedId(null),
+        RECENTLY_ADDED_MS,
+      );
+
       // Held back so the new card can land and run its progress bar up to full
       // first — firing on mount put the burst behind the dialog that was still
       // closing, and it was over before the card was even looked at.
@@ -486,6 +511,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replaceAll,
       celebration,
       triggerCelebration,
+      recentlyAddedId,
     }),
     [
       games,
@@ -510,6 +536,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replaceAll,
       celebration,
       triggerCelebration,
+      recentlyAddedId,
     ],
   );
 
