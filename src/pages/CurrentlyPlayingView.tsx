@@ -5,7 +5,7 @@ import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
 import { statusLabel } from '../lib/status';
-import { Card, EmptyState } from '../components/ui';
+import { Badge, EmptyState, MetricCard } from '../components/ui';
 
 export const CurrentlyPlayingView: React.FC = () => {
   const { games, profile } = useGame();
@@ -31,38 +31,36 @@ export const CurrentlyPlayingView: React.FC = () => {
       <div className="border-b border-gray-200 pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-100 text-accent-900">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
               <Play size={18} />
             </div>
             <h1 className="text-600 font-bold tracking-tight text-gray-1000">
               {statusLabel('playing', profile)}
             </h1>
-            <span className="rounded-full bg-accent-100 px-2.5 py-0.5 text-75 font-semibold text-accent-900">
-              {playingGames.length} active
-            </span>
+            <Badge tone="accent">{playingGames.length} active</Badge>
           </div>
-          <p className="text-75 text-gray-700">
+          <p className="text-75 text-gray-600">
             Games in progress right now. Log hours and achievement unlocks as you go.
           </p>
         </div>
       </div>
 
       <div className="grid-metrics">
-        <Summary
+        <MetricCard
           icon={<Play size={18} />}
-          tone="bg-accent-100 text-accent-900"
+          tone="bg-accent-700/16 text-accent-900"
           value={String(playingGames.length)}
           label="Active titles"
         />
-        <Summary
+        <MetricCard
           icon={<Clock size={18} />}
           tone="bg-gray-200 text-gray-800"
           value={`${totalHours}h`}
           label="Logged in active games"
         />
-        <Summary
+        <MetricCard
           icon={<TrophyPair size={16} />}
-          tone="bg-trophy-100"
+          tone="bg-trophy-700/16"
           value={`${unlocked} / ${possible}`}
           label={`Active unlocks (${possible > 0 ? Math.round((unlocked / possible) * 100) : 0}%)`}
         />
@@ -80,20 +78,3 @@ export const CurrentlyPlayingView: React.FC = () => {
     </div>
   );
 };
-
-const Summary: React.FC<{
-  icon: React.ReactNode;
-  tone: string;
-  value: string;
-  label: string;
-}> = ({ icon, tone, value, label }) => (
-  <Card className="flex items-center gap-3">
-    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${tone}`}>
-      {icon}
-    </div>
-    <div className="min-w-0">
-      <div className="text-400 font-bold text-gray-1000">{value}</div>
-      <div className="truncate text-50 text-gray-700">{label}</div>
-    </div>
-  </Card>
-);

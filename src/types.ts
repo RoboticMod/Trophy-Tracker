@@ -67,6 +67,12 @@ export interface SidebarConfig {
   navOrder?: string[];
   /** User-supplied labels for sidebar destinations, keyed by route path. */
   navNames?: Record<string, string>;
+  /**
+   * Order of the sections down the statistics page. Stored here rather than in
+   * its own profile column because this object is already a jsonb blob, so it
+   * takes no migration and reaches other devices with everything else.
+   */
+  statsOrder?: string[];
 }
 
 export interface UserProfile {

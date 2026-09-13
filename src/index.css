@@ -1,64 +1,83 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Adobe Spectrum 2 token layer (dark theme)
+   Token layer
 
    This block is the single source of truth for colour, type, radius, elevation
    and motion in this app. Components must compose these tokens through Tailwind
    utilities (bg-gray-100, text-200, rounded-md, ...) and must NOT introduce raw
    hex values or arbitrary-value classes such as text-[11px] or bg-[#18181b].
+
+   The ramp names are the Spectrum ones the app was built on; the values are a
+   near-black navy, lit from above by a blue and violet ambient wash. Keeping the
+   names means the whole app moves with the token file rather than through a
+   thousand per-component edits.
 --------------------------------------------------------------------------- */
 @theme {
   /* -- Gray ramp -----------------------------------------------------------
      25/50   canvas          75/100  layer + elevated surface
      200/300 borders         400/500 disabled + separators
-     600-800 secondary text  900/1000 primary text                          */
-  --color-gray-25: #050505;
-  --color-gray-50: #0d0d0f;
-  --color-gray-75: #151518;
-  --color-gray-100: #1c1c20;
-  --color-gray-200: #26262b;
-  --color-gray-300: #323238;
-  --color-gray-400: #414148;
-  --color-gray-500: #5c5c64;
-  --color-gray-600: #7c7c85;
-  --color-gray-700: #a5a5ad;
-  --color-gray-800: #c8c8cf;
-  --color-gray-900: #e9e9ee;
+     600-800 secondary text  900/1000 primary text
+
+     Every step carries a blue cast, so a panel reads as glass lying on the
+     ambient wash rather than as neutral grey cut out of it.                 */
+  --color-gray-25: #03050a;
+  --color-gray-50: #05070b;
+  --color-gray-75: #0a0e18;
+  --color-gray-100: #0f1422;
+  --color-gray-200: #171d2e;
+  --color-gray-300: #232b40;
+  --color-gray-400: #333c56;
+  --color-gray-500: #4b5570;
+  --color-gray-600: #6e7898;
+  --color-gray-700: #9aa5c4;
+  --color-gray-800: #c4cce0;
+  --color-gray-900: #e8edf7;
   --color-gray-1000: #ffffff;
 
-  /* -- Accent (Spectrum blue) --------------------------------------------- */
-  --color-accent-100: #0c1e3d;
-  --color-accent-200: #102b56;
-  --color-accent-400: #1a4a9c;
-  --color-accent-600: #2270d8;
-  --color-accent-700: #2680eb;
-  --color-accent-800: #378ef0;
-  --color-accent-900: #5aa9f6;
-  --color-accent-1000: #8cc5fa;
+  /* -- Accent --------------------------------------------------------------
+     700 is the interactive blue; 900 is the one that survives on a dark panel
+     as text, which is why labels and active nav use it rather than 700.     */
+  --color-accent-100: #08182c;
+  --color-accent-200: #0c2444;
+  --color-accent-400: #0a4f96;
+  --color-accent-600: #0068cc;
+  --color-accent-700: #007aef;
+  --color-accent-800: #2f96ff;
+  --color-accent-900: #7da6ff;
+  --color-accent-1000: #aecbff;
 
-  /* -- Semantic ----------------------------------------------------------- */
-  --color-positive-100: #0a2b21;
-  --color-positive-700: #2d9d78;
-  --color-positive-900: #52c294;
+  /* -- Semantic ------------------------------------------------------------
+     Saturated enough to read as a verdict at 10px on a near-black ground.   */
+  --color-positive-100: #06251d;
+  --color-positive-700: #2bb98c;
+  --color-positive-900: #4ee3b1;
 
-  --color-negative-100: #3b1114;
-  --color-negative-700: #d7373f;
-  --color-negative-900: #ec5b62;
+  --color-negative-100: #2e0f10;
+  --color-negative-700: #e04034;
+  --color-negative-900: #fe544b;
 
-  --color-notice-100: #3a2708;
-  --color-notice-700: #cb8000;
-  --color-notice-900: #edaa30;
+  --color-notice-100: #2e2208;
+  --color-notice-700: #d9a12f;
+  --color-notice-900: #f7c65b;
 
   /* -- Expressive accents (the gaming flavour) ----------------------------
-     Trophy gold carries "mastered / platinum"; the platform hues carry
-     Steam and PlayStation identity. Nothing else may invent a colour.      */
-  --color-trophy-100: #33260a;
-  --color-trophy-700: #d19c26;
-  --color-trophy-900: #f2c14e;
+     Trophy gold carries "mastered / platinum"; violet is the second half of
+     the ambient wash and the tone for anything that is neither progress nor
+     award; the platform hues carry Steam and PlayStation identity. Nothing
+     else may invent a colour.                                              */
+  --color-trophy-100: #2b2108;
+  --color-trophy-700: #f5b840;
+  --color-trophy-900: #ffd47e;
+
+  --color-violet-100: #1a1033;
+  --color-violet-700: #7c3aed;
+  --color-violet-900: #a78bfa;
 
   /* Steam takes the deeper blue and PlayStation the lighter one, so the two
-     platforms stay apart at a glance rather than sitting a shade from each. */
+     platforms stay apart at a glance rather than sitting a shade from each.
+     Both are desaturated next to the accent, which keeps platform identity
+     from competing with interactive state. */
   --color-steam-700: #1f5f96;
   --color-steam-900: #2f7fc1;
   --color-playstation-700: #5fb4f5;
@@ -88,17 +107,21 @@
   --text-900: 2.25rem; /* 36px */
   --text-900--line-height: 2.75rem;
 
-  /* -- Corner radii, applied by role -------------------------------------- */
-  --radius-sm: 8px; /* controls: buttons, inputs, pills   */
+  /* -- Corner radii, applied by role --------------------------------------
+     Tighter than a productivity UI: a 6px control next to a 14px card reads
+     as engineered rather than soft.                                        */
+  --radius-sm: 6px; /* controls: buttons, inputs, pills   */
   --radius-md: 10px; /* wells, nested surfaces             */
-  --radius-lg: 16px; /* cards, panels                      */
-  --radius-xl: 20px; /* dialogs                            */
+  --radius-lg: 14px; /* cards, panels                      */
+  --radius-xl: 18px; /* dialogs                            */
 
-  /* -- Elevation ----------------------------------------------------------- */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.45);
-  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.5);
-  --shadow-xl: 0 16px 48px rgb(0 0 0 / 0.6);
+  /* -- Elevation -----------------------------------------------------------
+     Long and soft rather than tight and dark, so a panel floats above the
+     ambient wash instead of stamping a hard shadow onto it.                */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 24px 48px -26px rgb(0 0 0 / 0.65);
+  --shadow-xl: 0 30px 90px -20px rgb(0 0 0 / 0.7);
 
   /* -- Breakpoints --------------------------------------------------------- */
   --breakpoint-3xl: 120rem; /* 1920px */
@@ -113,16 +136,27 @@
   body {
     background-color: var(--color-gray-50);
     color: var(--color-gray-900);
-    font-family: 'Adobe Clean', system-ui, -apple-system, BlinkMacSystemFont,
-      'Segoe UI', Roboto, sans-serif;
+    /* A condensed geometric face at heavy weights is what makes this read as a
+       gaming interface rather than a dashboard. Bahnschrift ships with Windows
+       and DIN Alternate with macOS, so the intended face renders immediately on
+       both with nothing to download and no flash of fallback text. */
+    font-family: 'Bahnschrift', 'DIN Alternate', 'Franklin Gothic Medium',
+      'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: var(--text-100);
     line-height: var(--text-100--line-height);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
 
-  /* Spectrum focus indicator: 2px accent ring, 2px offset. The previous UI had
-     no keyboard focus styling at all. */
+  /* Condensed faces carry heavy weights well, and the extra weight is what
+     separates a heading from body copy once the type is this tight. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
+  /* 2px accent ring, 2px offset. Bright enough to survive the ambient wash. */
   :focus-visible {
     outline: 2px solid var(--color-accent-800);
     outline-offset: 2px;
@@ -133,6 +167,84 @@
     background-color: var(--color-accent-400);
     color: var(--color-gray-1000);
   }
+}
+
+/* ---------------------------------------------------------------------------
+   The ambient ground
+
+   A single fixed layer behind the whole app: a cool blue wash falling from the
+   top, a violet one rising at the bottom right, and a barely-there diagonal
+   weave that keeps the large flat areas from banding. Panels are translucent,
+   so this is what gives every surface its colour.
+--------------------------------------------------------------------------- */
+@utility app-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgb(148 163 184 / 0.012) 0 2px,
+      transparent 2px 11px
+    ),
+    radial-gradient(
+      1300px 620px at 50% -160px,
+      color-mix(in srgb, var(--color-accent-700) 20%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      950px 560px at 96% 92%,
+      color-mix(in srgb, var(--color-violet-700) 16%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      900px 500px at 4% 60%,
+      color-mix(in srgb, var(--color-accent-400) 10%, transparent),
+      transparent 70%
+    );
+}
+
+/* ---------------------------------------------------------------------------
+   Surfaces
+
+   `panel` is the one card treatment in the app: a sliver of white over whatever
+   the ambient layer is doing underneath, a hairline edge, and a lit top edge so
+   it reads as a pane of glass catching the light from above.
+--------------------------------------------------------------------------- */
+@utility panel {
+  background-color: rgb(255 255 255 / 0.03);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    var(--shadow-lg);
+}
+
+/* A well nested inside a panel: recessed rather than raised, so it reads as cut
+   into the surface rather than stacked on top of it. */
+@utility panel-inset {
+  background-color: rgb(0 0 0 / 0.25);
+  border: 1px solid rgb(255 255 255 / 0.06);
+}
+
+/* The micro label that titles everything in this design: sections, gauges,
+   stat tiles, table columns. */
+@utility eyebrow {
+  font-size: var(--text-50);
+  line-height: 1;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* A coloured hairline ring plus a diffuse bloom of the same colour, driven by
+   --glow on the element. The bloom is what makes a state read as lit rather
+   than merely outlined. */
+@utility glow-ring {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--glow, var(--color-accent-700)) 36%, transparent),
+    0 0 26px -7px color-mix(in srgb, var(--glow, var(--color-accent-700)) 32%, transparent);
 }
 
 /* Card grids size intrinsically so column count scales continuously with the
@@ -153,7 +265,7 @@
 /* Frosted scrim shared by every indicator that sits on top of cover art, so
    they stay legible over bright artwork instead of blending into it. */
 @utility overlay-scrim {
-  background-color: rgb(0 0 0 / 0.72);
+  background-color: rgb(3 5 10 / 0.72);
   backdrop-filter: blur(8px);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), var(--shadow-sm);
 }
@@ -181,37 +293,42 @@
    Reserved for a fully unlocked game. Built only from trophy tokens so the
    celebration reads as part of the system rather than a one-off flourish.
 --------------------------------------------------------------------------- */
+/* Parked off one edge for most of the loop, then one quick pass across. */
 @keyframes trophy-sweep {
-  0% {
-    transform: translateX(-140%) skewX(-18deg);
-    opacity: 0;
+  0%,
+  55% {
+    transform: translateX(-70%);
   }
-  10% {
-    opacity: 1;
-  }
-  45% {
-    opacity: 1;
-  }
-  60%,
+  75%,
   100% {
-    transform: translateX(360%) skewX(-18deg);
-    opacity: 0;
+    transform: translateX(70%);
   }
 }
 
-/* A slow specular highlight travelling across the cover art. */
+/* A highlight passing across a finished card, the way light moves over a
+   holographic foil.
+
+   Three things make it read as foil rather than as a plain shine: the band is
+   split into gold, cyan and violet rather than being one white stripe; it is
+   inset well beyond the card on every side, so the pass is a clean diagonal
+   wipe instead of something appearing and vanishing mid-card; and it crosses
+   fast. The travel occupies only the 55%-75% slice of the cycle, so on a 5.5s
+   loop the sweep itself takes about a second and the card is left alone for the
+   other four and a half. */
 @utility trophy-sweep {
   position: absolute;
-  inset-block: 0;
-  width: 35%;
+  inset: -40%;
   pointer-events: none;
   background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-trophy-900) 26%, transparent),
-    transparent
+    100deg,
+    transparent 40%,
+    rgb(255 216 130 / 0.22) 47%,
+    rgb(150 214 255 / 0.16) 52%,
+    rgb(220 160 255 / 0.12) 56%,
+    transparent 63%
   );
-  animation: trophy-sweep 7s ease-in-out infinite;
+  transform: translateX(-70%);
+  animation: trophy-sweep 5.5s ease-in-out infinite;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -219,18 +336,134 @@
   }
 }
 
-/* Warm outer glow that lifts a completed card off the canvas. */
+/* Warm outer glow that lifts a completed card off the canvas.
+
+   Two shadows, both unoffset: a plain dark one for depth and an even gold halo
+   at low opacity. No hard ring — an outline traces the card's edge and reads as
+   a border, where a diffuse halo reads as the card giving off light. */
 @utility trophy-glow {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-trophy-700) 55%, transparent),
-    0 6px 24px -6px color-mix(in srgb, var(--color-trophy-900) 30%, transparent);
+    0 7px 22px rgb(0 0 0 / 0.6),
+    0 0 20px color-mix(in srgb, var(--color-trophy-700) 19%, transparent);
+}
+
+/* A soft pool of warm light in the upper right of a finished card, as though
+   something off-frame were lighting it. */
+@utility trophy-spot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    58% 42% at 68% 26%,
+    color-mix(in srgb, var(--color-trophy-900) 16%, transparent),
+    transparent 72%
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   The gold ring
+
+   A finished game gets a band of gold light turning slowly around its edge,
+   rather than a static border. The angle is a registered custom property, which
+   is what makes a conic-gradient animatable at all — an unregistered --angle is
+   an unanimatable string and the ring would simply sit still.
+
+   Where @property is unsupported the gradient still paints, just without
+   turning, which is the same thing prefers-reduced-motion asks for.
+--------------------------------------------------------------------------- */
+@property --gold-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes gold-spin {
+  to {
+    --gold-angle: 360deg;
+  }
+}
+
+/* Rendered as its own absolutely-positioned child of the card, not as a border
+   or a pseudo-element behind it.
+
+   The box is filled edge to edge with the gradient and then masked down to its
+   own 1px padding, so only the rim paints. Drawing it behind the card instead
+   would not work: a card paints its own background before any child, so a
+   negative-z-index ring would be covered by the very surface it is ringing. */
+@utility gold-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  /* Mostly transparent, with two short bright arcs. A continuous gold band
+     would just read as a thick border that happens to move; two highlights
+     chasing the rim read as light travelling around a metal edge. */
+  background: conic-gradient(
+    from var(--gold-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--color-trophy-900) 85%, white) 28deg,
+    transparent 75deg,
+    transparent 178deg,
+    color-mix(in srgb, var(--color-trophy-900) 60%, white) 210deg,
+    transparent 260deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: gold-spin 6s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* A band of light crossing the completion emblem every few seconds, the way a
+   struck medal catches a moving light source. */
+@keyframes badge-shine {
+  0%,
+  68% {
+    transform: translateX(-180%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(280%) skewX(-20deg);
+  }
+}
+
+@utility badge-shine {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.45),
+      transparent
+    );
+    animation: badge-shine 3.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      animation: none;
+      opacity: 0;
+    }
+  }
 }
 
 /* Soft gold halo behind the round completion emblem on a finished card. */
 @utility trophy-emblem {
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--color-trophy-900) 12%, transparent),
-    0 2px 14px -2px color-mix(in srgb, var(--color-trophy-900) 45%, transparent);
+    0 2px 16px -4px color-mix(in srgb, var(--color-trophy-900) 48%, transparent);
 }
 
 /* Lifts an earned award mark off whatever it sits on. drop-shadow rather than
@@ -242,8 +475,8 @@
    on top of artwork that has no gold in it. */
 @utility trophy-icon-glow {
   filter:
-    drop-shadow(0 0 1.5px color-mix(in srgb, var(--glow, var(--color-steam-900)) 55%, transparent))
-    drop-shadow(0 0 6px color-mix(in srgb, var(--glow, var(--color-steam-900)) 65%, transparent));
+    drop-shadow(0 0 1.5px color-mix(in srgb, var(--glow, var(--color-steam-900)) 48%, transparent))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--glow, var(--color-steam-900)) 55%, transparent));
 }
 
 /* ---------------------------------------------------------------------------

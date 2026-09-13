@@ -1,17 +1,37 @@
 import React, { useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { ArrowUpDown, Sparkles } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
-import { PLATFORMS, comparePlatformOrder, describePlatformOrder } from '../lib/constants';
+import { PLATFORMS, describePlatformOrder } from '../lib/constants';
+import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { oneOf, usePersistentState } from '../lib/usePersistentState';
 import { Platform, PLATFORM_IDS } from '../types';
-import { EmptyState, MetricCard } from '../components/ui';
-import { cn } from '../lib/cn';
+import { EmptyState, FilterChip, MetricCard, Select } from '../components/ui';
+
+/**
+ * Completion is not offered here: every game on this page is at 100%, so
+ * sorting by it would leave the list untouched.
+ */
+const SORT_OPTIONS = [
+  'platform',
+  'recent',
+  'unlocked-desc',
+  'rating-desc',
+  'achievement-rating-desc',
+  'hours-desc',
+  'title-asc',
+] as const satisfies readonly GameSortOption[];
 
 export const AchievementsView: React.FC = () => {
   const { games, profile } = useGame();
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
+  const [sortBy, setSortBy] = usePersistentState<GameSortOption>(
+    'achievements-sort',
+    'platform',
+    oneOf(SORT_OPTIONS),
+  );
 
   const platformOrder = profile.platformOrder;
 
@@ -22,15 +42,14 @@ export const AchievementsView: React.FC = () => {
     [games],
   );
 
+  // Sorted before the grid splits the list into platform sections, so the
+  // chosen order runs through both sections rather than only the first.
   const displayedGames = useMemo(
     () =>
       completedGames
         .filter((g) => selectedPlatform === 'all' || g.platform === selectedPlatform)
-        .sort((a, b) => {
-          const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-          return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
-        }),
-    [completedGames, selectedPlatform, platformOrder],
+        .sort((a, b) => compareGames(a, b, sortBy, platformOrder)),
+    [completedGames, selectedPlatform, sortBy, platformOrder],
   );
 
   const totalUnlocked = completedGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
@@ -39,14 +58,14 @@ export const AchievementsView: React.FC = () => {
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       <div className="space-y-1 border-b border-gray-200 pb-5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-trophy-100">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-trophy-700/16">
             <TrophyPair size={17} />
           </div>
           <h1 className="text-600 font-bold tracking-tight text-gray-1000">
             Achievements &amp; Platinum Trophies
           </h1>
         </div>
-        <p className="text-75 text-gray-700">
+        <p className="text-75 text-gray-600">
           Every game where you have unlocked all achievements — Steam perfect games and PlayStation
           platinums.
         </p>
@@ -56,7 +75,7 @@ export const AchievementsView: React.FC = () => {
       <div className="grid-metrics">
         <MetricCard
           icon={<TrophyPair size={17} />}
-          tone="bg-trophy-100"
+          tone="bg-trophy-700/16"
           value={String(completedGames.length)}
           label="100% finished titles"
           breakdown={PLATFORM_IDS.map((p) => ({
@@ -68,35 +87,58 @@ export const AchievementsView: React.FC = () => {
         />
         <MetricCard
           icon={<Sparkles size={20} />}
-          tone="bg-accent-100 text-accent-900"
+          tone="bg-accent-700/16 text-accent-900"
           value={String(totalUnlocked)}
           label="Achievements unlocked"
         />
       </div>
 
-      {/* Filter ------------------------------------------------------------ */}
+      {/* Filter and sort ---------------------------------------------------- */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
-        <p className="text-75 text-gray-700">
-          <span className="font-semibold text-gray-800">
-            Sorted by platform: {describePlatformOrder(platformOrder)}
-          </span>
-          <span className="mx-2 text-gray-500">•</span>
-          {displayedGames.length} game{displayedGames.length === 1 ? '' : 's'}
+        <p className="eyebrow text-gray-600">
+          {displayedGames.length} game{displayedGames.length === 1 ? '' : 's'} at 100%
         </p>
 
-        <div className="flex items-center gap-1.5">
-          <PlatformChip
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="achievements-sort"
+              className="eyebrow flex items-center gap-1 text-gray-600"
+            >
+              <ArrowUpDown size={12} className="text-trophy-900" />
+              Sort
+            </label>
+            <Select
+              id="achievements-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as GameSortOption)}
+              className="w-auto"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option === 'platform'
+                    ? `Platform (${describePlatformOrder(platformOrder)})`
+                    : SORT_LABELS[option]}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+          <FilterChip
+            tone="trophy"
             selected={selectedPlatform === 'all'}
             onClick={() => setSelectedPlatform('all')}
           >
             All platforms
-          </PlatformChip>
+          </FilterChip>
 
           {PLATFORM_IDS.map((p) => {
             const count = completedGames.filter((g) => g.platform === p).length;
             return (
-              <PlatformChip
+              <FilterChip
                 key={p}
+                tone="trophy"
                 selected={selectedPlatform === p}
                 onClick={() => setSelectedPlatform(p)}
                 title={`${PLATFORMS[p].name} — ${count} at 100%`}
@@ -104,9 +146,10 @@ export const AchievementsView: React.FC = () => {
                 <PlatformIcon platform={p} size={15} />
                 <span>{PLATFORMS[p].shortName}</span>
                 <span className="opacity-70">({count})</span>
-              </PlatformChip>
+              </FilterChip>
             );
           })}
+          </div>
         </div>
       </div>
 
@@ -130,25 +173,3 @@ export const AchievementsView: React.FC = () => {
     </div>
   );
 };
-
-const PlatformChip: React.FC<{
-  selected: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}> = ({ selected, onClick, title, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    aria-pressed={selected}
-    className={cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
-      selected
-        ? 'border-trophy-700 bg-trophy-100 text-trophy-900'
-        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
-    )}
-  >
-    {children}
-  </button>
-);

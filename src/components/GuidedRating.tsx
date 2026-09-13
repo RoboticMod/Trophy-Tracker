@@ -69,7 +69,7 @@ export const GuidedRating: React.FC<GuidedRatingProps> = ({
   const preview = scoreAnswers(questions, answers);
 
   return (
-    <div className="space-y-3 rounded-md border border-gray-300 bg-gray-75 p-3">
+    <div className="space-y-3 rounded-md border border-gray-300 bg-black/25 p-3">
       {questions.map((question) => (
         <fieldset key={question.id}>
           <legend className="mb-1.5 text-75 font-semibold text-gray-800">{question.prompt}</legend>
@@ -85,7 +85,7 @@ export const GuidedRating: React.FC<GuidedRatingProps> = ({
                   className={cn(
                     'rounded-sm border px-2.5 py-1.5 text-75 font-medium transition-colors',
                     selected
-                      ? 'border-accent-700 bg-accent-100 text-accent-900'
+                      ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
                       : 'border-gray-300 bg-gray-100 text-gray-700 hover:border-gray-400 hover:text-gray-900',
                   )}
                 >

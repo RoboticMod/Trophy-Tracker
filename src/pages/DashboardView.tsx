@@ -15,21 +15,25 @@ import { GameCard } from '../components/GameCard';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
-import { PLATFORMS, comparePlatformOrder, describePlatformOrder } from '../lib/constants';
+import { PLATFORMS, describePlatformOrder } from '../lib/constants';
+import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
 import { statusLabel } from '../lib/status';
 import { GameStatus, Platform, PLATFORM_IDS } from '../types';
-import { Button, EmptyState, MetricCard, Select, TextInput } from '../components/ui';
-import { cn } from '../lib/cn';
+import {
+  Button,
+  Card,
+  EmptyState,
+  FilterChip,
+  Gauge,
+  MetricCard,
+  SectionTitle,
+  Select,
+  TextInput,
+} from '../components/ui';
+import { completionColor, completionLabel } from '../lib/rating';
+import { formatCount } from '../lib/format';
 import { oneOf, usePersistentState } from '../lib/usePersistentState';
 
-type SortOption =
-  | 'platform'
-  | 'recent'
-  | 'rating-desc'
-  | 'achievement-rating-desc'
-  | 'hours-desc'
-  | 'completion-desc'
-  | 'title-asc';
 type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 
 const SORT_OPTIONS = [
@@ -40,7 +44,7 @@ const SORT_OPTIONS = [
   'hours-desc',
   'completion-desc',
   'title-asc',
-] as const satisfies readonly SortOption[];
+] as const satisfies readonly GameSortOption[];
 
 const RATING_FILTERS = [
   'all',
@@ -74,7 +78,7 @@ export const DashboardView: React.FC = () => {
   const [localSearch, setLocalSearch] = useState('');
   // Sort and rating filter persist: they describe how you like the library laid
   // out, and re-picking them after every reload was busywork.
-  const [sortBy, setSortBy] = usePersistentState<SortOption>(
+  const [sortBy, setSortBy] = usePersistentState<GameSortOption>(
     'library-sort',
     'platform',
     oneOf(SORT_OPTIONS),
@@ -104,6 +108,10 @@ export const DashboardView: React.FC = () => {
 
   const platformOrder = profile.platformOrder;
 
+  const unlocked = games.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
+  const unlockable = games.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
+  const completion = unlockable > 0 ? Math.round((unlocked / unlockable) * 100) : 0;
+
   const processedGames = useMemo(() => {
     const result = games.filter((g) => {
       if (activePlatformFilter !== 'all' && g.platform !== activePlatformFilter) return false;
@@ -127,27 +135,7 @@ export const DashboardView: React.FC = () => {
       return true;
     });
 
-    result.sort((a, b) => {
-      if (sortBy === 'platform') {
-        const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-        return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
-      }
-      if (sortBy === 'rating-desc') return (b.rating || 0) - (a.rating || 0);
-      if (sortBy === 'achievement-rating-desc') {
-        return (b.achievementRating || 0) - (a.achievementRating || 0);
-      }
-      if (sortBy === 'hours-desc') return (b.hoursPlayed || 0) - (a.hoursPlayed || 0);
-      if (sortBy === 'completion-desc') {
-        const compA = a.achievementsTotal > 0 ? a.achievementsUnlocked / a.achievementsTotal : 0;
-        const compB = b.achievementsTotal > 0 ? b.achievementsUnlocked / b.achievementsTotal : 0;
-        return compB - compA;
-      }
-      if (sortBy === 'title-asc') return a.title.localeCompare(b.title);
-
-      const timeA = new Date(a.lastPlayedAt || a.addedAt || 0).getTime();
-      const timeB = new Date(b.lastPlayedAt || b.addedAt || 0).getTime();
-      return timeB - timeA;
-    });
+    result.sort((a, b) => compareGames(a, b, sortBy, platformOrder));
 
     return result;
   }, [
@@ -165,17 +153,34 @@ export const DashboardView: React.FC = () => {
       <div className="border-b border-gray-200 pb-5">
         <div>
           <h1 className="text-600 font-bold tracking-tight text-gray-1000">Library</h1>
-          <p className="mt-1 text-75 text-gray-700">
+          <p className="mt-1 text-75 text-gray-600">
             Progress and achievement unlocks across Steam and PlayStation.
           </p>
         </div>
       </div>
 
-      {/* Metrics ----------------------------------------------------------- */}
-      <div className="grid-metrics">
+      {/* Metrics -----------------------------------------------------------
+          One gauge for the ratio the whole library rolls up to, beside the
+          three counts it is made of. */}
+      <div className="grid gap-3 lg:grid-cols-[minmax(17rem,1.1fr)_2.4fr]">
+        <Card className="flex items-center p-4">
+          <Gauge
+            layout="inline"
+            label="Library completion"
+            fraction={completion / 100}
+            value={String(completion)}
+            suffix="%"
+            verdict={completionLabel(completion)}
+            color={completionColor(completion)}
+            caption={`${formatCount(unlocked)} of ${formatCount(unlockable)} unlocked`}
+            size={88}
+          />
+        </Card>
+
+        <div className="grid-metrics">
         <MetricCard
           icon={<TrophyPair size={17} />}
-          tone="bg-trophy-100"
+          tone="bg-trophy-700/16"
           value={String(perfectGames.length)}
           label="100% completed"
           breakdown={splitByPlatform(perfectGames, (p) => (
@@ -184,7 +189,7 @@ export const DashboardView: React.FC = () => {
         />
         <MetricCard
           icon={<Play size={20} />}
-          tone="bg-accent-100 text-accent-900"
+          tone="bg-accent-700/16 text-accent-900"
           value={String(currentlyPlaying.length)}
           label={statusLabel('playing', profile)}
           breakdown={splitByPlatform(currentlyPlaying, (p) => (
@@ -200,18 +205,24 @@ export const DashboardView: React.FC = () => {
             <PlatformIcon platform={p} size={15} className="text-gray-700" />
           ))}
         />
+        </div>
       </div>
 
       {/* Spotlight --------------------------------------------------------- */}
       {currentlyPlaying.length > 0 && (
         <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Flame className="text-trophy-900" size={18} />
-            <h2 className="text-200 font-bold text-gray-1000">{statusLabel('playing', profile)}</h2>
-            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-50 font-medium text-gray-700">
-              {currentlyPlaying.length} active
+          <SectionTitle
+            action={
+              <span className="eyebrow shrink-0 text-gray-600">
+                {currentlyPlaying.length} active
+              </span>
+            }
+          >
+            <span className="flex items-center gap-2">
+              <Flame className="text-trophy-900" size={13} />
+              {statusLabel('playing', profile)}
             </span>
-          </div>
+          </SectionTitle>
 
           <div className="grid-cards">
             {currentlyPlaying.slice(0, 4).map((game) => (
@@ -224,7 +235,7 @@ export const DashboardView: React.FC = () => {
       {/* Filters ----------------------------------------------------------- */}
       <section className="space-y-3 pt-2">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-          <h2 className="text-200 font-bold text-gray-1000">All games</h2>
+          <SectionTitle className="md:w-56">All games</SectionTitle>
 
           <div className="relative w-full md:w-72">
             <Search
@@ -282,10 +293,7 @@ export const DashboardView: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-3">
           <div className="flex items-center gap-2">
-            <label
-              htmlFor="library-rating"
-              className="flex items-center gap-1 text-50 font-semibold text-gray-700"
-            >
+            <label htmlFor="library-rating" className="eyebrow flex items-center gap-1 text-gray-600">
               <Star size={12} className="text-trophy-900" />
               Rating
             </label>
@@ -305,26 +313,23 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <label
-              htmlFor="library-sort"
-              className="flex items-center gap-1 text-50 font-semibold text-gray-700"
-            >
+            <label htmlFor="library-sort" className="eyebrow flex items-center gap-1 text-gray-600">
               <ArrowUpDown size={12} className="text-accent-900" />
               Sort
             </label>
             <Select
               id="library-sort"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(e) => setSortBy(e.target.value as GameSortOption)}
               className="w-auto"
             >
-              <option value="platform">Platform ({describePlatformOrder(platformOrder)})</option>
-              <option value="recent">Recently played</option>
-              <option value="rating-desc">Game rating: highest first</option>
-              <option value="achievement-rating-desc">Achievement rating: highest first</option>
-              <option value="hours-desc">Playtime: most hours</option>
-              <option value="completion-desc">Completion: highest</option>
-              <option value="title-asc">Title: A to Z</option>
+              {SORT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option === 'platform'
+                    ? `Platform (${describePlatformOrder(platformOrder)})`
+                    : SORT_LABELS[option]}
+                </option>
+              ))}
             </Select>
           </div>
         </div>
@@ -363,24 +368,3 @@ export const DashboardView: React.FC = () => {
   );
 };
 
-const FilterChip: React.FC<{
-  selected: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}> = ({ selected, onClick, title, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    aria-pressed={selected}
-    className={cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
-      selected
-        ? 'border-accent-700 bg-accent-100 text-accent-900'
-        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
-    )}
-  >
-    {children}
-  </button>
-);

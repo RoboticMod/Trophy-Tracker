@@ -1,15 +1,28 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
 
-export type BadgeTone = 'neutral' | 'accent' | 'positive' | 'negative' | 'notice' | 'trophy';
+export type BadgeTone =
+  | 'neutral'
+  | 'accent'
+  | 'positive'
+  | 'negative'
+  | 'notice'
+  | 'trophy'
+  | 'violet';
 
+/**
+ * Every tone is the same recipe: a faint wash of the colour, a stronger ring of
+ * it, and the light end of the ramp as ink. That keeps six tones reading as one
+ * component rather than six differently-weighted shapes.
+ */
 const TONE: Record<BadgeTone, string> = {
-  neutral: 'bg-gray-200 text-gray-800 border-gray-300',
-  accent: 'bg-accent-100 text-accent-900 border-accent-400',
-  positive: 'bg-positive-100 text-positive-900 border-positive-700',
-  negative: 'bg-negative-100 text-negative-900 border-negative-700',
-  notice: 'bg-notice-100 text-notice-900 border-notice-700',
-  trophy: 'bg-trophy-100 text-trophy-900 border-trophy-700',
+  neutral: 'bg-gray-700/12 text-gray-700 border-gray-500/40',
+  accent: 'bg-accent-700/16 text-accent-900 border-accent-700/45',
+  positive: 'bg-positive-700/16 text-positive-900 border-positive-700/45',
+  negative: 'bg-negative-700/16 text-negative-900 border-negative-700/45',
+  notice: 'bg-notice-700/16 text-notice-900 border-notice-700/45',
+  trophy: 'bg-trophy-700/16 text-trophy-900 border-trophy-700/50',
+  violet: 'bg-violet-700/18 text-violet-900 border-violet-700/45',
 };
 
 interface BadgeProps {
@@ -24,8 +37,8 @@ export const Badge: React.FC<BadgeProps> = ({ tone = 'neutral', children, classN
   <span
     title={title}
     className={cn(
-      'inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5',
-      'text-50 font-semibold whitespace-nowrap',
+      'inline-flex h-5.5 items-center gap-1.5 rounded-full border px-2.5',
+      'text-50 font-bold uppercase tracking-wide whitespace-nowrap',
       TONE[tone],
       className,
     )}

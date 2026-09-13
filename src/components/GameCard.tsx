@@ -12,6 +12,7 @@ import { EditGameModal } from './EditGameModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
+import { ratingColor } from '../lib/rating';
 import { cn } from '../lib/cn';
 
 interface GameCardProps {
@@ -91,16 +92,18 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   const awardLabel = awardProgressLabel(game.platform, isMastered);
 
   // Stroke draws the status as a coloured edge; fill tints the whole surface.
+  // A finished game is handled by the turning gold rim below instead of a
+  // border, so its stroke variant asks only for the glow.
   const filled = profile.highlightStyle === 'fill';
   const highlight = isMastered
     ? filled
-      ? 'trophy-glow border-trophy-700/60 bg-trophy-100'
-      : 'trophy-glow border-trophy-700 bg-gradient-to-b from-trophy-100/50 to-gray-100 hover:border-trophy-900'
+      ? 'trophy-glow border-transparent bg-trophy-100'
+      : 'trophy-glow border-transparent bg-gradient-to-b from-trophy-100/45 to-gray-100/70'
     : game.status === 'playing'
       ? filled
-        ? 'border-accent-200 bg-accent-100'
-        : 'border-accent-400 bg-gray-100 hover:border-accent-700'
-      : 'border-gray-200 bg-gray-100 hover:border-gray-300';
+        ? 'glow-ring border-accent-700/50 bg-accent-100'
+        : 'glow-ring border-accent-700/40 bg-gray-100/70 hover:border-accent-700'
+      : 'border-gray-300/70 bg-gray-100/70 hover:border-gray-400';
 
   return (
     <motion.div
@@ -110,11 +113,25 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -3, transition: { duration: 0.15 } }}
-      className={[
-        'group relative flex flex-col rounded-lg border transition-colors',
+      // A playing card lights its own edge in the accent; every other state
+      // leaves --glow unset and glow-ring goes unused.
+      style={{ '--glow': 'var(--color-accent-700)' } as React.CSSProperties}
+      className={cn(
+        'group relative flex flex-col rounded-lg border shadow-lg backdrop-blur-sm transition-colors',
         highlight,
-      ].join(' ')}
+      )}
     >
+      {/* The finished-game treatment: a warm pool of light in the upper right,
+          and two highlights travelling around the rim. The rim is drawn over
+          the card rather than behind it, because a card paints its own
+          background before any child and would hide a ring drawn underneath. */}
+      {isMastered && (
+        <>
+          <span aria-hidden className="trophy-spot z-0 rounded-lg" />
+          <span aria-hidden className="gold-ring z-30 rounded-lg" />
+        </>
+      )}
+
       {/* Cover ------------------------------------------------------------- */}
       <div className="relative aspect-[16/9] w-full rounded-t-lg bg-gray-25">
         <div className="absolute inset-0 overflow-hidden rounded-t-lg">
@@ -166,7 +183,9 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
               circle
               size={40}
               title={awardLabel}
-              className="trophy-emblem ring-1 ring-trophy-700/60"
+              // The shine needs a clipped box to travel across, so the disc
+              // hides its own overflow rather than letting the band escape.
+              className="trophy-emblem badge-shine overflow-hidden ring-1 ring-trophy-700/60"
             >
               <TrophyBadge platform={game.platform} size={24} />
             </OverlayBadge>
@@ -177,10 +196,20 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         {/* Status, collections and deletion all live in the edit dialog, so the
             control opens it directly rather than repeating a subset in a menu. */}
         <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5">
-          {/* Bare inside the badge: the scrim is already the box, so the score
-              needs no outline of its own nested within it. */}
+          {/* A disc ringed in the score's own colour, so the verdict is legible
+              from across the grid before the digits are. Bare inside it: the
+              scrim is already the box, and a second outline nested within the
+              first only adds clutter. */}
           {game.rating ? (
-            <OverlayBadge>
+            <OverlayBadge
+              circle
+              size={28}
+              // Ring and bloom in one inline shadow: the colour is computed from
+              // the score, so there is no token class to reach for.
+              style={{
+                boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}, 0 0 9px -5px ${ratingColor(game.rating)}`,
+              }}
+            >
               <RatingValue value={game.rating} size="xs" label="Game rated" bare />
             </OverlayBadge>
           ) : null}
@@ -228,15 +257,20 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         {/* The completion announcements are long next to the count, and cards
             can be as narrow as 17rem, so the count drops to its own line rather
             than squeezing the label into an ellipsis. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-75">
-          <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-800">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-75">
+          <span
+            className={cn(
+              'eyebrow flex min-w-0 items-center gap-1.5',
+              isMastered ? 'text-trophy-900' : 'text-gray-600',
+            )}
+          >
             {/* The platform's own award, dimmed until it is actually earned. */}
             <TrophyBadge platform={game.platform} size={16} muted={!isMastered} />
             <span className="truncate" title={awardLabel}>
               {awardLabel}
             </span>
           </span>
-          <span className="flex shrink-0 items-center gap-1.5 font-semibold text-gray-900">
+          <span className="flex shrink-0 items-center gap-1.5 font-bold tabular-nums text-gray-900">
             {game.achievementRating ? (
               <RatingValue
                 value={game.achievementRating}

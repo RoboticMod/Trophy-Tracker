@@ -1,19 +1,87 @@
-import React, { useMemo } from 'react';
-import { BarChart3, Clock, Gamepad2, Calendar, Percent, TrendingUp } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  BarChart3,
+  Gamepad2,
+  Calendar,
+  TrendingUp,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  RotateCcw,
+} from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
-import { statusLabel, STATUS_TONE } from '../lib/status';
+import { statusLabel, STATUS_COLOR, STATUS_TONE } from '../lib/status';
+import { backlogLabel, completionColor } from '../lib/rating';
+import { formatCount, relativeTime } from '../lib/format';
 import { GameStatus, PLATFORM_IDS } from '../types';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
-import { TrophyBadge, TrophyPair, trophyLabel } from '../components/TrophyBadge';
-import { Badge, Card, EmptyState, Meter } from '../components/ui';
+import { TrophyBadge, TrophyPair, trophyLabel, awardNoun } from '../components/TrophyBadge';
+import { RatingValue } from '../components/Rating';
+import {
+  Badge,
+  Button,
+  Card,
+  DonutChart,
+  DonutLegend,
+  EmptyState,
+  Gauge,
+  Meter,
+  SectionHeader,
+  StatTile,
+} from '../components/ui';
 
-const STATUS_BREAKDOWN: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
+/**
+ * Every status, dropped included — the ring is a share of the whole library, so
+ * leaving one out would quietly shrink the total it is dividing up.
+ */
+const STATUS_BREAKDOWN: GameStatus[] = [
+  'playing',
+  'backlog',
+  'completed',
+  'mastered',
+  'dropped',
+];
+
+/** The sections of this page, in the order they appear until you change it. */
+const SECTIONS = [
+  { id: 'headline', name: 'Overview' },
+  { id: 'platforms', name: 'Platform breakdown' },
+  { id: 'showcase', name: '100% showcase' },
+  { id: 'distribution', name: 'Status distribution' },
+  { id: 'activity', name: 'Recent activity' },
+] as const;
+
+const DEFAULT_STATS_ORDER = SECTIONS.map((s) => s.id) as string[];
+
+const sectionName = (id: string) => SECTIONS.find((s) => s.id === id)?.name ?? id;
 
 export const StatsView: React.FC = () => {
-  const { games, profile } = useGame();
+  const { games, profile, sidebarConfig, updateSidebarConfig } = useGame();
   const platformOrder = profile.platformOrder;
+
+  const [isReordering, setIsReordering] = useState(false);
+
+  /**
+   * A stored order can be stale in both directions: it may still name a section
+   * that no longer exists, and it will not name one added since it was saved.
+   * Filtering to the known set and appending whatever is missing keeps the page
+   * whole either way, rather than dropping a section off it.
+   */
+  const storedOrder = sidebarConfig?.statsOrder;
+  const order = useMemo(() => {
+    const kept = (storedOrder ?? []).filter((id) => DEFAULT_STATS_ORDER.includes(id));
+    return [...kept, ...DEFAULT_STATS_ORDER.filter((id) => !kept.includes(id))];
+  }, [storedOrder]);
+
+  const moveSection = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= order.length) return;
+    const next = [...order];
+    [next[index], next[target]] = [next[target], next[index]];
+    updateSidebarConfig({ statsOrder: next });
+  };
 
   const totalGames = games.length;
   const totalHours = games.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0);
@@ -29,6 +97,12 @@ export const StatsView: React.FC = () => {
 
   const overallCompletionRate =
     totalMaxAchievements > 0 ? Math.round((totalAchievements / totalMaxAchievements) * 100) : 0;
+
+  const backlogCount = games.filter((g) => g.status === 'backlog').length;
+  // An empty library is 0% cleared rather than 100%: nothing has been worked
+  // through, and a full arc would congratulate you for owning no games.
+  const backlogCleared =
+    totalGames > 0 ? Math.round(((totalGames - backlogCount) / totalGames) * 100) : 0;
 
   /** The actual most-played title, not simply the first row in the array. */
   const longestPlayed = useMemo(
@@ -65,6 +139,26 @@ export const StatsView: React.FC = () => {
     [games, platformOrder],
   );
 
+  /**
+   * The status split, as segments of the whole library.
+   *
+   * These are the games' actual statuses, so the segments add up to the library
+   * total. The tiles this replaced counted "mastered" as every game at 100%
+   * regardless of its status, which meant a game filed as Completed and finished
+   * to the last unlock was counted twice — fine for four separate figures, but
+   * it would make a ring that claims more games than you own.
+   */
+  const statusSlices = useMemo(
+    () =>
+      STATUS_BREAKDOWN.map((status) => ({
+        key: status,
+        label: statusLabel(status, profile),
+        value: games.filter((g) => g.status === status).length,
+        color: STATUS_COLOR[status],
+      })).filter((slice) => slice.value > 0),
+    [games, profile],
+  );
+
   const recentGames = useMemo(
     () =>
       [...games]
@@ -89,113 +183,93 @@ export const StatsView: React.FC = () => {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-100 text-accent-900">
-          <BarChart3 size={20} />
-        </div>
-        <div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Statistics</h1>
-          <p className="text-75 text-gray-700">
-            Progress, achievements and hours played across your library.
-          </p>
-        </div>
-      </div>
+  /* -- Sections, keyed so the page can render them in any order ------------ */
 
-      {/* Headline metrics -------------------------------------------------- */}
-      <div className="grid-metrics">
-        <Card className="flex flex-col justify-between gap-2.5">
-          <div className="flex items-center justify-between text-75 font-semibold text-gray-700">
-            <span>Tracked games</span>
-            <Gamepad2 size={16} className="text-accent-900" />
-          </div>
-          <div>
-            <div className="text-700 font-bold text-gray-1000">{totalGames}</div>
-            <div className="text-50 text-gray-700">
-              Across {platformStats.length} platform{platformStats.length === 1 ? '' : 's'}
-            </div>
-          </div>
-          <div className="text-50 text-gray-700">
-            {activePlaying.length} in progress right now
-          </div>
+  const sections: Record<string, React.ReactNode> = {
+    /* Headline ------------------------------------------------------------
+       The backlog gauge beside the plain totals. The arc measures how much
+       of the library has left the queue; the number in the middle is what is
+       still waiting, which is the figure you actually act on. */
+    headline: (
+      <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_2.5fr]">
+        <Card className="flex items-center justify-center py-6">
+          <Gauge
+            label="Backlog left"
+            fraction={backlogCleared / 100}
+            value={String(backlogCount)}
+            verdict={backlogLabel(backlogCleared)}
+            color={completionColor(backlogCleared)}
+            caption={
+              totalGames > 0
+                ? `${formatCount(totalGames - backlogCount)} of ${formatCount(totalGames)} cleared`
+                : 'Nothing queued yet'
+            }
+          />
         </Card>
 
-        <Card className="flex flex-col justify-between gap-2.5">
-          <div className="flex items-center justify-between text-75 font-semibold text-gray-700">
-            <span>Achievement completion</span>
-            <Percent size={16} className="text-trophy-900" />
-          </div>
-          <div>
-            <div className="text-700 font-bold text-gray-1000">{overallCompletionRate}%</div>
-            <div className="text-50 text-gray-700">
-              {totalAchievements} / {totalMaxAchievements} unlocked
-            </div>
-          </div>
-          <Meter value={overallCompletionRate} tone="trophy" label="Overall completion" />
-        </Card>
-
-        <Card className="flex flex-col justify-between gap-2.5">
-          <div className="flex items-center justify-between text-75 font-semibold text-gray-700">
-            <span>Playtime logged</span>
-            <Clock size={16} className="text-gray-700" />
-          </div>
-          <div>
-            <div className="text-700 font-bold text-gray-1000">{totalHours}h</div>
-            <div className="text-50 text-gray-700">~{(totalHours / 24).toFixed(1)} days total</div>
-          </div>
-          <div className="truncate text-50 text-gray-700">
-            {longestPlayed
-              ? `Most played: ${longestPlayed.title} (${longestPlayed.hoursPlayed}h)`
-              : 'No playtime logged yet'}
-          </div>
-        </Card>
-
-        <Card className="flex flex-col justify-between gap-2.5">
-          <div className="flex items-center justify-between text-75 font-semibold text-gray-700">
-            <span>100% completed</span>
-            <TrophyPair size={15} />
-          </div>
-          <div>
-            <div className="text-700 font-bold text-positive-900">{perfectGames.length}</div>
-            <div className="text-50 text-gray-700">Perfect games &amp; platinums</div>
-          </div>
-          <div className="text-50 text-gray-700">
-            {completedGames.length} titles finished overall
-          </div>
+        <Card
+          bare
+          className="grid gap-px overflow-hidden rounded-lg bg-gray-200 sm:grid-cols-2"
+        >
+          <StatTile
+            label="Tracked games"
+            value={formatCount(totalGames)}
+            caption={`${activePlaying.length} in progress right now`}
+          />
+          <StatTile
+            label="Achievement completion"
+            value={`${overallCompletionRate}%`}
+            color={completionColor(overallCompletionRate)}
+            caption={`${formatCount(totalAchievements)} of ${formatCount(totalMaxAchievements)} unlocked`}
+          />
+          <StatTile
+            label="Playtime logged"
+            value={`${formatCount(totalHours)}h`}
+            caption={`~${(totalHours / 24).toFixed(1)} days · most: ${
+              longestPlayed ? longestPlayed.title : 'nothing yet'
+            }`}
+          />
+          <StatTile
+            label="100% completed"
+            value={String(perfectGames.length)}
+            color="var(--color-trophy-900)"
+            caption={`${completedGames.length} titles finished overall`}
+          />
         </Card>
       </div>
+    ),
 
-      {/* Platform breakdown ------------------------------------------------ */}
+    platforms: (
       <Card className="space-y-4">
-        <h2 className="flex items-center gap-2 text-200 font-bold text-gray-1000">
-          <Gamepad2 size={16} className="text-accent-900" />
-          Platform breakdown
-        </h2>
+        <SectionHeader
+          icon={<Gamepad2 size={16} />}
+          title="Platform breakdown"
+          description="Completion and hours on each platform"
+        />
 
         <div className="space-y-3">
           {platformStats.map((stat) => (
-            <div
-              key={stat.platform}
-              className="space-y-2 rounded-md border border-gray-200 bg-gray-75 p-3.5"
-            >
+            <div key={stat.platform} className="panel-inset space-y-2 rounded-md p-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-75">
                 <div className="flex items-center gap-2.5">
                   <div
                     style={{ color: stat.config.color }}
-                    className="flex h-8 w-8 items-center justify-center rounded-sm bg-gray-200"
+                    // Dimmer than the same mark elsewhere: here it sits in a
+                    // filled well rather than on the page, and the well already
+                    // separates it from the panel behind.
+                    className="flex h-8 w-8 items-center justify-center rounded-sm bg-gray-200 drop-shadow-[0_0_2px_currentColor]"
                   >
                     <PlatformIcon platform={stat.platform} size={16} />
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-1000">{stat.config.name}</span>
+                    <span className="font-bold text-gray-1000">{stat.config.name}</span>
                     <span className="ml-2 text-gray-600">
                       {stat.count} game{stat.count === 1 ? '' : 's'} • {stat.hours}h
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 font-medium text-gray-700">
+                <div className="flex items-center gap-3 font-bold tabular-nums text-gray-700">
                   {stat.perfectCount > 0 && (
                     <span
                       className="flex items-center gap-1.5 text-trophy-900"
@@ -206,7 +280,8 @@ export const StatsView: React.FC = () => {
                     </span>
                   )}
                   <span>
-                    {stat.achievements}/{stat.maxAchievements} ({stat.completionRate}%)
+                    {formatCount(stat.achievements)}/{formatCount(stat.maxAchievements)} (
+                    {stat.completionRate}%)
                   </span>
                 </div>
               </div>
@@ -220,24 +295,28 @@ export const StatsView: React.FC = () => {
           ))}
         </div>
       </Card>
+    ),
 
-      {/* Showcase ----------------------------------------------------------- */}
-      {perfectGames.length > 0 && (
+    // Null rather than an empty panel: a showcase of nothing is not worth the
+    // heading, and the reorder list skips whatever has no content.
+    showcase:
+      perfectGames.length === 0 ? null : (
         <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-200 font-bold text-gray-1000">
-              <TrophyPair size={15} />
-              100% showcase
-            </h2>
-            <span className="text-75 text-gray-700">{perfectGames.length} titles</span>
-          </div>
+          <SectionHeader
+            icon={<TrophyPair size={15} />}
+            iconClassName="bg-trophy-700/16"
+            title="100% showcase"
+            description="Every game finished to the last unlock"
+            action={
+              <Badge tone="trophy">
+                {perfectGames.length} title{perfectGames.length === 1 ? '' : 's'}
+              </Badge>
+            }
+          />
 
           <div className="grid-metrics">
             {perfectGames.map((game) => (
-              <div
-                key={game.id}
-                className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-75 p-3"
-              >
+              <div key={game.id} className="panel-inset flex items-center gap-3 rounded-md p-3">
                 <CoverArt
                   src={game.coverImage}
                   title={game.title}
@@ -246,10 +325,12 @@ export const StatsView: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <PlatformIcon platform={game.platform} size={13} className="text-gray-600" />
-                    <h3 className="truncate text-75 font-semibold text-gray-1000">{game.title}</h3>
+                    <h3 className="truncate text-75 font-bold text-gray-1000">{game.title}</h3>
                   </div>
-                  <div className="text-50 text-gray-700">
-                    {game.achievementsUnlocked}/{game.achievementsTotal} unlocked
+                  {/* The platform's own word, as everywhere else: Steam games
+                      have achievements, PlayStation games have trophies. */}
+                  <div className="eyebrow mt-1 text-gray-600">
+                    {formatCount(game.achievementsUnlocked)} {awardNoun(game.platform)}
                   </div>
                 </div>
                 <TrophyBadge platform={game.platform} size={26} />
@@ -257,61 +338,165 @@ export const StatsView: React.FC = () => {
             ))}
           </div>
         </Card>
-      )}
+      ),
 
-      {/* Distribution + history --------------------------------------------- */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="space-y-4">
-          <h2 className="flex items-center gap-2 text-200 font-bold text-gray-1000">
-            <TrendingUp size={16} className="text-positive-900" />
-            Status distribution
-          </h2>
+    distribution: (
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<TrendingUp size={16} />}
+          iconClassName="bg-positive-700/16 text-positive-900"
+          title="Status distribution"
+          description="Where your library currently sits"
+        />
 
-          <div className="grid grid-cols-2 gap-3">
-            {STATUS_BREAKDOWN.map((status) => {
-              const count =
-                status === 'mastered'
-                  ? perfectGames.length
-                  : games.filter((g) => g.status === status).length;
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
+          <DonutChart slices={statusSlices} total={totalGames} totalLabel="Games" size={150} />
+          <DonutLegend slices={statusSlices} />
+        </div>
+      </Card>
+    ),
+
+    /* A timeline rather than a list: the date leads each row, so the column
+       reads as a history you scan down instead of as six unordered cards that
+       happen to be sorted. */
+    activity: (
+      <Card className="space-y-4">
+          <SectionHeader
+            icon={<Calendar size={16} />}
+            title="Recent activity"
+            description="Your last six updates, newest first"
+          />
+
+          <ol className="space-y-1.5">
+            {recentGames.map((g) => {
+              const progress =
+                g.achievementsTotal > 0
+                  ? Math.round((g.achievementsUnlocked / g.achievementsTotal) * 100)
+                  : 0;
+
               return (
-                <div key={status} className="rounded-md border border-gray-200 bg-gray-75 p-3.5">
-                  <div className="text-400 font-bold text-gray-1000">{count}</div>
-                  <div className="mt-1">
-                    <Badge tone={STATUS_TONE[status]}>{statusLabel(status, profile)}</Badge>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+                <li
+                  key={g.id}
+                  className="panel-inset flex items-center gap-3 rounded-md px-3 py-2.5"
+                >
+                  <time
+                    className="eyebrow w-14 shrink-0 text-right text-gray-600"
+                    dateTime={g.lastPlayedAt || g.updatedAt || g.addedAt}
+                  >
+                    {relativeTime(g.lastPlayedAt || g.updatedAt || g.addedAt)}
+                  </time>
 
-        <Card className="space-y-4">
-          <h2 className="flex items-center gap-2 text-200 font-bold text-gray-1000">
-            <Calendar size={16} className="text-accent-900" />
-            Recent activity
-          </h2>
+                  <CoverArt
+                    src={g.coverImage}
+                    title={g.title}
+                    className="h-9 w-9 shrink-0 rounded-sm object-cover"
+                  />
 
-          <div className="divide-y divide-gray-200">
-            {recentGames.map((g) => (
-              <div key={g.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-gray-200 text-gray-700">
-                    <PlatformIcon platform={g.platform} size={14} />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="truncate text-75 font-semibold text-gray-1000">{g.title}</h3>
-                    <p className="text-50 text-gray-700">
-                      {g.hoursPlayed}h • {g.achievementsUnlocked}/{g.achievementsTotal} unlocked
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <PlatformIcon platform={g.platform} size={12} className="text-gray-600" />
+                      <h3 className="truncate text-75 font-bold text-gray-1000">{g.title}</h3>
+                    </div>
+                    <p className="mt-0.5 truncate text-50 tabular-nums text-gray-600">
+                      {g.hoursPlayed}h • {g.achievementsUnlocked}/{g.achievementsTotal}{' '}
+                      {awardNoun(g.platform).toLowerCase()} ({progress}%)
                     </p>
                   </div>
-                </div>
 
-                <Badge tone={STATUS_TONE[g.status]}>{statusLabel(g.status, profile)}</Badge>
-              </div>
-            ))}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {g.rating ? (
+                      <RatingValue value={g.rating} size="xs" label="Game rated" />
+                    ) : null}
+                    <Badge tone={STATUS_TONE[g.status]}>{statusLabel(g.status, profile)}</Badge>
+                  </div>
+                </li>
+              );
+            })}
+        </ol>
+      </Card>
+    ),
+  };
+
+  return (
+    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 pb-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
+              <BarChart3 size={18} />
+            </div>
+            <h1 className="text-600 font-bold tracking-tight text-gray-1000">Statistics</h1>
           </div>
-        </Card>
+          <p className="text-75 text-gray-600">
+            Progress, achievements and hours played across your library.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isReordering && storedOrder?.length ? (
+            <Button
+              variant="secondary"
+              buttonStyle="subtle"
+              size="s"
+              onClick={() => updateSidebarConfig({ statsOrder: DEFAULT_STATS_ORDER })}
+            >
+              <RotateCcw size={13} />
+              Reset order
+            </Button>
+          ) : null}
+
+          <Button
+            variant={isReordering ? 'accent' : 'secondary'}
+            buttonStyle={isReordering ? 'fill' : 'outline'}
+            size="s"
+            onClick={() => setIsReordering((open) => !open)}
+            aria-pressed={isReordering}
+          >
+            <ArrowUpDown size={13} />
+            {isReordering ? 'Done' : 'Reorder sections'}
+          </Button>
+        </div>
       </div>
+
+      {order.map((id, index) => {
+        const content = sections[id];
+        if (!content) return null;
+
+        return (
+          <section key={id} className="space-y-2">
+            {isReordering && (
+              <div className="flex items-center gap-2 rounded-md border border-dashed border-gray-400/60 bg-white/2 px-3 py-1.5">
+                <span className="eyebrow min-w-0 flex-1 truncate text-gray-700">
+                  {sectionName(id)}
+                </span>
+                <Button
+                  variant="secondary"
+                  buttonStyle="outline"
+                  size="s"
+                  iconOnly
+                  onClick={() => moveSection(index, -1)}
+                  disabled={index === 0}
+                  aria-label={`Move ${sectionName(id)} up`}
+                >
+                  <ChevronUp size={14} />
+                </Button>
+                <Button
+                  variant="secondary"
+                  buttonStyle="outline"
+                  size="s"
+                  iconOnly
+                  onClick={() => moveSection(index, 1)}
+                  disabled={index === order.length - 1}
+                  aria-label={`Move ${sectionName(id)} down`}
+                >
+                  <ChevronDown size={14} />
+                </Button>
+              </div>
+            )}
+            {content}
+          </section>
+        );
+      })}
     </div>
   );
 };

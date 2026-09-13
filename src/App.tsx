@@ -18,18 +18,21 @@ import { SettingsView } from './pages/SettingsView';
 /** Shown instead of a broken app when Supabase credentials are absent. */
 function SetupNotice() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gray-50 p-6">
-      <div className="max-w-md space-y-4 rounded-lg border border-gray-200 bg-gray-100 p-7">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-notice-100 text-notice-900">
+    <div className="relative flex min-h-dvh items-center justify-center bg-gray-50 p-6">
+      <div aria-hidden className="app-ambient" />
+      <div className="panel relative z-10 max-w-md space-y-4 rounded-lg p-7">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-notice-700/16 text-notice-900">
           <DatabaseZap size={22} />
         </div>
-        <h1 className="text-400 font-bold text-gray-1000">{APP_NAME} needs Supabase</h1>
+        <h1 className="text-400 font-bold tracking-tight text-gray-1000">
+          {APP_NAME} needs Supabase
+        </h1>
         <p className="text-100 text-gray-700">
           Sign-in and your library both live in Supabase. Create a project, run the schema from the
           repository README, then add these to a <code className="text-gray-900">.env.local</code>{' '}
           file and restart the dev server:
         </p>
-        <pre className="overflow-x-auto rounded-md border border-gray-200 bg-gray-25 p-3 text-75 text-gray-800">
+        <pre className="panel-inset overflow-x-auto rounded-md p-3 text-75 text-gray-800">
           {'VITE_SUPABASE_URL="https://<project>.supabase.co"\nVITE_SUPABASE_ANON_KEY="<anon key>"'}
         </pre>
       </div>
@@ -39,8 +42,9 @@ function SetupNotice() {
 
 function Splash() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gray-50">
-      <Loader2 size={28} className="animate-spin text-gray-600" aria-label="Loading" />
+    <div className="relative flex min-h-dvh items-center justify-center bg-gray-50">
+      <div aria-hidden className="app-ambient" />
+      <Loader2 size={28} className="relative z-10 animate-spin text-accent-800" aria-label="Loading" />
     </div>
   );
 }

@@ -52,3 +52,39 @@ export function ratingLabel(value: number): string {
   if (value >= 2) return 'Poor';
   return 'Bad';
 }
+
+/**
+ * The same verdict treatment as ratingLabel, for a completion percentage: one
+ * word for where a library or a game stands, shown under the gauge that states
+ * the number.
+ */
+export function completionLabel(percent: number): string {
+  if (percent >= 100) return 'Perfect';
+  if (percent >= 75) return 'Nearly there';
+  if (percent >= 50) return 'On track';
+  if (percent >= 25) return 'Underway';
+  if (percent > 0) return 'Just started';
+  return 'Untouched';
+}
+
+/**
+ * Completion runs the same red-through-green sweep a rating does, so it reuses
+ * that ramp on a 0-100 input rather than defining a second one that would drift
+ * out of step with it.
+ */
+export const completionColor = (percent: number): string =>
+  ratingColor((percent / 100) * MAX_RATING);
+
+/**
+ * The verdict for how much of a backlog has been worked through. Separate
+ * wording from completionLabel because clearing a queue is a different thing
+ * from finishing a game — "Perfect" would be the wrong word for an empty one.
+ */
+export function backlogLabel(percentCleared: number): string {
+  if (percentCleared >= 100) return 'All clear';
+  if (percentCleared >= 75) return 'Almost clear';
+  if (percentCleared >= 50) return 'Getting there';
+  if (percentCleared >= 25) return 'Chipping away';
+  if (percentCleared > 0) return 'Just started';
+  return 'Untouched';
+}

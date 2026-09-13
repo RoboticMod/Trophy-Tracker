@@ -30,6 +30,7 @@ import {
   withSystemColors,
 } from '../lib/constants';
 import { normalizeRating } from '../lib/rating';
+import { playAwardSound, preloadAwardSounds } from '../lib/sound';
 import { useAuth } from './AuthContext';
 import * as db from '../lib/db';
 import {
@@ -177,6 +178,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const play = () => {
       setCelebration({ gameId, token: Date.now() });
+
+      // The sound is started here rather than from the Celebration component, so
+      // it begins on the same tick the burst does and inherits the same delay —
+      // including the wait that lets a newly added game's meter sweep to full
+      // first. Read from the ref because an added game may not be in the state
+      // this callback closed over yet.
+      const game = latest.current.games.find((g) => g.id === gameId);
+      if (game) playAwardSound(game.platform);
+
       celebrationTimers.current.push(
         window.setTimeout(() => setCelebration(null), CELEBRATION_MS),
       );
@@ -184,6 +194,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (delayMs > 0) celebrationTimers.current.push(window.setTimeout(play, delayMs));
     else play();
+  }, []);
+
+  // Fetched and decoded up front, so the first completion is not the one that
+  // plays late while the file is still downloading.
+  useEffect(() => {
+    preloadAwardSounds();
   }, []);
 
   useEffect(() => clearCelebrationTimers, []);

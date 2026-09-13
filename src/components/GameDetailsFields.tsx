@@ -141,7 +141,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <fieldset>
-          <legend className="mb-1.5 text-75 font-semibold text-gray-800">Platform</legend>
+          <legend className="eyebrow mb-2 text-gray-700">Platform</legend>
           <div className="grid grid-cols-2 gap-2">
             {PLATFORM_IDS.map((p) => (
               <button
@@ -152,8 +152,8 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                 className={cn(
                   'flex h-9 items-center justify-center gap-2 rounded-sm border text-75 font-semibold transition-colors',
                   platform === p
-                    ? 'border-accent-700 bg-accent-100 text-accent-900'
-                    : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
+                    ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
+                    : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
                 )}
               >
                 <PlatformIcon platform={p} size={15} />
@@ -177,7 +177,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
       </div>
 
       <fieldset>
-        <legend className="mb-1.5 text-75 font-semibold text-gray-800">Status</legend>
+        <legend className="eyebrow mb-2 text-gray-700">Status</legend>
         <div
           className={cn(
             'grid grid-cols-2 gap-2',
@@ -194,7 +194,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                 'rounded-sm border px-3 py-2 text-75 font-semibold transition-colors',
                 status === s
                   ? STATUS_SELECTED_CLASS[s]
-                  : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400 hover:text-gray-900',
+                  : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
               )}
             >
               {statusLabel(s, profile)}
@@ -241,7 +241,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
         </Field>
 
         <div className="space-y-1.5">
-          <span className="text-75 font-semibold text-gray-800">Game rating</span>
+          <span className="eyebrow text-gray-700">Game rating</span>
           {guided ? (
             <GuidedRating
               questions={GAME_RATING_QUESTIONS}
@@ -258,9 +258,9 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
         </div>
       </div>
 
-      <div className="space-y-3 rounded-md border border-gray-200 bg-gray-75 p-4">
+      <div className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-75 font-semibold text-gray-800">
+          <span className="eyebrow flex items-center gap-2 text-gray-700">
             <TrophyBadge platform={platform} size={15} />
             {noun}
           </span>
@@ -332,7 +332,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
         </div>
 
         <div className="space-y-1.5 border-t border-gray-200 pt-3">
-          <span className="text-75 font-semibold text-gray-800">{noun} rating</span>
+          <span className="eyebrow text-gray-700">{noun} rating</span>
           {guided ? (
             <GuidedRating
               questions={ACHIEVEMENT_RATING_QUESTIONS}
@@ -354,7 +354,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
 
       {collections.length > 0 && (
         <fieldset>
-          <legend className="mb-1.5 text-75 font-semibold text-gray-800">Collections</legend>
+          <legend className="eyebrow mb-2 text-gray-700">Collections</legend>
           <div className="flex flex-wrap gap-2">
             {collections.map((col) => {
               const selected = selectedCollections.includes(col.id);
@@ -373,8 +373,8 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                   className={cn(
                     'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-medium transition-colors',
                     selected
-                      ? 'border-accent-700 bg-accent-100 text-accent-900'
-                      : 'border-gray-300 bg-gray-75 text-gray-700 hover:border-gray-400',
+                      ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
+                      : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400',
                   )}
                 >
                   <span

@@ -7,7 +7,7 @@ import {
   DEFAULT_COLLECTION_COLOR,
   comparePlatformOrder,
 } from '../lib/constants';
-import { Button, Card, EmptyState, Field, TextInput } from '../components/ui';
+import { Badge, Button, Card, EmptyState, Field, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
 export const CollectionsView: React.FC = () => {
@@ -45,15 +45,15 @@ export const CollectionsView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-100 text-accent-900">
-            <FolderKanban size={20} />
-          </div>
-          <div>
+      <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-end">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
+              <FolderKanban size={18} />
+            </div>
             <h1 className="text-600 font-bold tracking-tight text-gray-1000">Collections</h1>
-            <p className="text-75 text-gray-700">Custom lists across your library</p>
           </div>
+          <p className="text-75 text-gray-600">Custom lists across your library</p>
         </div>
 
         <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
@@ -65,7 +65,7 @@ export const CollectionsView: React.FC = () => {
       {isCreating && (
         <Card className="max-w-lg space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-200 font-bold text-gray-1000">Create collection</h2>
+            <h2 className="eyebrow text-gray-1000">Create collection</h2>
             <Button buttonStyle="subtle" size="s" onClick={() => setIsCreating(false)}>
               Cancel
             </Button>
@@ -96,7 +96,7 @@ export const CollectionsView: React.FC = () => {
             </Field>
 
             <fieldset>
-              <legend className="mb-1.5 text-75 font-semibold text-gray-800">Colour accent</legend>
+              <legend className="eyebrow mb-2 text-gray-700">Colour accent</legend>
               <div className="flex gap-2">
                 {COLLECTION_COLORS.map((preset) => (
                   <button
@@ -140,24 +140,35 @@ export const CollectionsView: React.FC = () => {
               type="button"
               onClick={() => setActiveCollectionId(col.id)}
               aria-pressed={isSelected}
+              // The active tab is lit in the collection's own colour, so the
+              // selection carries the same identity as the dot beside it.
               style={
                 isSelected
-                  ? { borderColor: col.color, backgroundColor: `${col.color}22` }
+                  ? {
+                      borderColor: col.color,
+                      backgroundColor: `${col.color}22`,
+                      boxShadow: `0 0 12px -6px ${col.color}`,
+                    }
                   : undefined
               }
               className={cn(
-                'inline-flex h-8 items-center gap-2 rounded-sm border px-3 text-75 font-semibold transition-colors',
+                'inline-flex h-8 items-center gap-2 rounded-sm border px-3 text-75 font-bold transition-all',
                 isSelected
                   ? 'text-gray-1000'
-                  : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
+                  : 'border-gray-300 bg-white/3 text-gray-700 hover:border-gray-400 hover:bg-white/6 hover:text-gray-900',
               )}
             >
               <span
                 className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: col.color || DEFAULT_COLLECTION_COLOR }}
+                style={{
+                  backgroundColor: col.color || DEFAULT_COLLECTION_COLOR,
+                  boxShadow: `0 0 6px -1px ${col.color || DEFAULT_COLLECTION_COLOR}`,
+                }}
               />
               <span>{col.name}</span>
-              <span className="rounded-full bg-gray-25/40 px-1.5 text-50 opacity-80">{count}</span>
+              <span className="rounded-full bg-gray-25/40 px-1.5 text-50 tabular-nums opacity-80">
+                {count}
+              </span>
             </button>
           );
         })}
@@ -171,15 +182,13 @@ export const CollectionsView: React.FC = () => {
                 className="h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: activeCollection.color }}
               />
-              <h2 className="text-200 font-bold text-gray-1000">{activeCollection.name}</h2>
+              <h2 className="text-200 font-bold tracking-tight text-gray-1000">{activeCollection.name}</h2>
               {activeCollection.isSystem && (
-                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-50 font-medium text-gray-700">
-                  Default
-                </span>
+                <Badge>Default</Badge>
               )}
             </div>
             {activeCollection.description && (
-              <p className="text-75 text-gray-700">{activeCollection.description}</p>
+              <p className="text-75 text-gray-600">{activeCollection.description}</p>
             )}
           </div>
 

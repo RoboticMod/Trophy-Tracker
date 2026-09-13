@@ -28,6 +28,9 @@ import {
   CloudOff,
   Cloud,
   Star,
+  Volume2,
+  Volume1,
+  VolumeX,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
@@ -52,10 +55,19 @@ import {
 } from '../lib/constants';
 import { validateStatusName, MAX_STATUS_NAME_LENGTH } from '../lib/status';
 import { fileToAvatarDataUrl } from '../lib/image';
+import { getSoundVolume, playAwardSound, setSoundVolume } from '../lib/sound';
+import { PLATFORM_IDS } from '../types';
 import { PlatformIcon } from '../components/PlatformIcon';
-import { TrophyPair } from '../components/TrophyBadge';
+import { TrophyBadge, TrophyPair, awardNoun } from '../components/TrophyBadge';
 import { Button, Card, Field, SectionHeader, Switch, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
+
+/** Speaker icon matching the level, the way a system volume control does. */
+const VolumeIcon: React.FC<{ volume: number }> = ({ volume }) => {
+  if (volume === 0) return <VolumeX size={16} className="shrink-0 text-gray-600" />;
+  if (volume < 0.5) return <Volume1 size={16} className="shrink-0 text-trophy-900" />;
+  return <Volume2 size={16} className="shrink-0 text-trophy-900" />;
+};
 
 const ALL_NAV_ITEMS = [
   {
@@ -65,7 +77,7 @@ const ALL_NAV_ITEMS = [
     description: 'Overview and filters',
     icon: Library,
     configKey: null,
-    tone: 'bg-accent-100 text-accent-900',
+    tone: 'bg-accent-700/16 text-accent-900',
   },
   {
     id: 'playing',
@@ -74,7 +86,7 @@ const ALL_NAV_ITEMS = [
     description: 'Active titles in progress',
     icon: Play,
     configKey: 'showCurrentlyPlaying' as const,
-    tone: 'bg-accent-100 text-accent-900',
+    tone: 'bg-accent-700/16 text-accent-900',
   },
   {
     id: 'achievements',
@@ -92,7 +104,7 @@ const ALL_NAV_ITEMS = [
     description: 'Catalog search',
     icon: Search,
     configKey: 'showSearch' as const,
-    tone: 'bg-accent-100 text-accent-900',
+    tone: 'bg-accent-700/16 text-accent-900',
   },
   {
     id: 'backlog',
@@ -119,7 +131,7 @@ const ALL_NAV_ITEMS = [
     description: 'Playtime and completion metrics',
     icon: BarChart3,
     configKey: 'showStats' as const,
-    tone: 'bg-positive-100 text-positive-900',
+    tone: 'bg-positive-700/16 text-positive-900',
   },
 ];
 
@@ -158,6 +170,9 @@ export const SettingsView: React.FC = () => {
   const [copiedSql, setCopiedSql] = useState(false);
   const [cacheCount, setCacheCount] = useState(() => getRawgCacheCount());
   const [statusErrors, setStatusErrors] = useState<Partial<Record<GameStatus, string>>>({});
+  // Mirrors the stored level so the slider and the preview stay in step; the
+  // module below localStorage remains the source of truth for playback.
+  const [soundVolume, setSoundVolumeState] = useState(getSoundVolume);
 
   const platformOrder = profile.platformOrder?.length
     ? profile.platformOrder
@@ -343,7 +358,7 @@ export const SettingsView: React.FC = () => {
           }
         />
 
-        <div className="flex flex-col gap-4 rounded-md border border-gray-200 bg-gray-75 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-4 panel-inset rounded-md p-4 sm:flex-row sm:items-center">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 ring-1 ring-gray-300">
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -403,7 +418,7 @@ export const SettingsView: React.FC = () => {
           icon={<Tags size={18} />}
           title="Status names"
           description="Rename any status — the new name appears everywhere at once"
-          iconClassName="bg-trophy-100 text-trophy-900"
+          iconClassName="bg-trophy-700/16 text-trophy-900"
         />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -450,7 +465,7 @@ export const SettingsView: React.FC = () => {
           icon={<Palette size={18} />}
           title="Card highlight"
           description="How a game card signals that it is in progress or fully completed"
-          iconClassName="bg-accent-100 text-accent-900"
+          iconClassName="bg-accent-700/16 text-accent-900"
         />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -480,8 +495,8 @@ export const SettingsView: React.FC = () => {
                 className={cn(
                   'flex items-center gap-3 rounded-md border p-3 text-left transition-colors',
                   selected
-                    ? 'border-accent-700 bg-accent-100'
-                    : 'border-gray-300 bg-gray-75 hover:border-gray-400',
+                    ? 'border-accent-700/60 bg-accent-700/16'
+                    : 'border-gray-300 bg-black/25 hover:border-gray-400 hover:bg-black/40',
                 )}
               >
                 <span className={cn('h-10 w-14 shrink-0 rounded-sm', option.swatch)} />
@@ -501,7 +516,7 @@ export const SettingsView: React.FC = () => {
           icon={<Star size={18} />}
           title="How you rate games"
           description="Score a game directly, or answer a few questions and let the score follow"
-          iconClassName="bg-trophy-100 text-trophy-900"
+          iconClassName="bg-trophy-700/16 text-trophy-900"
         />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -529,8 +544,8 @@ export const SettingsView: React.FC = () => {
                 className={cn(
                   'rounded-md border p-3 text-left transition-colors',
                   selected
-                    ? 'border-accent-700 bg-accent-100'
-                    : 'border-gray-300 bg-gray-75 hover:border-gray-400',
+                    ? 'border-accent-700/60 bg-accent-700/16'
+                    : 'border-gray-300 bg-black/25 hover:border-gray-400 hover:bg-black/40',
                 )}
               >
                 <span className="block text-100 font-semibold text-gray-1000">{option.name}</span>
@@ -544,6 +559,86 @@ export const SettingsView: React.FC = () => {
           A worked-out score always lands on the ordinary slider afterwards, so you can move it if
           you disagree. This applies to both the game and the {`achievement`} score.
         </p>
+      </Card>
+
+      {/* Completion sounds --------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Volume2 size={18} />}
+          title="Completion sounds"
+          description="Played with the celebration when a game reaches 100%"
+          iconClassName="bg-trophy-700/16 text-trophy-900"
+        />
+
+        <Field
+          label="Volume"
+          description={
+            soundVolume === 0
+              ? 'Silent — no sound plays on completion.'
+              : 'Stored on this device, so your phone and desktop can differ.'
+          }
+        >
+          {(props) => (
+            <div className="flex items-center gap-3">
+              <VolumeIcon volume={soundVolume} />
+              <input
+                {...props}
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={Math.round(soundVolume * 100)}
+                onChange={(e) => {
+                  const next = Number(e.target.value) / 100;
+                  setSoundVolumeState(next);
+                  setSoundVolume(next);
+                }}
+                aria-label="Completion sound volume"
+                className="h-1.5 min-w-32 flex-1 cursor-pointer appearance-none rounded-full"
+                style={{
+                  accentColor: 'var(--color-trophy-700)',
+                  background: `linear-gradient(90deg, var(--color-trophy-700) ${soundVolume * 100}%, var(--color-gray-300) ${soundVolume * 100}%)`,
+                }}
+              />
+              <span className="w-10 shrink-0 text-right text-75 font-bold tabular-nums text-gray-900">
+                {Math.round(soundVolume * 100)}
+              </span>
+            </div>
+          )}
+        </Field>
+
+        {/* One preview per platform, since each has its own sound and the point
+            of a preview is to hear the one you are setting the level for. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {PLATFORM_IDS.map((platform) => (
+            <div key={platform} className="panel-inset flex items-center gap-3 rounded-md p-3">
+              <TrophyBadge platform={platform} size={26} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-100 font-semibold text-gray-1000">
+                  {PLATFORMS[platform].name}
+                </div>
+                <div className="truncate text-50 text-gray-600">
+                  {awardNoun(platform) === 'Trophies' ? 'Platinum trophy' : 'Perfect game'}
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                buttonStyle="outline"
+                size="s"
+                onClick={() => playAwardSound(platform)}
+                disabled={soundVolume === 0}
+                title={
+                  soundVolume === 0
+                    ? 'Raise the volume to hear the preview'
+                    : `Play the ${PLATFORMS[platform].name} sound`
+                }
+              >
+                <Play size={13} />
+                Preview
+              </Button>
+            </div>
+          ))}
+        </div>
       </Card>
 
       {/* Platform order ------------------------------------------------------ */}
@@ -572,7 +667,7 @@ export const SettingsView: React.FC = () => {
           {platformOrder.map((platform, index) => (
             <div
               key={platform}
-              className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-75 p-2.5"
+              className="flex items-center gap-3 panel-inset rounded-md p-2.5"
             >
               <span className="w-6 text-center text-75 font-bold text-gray-600">#{index + 1}</span>
               <div
@@ -640,7 +735,7 @@ export const SettingsView: React.FC = () => {
             return (
               <div
                 key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-75 p-3"
+                className="flex flex-wrap items-center justify-between gap-3 panel-inset rounded-md p-3"
               >
                 <div className="flex min-w-56 flex-1 items-center gap-3">
                   <span className="w-6 shrink-0 text-center text-75 font-bold text-gray-600">
@@ -718,16 +813,16 @@ export const SettingsView: React.FC = () => {
           icon={<Database size={18} />}
           title="Cloud storage"
           description="Your library lives in Supabase and is scoped to your account"
-          iconClassName="bg-positive-100 text-positive-900"
+          iconClassName="bg-positive-700/16 text-positive-900"
           action={
             <span
               className={cn(
                 'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-75 font-semibold',
                 !isOnline
-                  ? 'border-notice-700 bg-notice-100 text-notice-900'
+                  ? 'border-notice-700/60 bg-notice-700/16 text-notice-900'
                   : pendingWrites > 0
-                    ? 'border-accent-400 bg-accent-100 text-accent-900'
-                    : 'border-positive-700 bg-positive-100 text-positive-900',
+                    ? 'border-accent-700/45 bg-accent-700/16 text-accent-900'
+                    : 'border-positive-700/60 bg-positive-700/16 text-positive-900',
               )}
             >
               {isOnline ? <Cloud size={13} /> : <CloudOff size={13} />}

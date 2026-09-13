@@ -181,7 +181,7 @@ export const QuickAddModal: React.FC = () => {
         </>
       }
     >
-      <div className="mb-5 flex gap-1 rounded-sm bg-gray-75 p-1">
+      <div className="mb-5 flex gap-1 rounded-sm bg-black/25 p-1">
         <TabButton active={tab === 'search'} onClick={() => setTab('search')}>
           <Search size={15} />
           Search catalog
@@ -226,7 +226,7 @@ export const QuickAddModal: React.FC = () => {
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={() => selectGameFromSearch(game)}
-                  className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-gray-75 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
+                  className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
                 >
                   <CoverArt
                     src={game.background_image}
@@ -293,7 +293,7 @@ const SearchEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ e
           ];
 
   return (
-    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-75/60 px-6 py-10 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-black/25 px-6 py-10 text-center">
       <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-200 text-gray-700">
         {icon}
       </div>

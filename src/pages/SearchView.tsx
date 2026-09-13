@@ -10,8 +10,7 @@ import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
 import { snapRating } from '../lib/rating';
-import { Button, EmptyState, OverlayBadge, TextInput } from '../components/ui';
-import { cn } from '../lib/cn';
+import { Button, EmptyState, FilterChip, OverlayBadge, TextInput } from '../components/ui';
 
 export const SearchView: React.FC = () => {
   const { games, addGame, profile } = useGame();
@@ -69,7 +68,7 @@ export const SearchView: React.FC = () => {
     <div className="mx-auto max-w-[1760px] space-y-6 pb-10">
       <div className="space-y-2 border-b border-gray-200 pb-5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-100 text-accent-900">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
             <Sparkles size={18} />
           </div>
           <h1 className="text-600 font-bold tracking-tight text-gray-1000">Search &amp; add</h1>
@@ -96,17 +95,20 @@ export const SearchView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 flex items-center gap-1 text-75 font-semibold text-gray-700">
+          <span className="eyebrow mr-1 flex items-center gap-1 text-gray-600">
             <Filter size={13} />
             Add to
           </span>
 
-          <Chip selected={selectedPlatform === 'all'} onClick={() => setSelectedPlatform('all')}>
+          <FilterChip
+            selected={selectedPlatform === 'all'}
+            onClick={() => setSelectedPlatform('all')}
+          >
             Auto-detect
-          </Chip>
+          </FilterChip>
 
           {PLATFORM_IDS.map((p) => (
-            <Chip
+            <FilterChip
               key={p}
               selected={selectedPlatform === p}
               onClick={() => setSelectedPlatform(p)}
@@ -114,17 +116,17 @@ export const SearchView: React.FC = () => {
             >
               <PlatformIcon platform={p} size={15} />
               <span>{PLATFORMS[p].shortName}</span>
-            </Chip>
+            </FilterChip>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-75 text-gray-700">
+      <div className="eyebrow flex items-center justify-between text-gray-600">
         <span>
           {results.length} result{results.length === 1 ? '' : 's'}{' '}
           {query.trim() ? `for “${query}”` : 'from what RAWG ranks as popular now'}
         </span>
-        {loading && <span className="animate-pulse font-semibold text-accent-900">Searching…</span>}
+        {loading && <span className="animate-pulse text-accent-900">Searching…</span>}
       </div>
 
       {!loading && results.length === 0 && (
@@ -142,7 +144,7 @@ export const SearchView: React.FC = () => {
             <motion.div
               key={game.id}
               whileHover={{ y: -3 }}
-              className="group flex flex-col justify-between overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-colors hover:border-gray-300"
+              className="panel group flex flex-col justify-between overflow-hidden rounded-lg transition-colors hover:border-gray-400"
             >
               <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-25">
                 <CoverArt
@@ -179,7 +181,7 @@ export const SearchView: React.FC = () => {
 
               <div className="flex items-center gap-2 border-t border-gray-200 p-3">
                 {added ? (
-                  <div className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700 bg-positive-100 py-1.5 text-75 font-semibold text-positive-900">
+                  <div className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700/60 bg-positive-700/16 py-1.5 text-75 font-semibold text-positive-900">
                     <Check size={14} />
                     In your library
                   </div>
@@ -227,7 +229,7 @@ const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ 
             href="https://rawg.io/apidocs"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-8 items-center rounded-sm border border-accent-700 px-4 text-100 font-semibold text-accent-900 transition-colors hover:bg-accent-100"
+            className="inline-flex h-8 items-center rounded-sm border border-accent-700 px-4 text-100 font-semibold text-accent-900 transition-colors hover:bg-accent-700/16"
           >
             Get a free key
           </a>
@@ -258,25 +260,3 @@ const CatalogEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ 
     />
   );
 };
-
-const Chip: React.FC<{
-  selected: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}> = ({ selected, onClick, title, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    aria-pressed={selected}
-    className={cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
-      selected
-        ? 'border-accent-700 bg-accent-100 text-accent-900'
-        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
-    )}
-  >
-    {children}
-  </button>
-);

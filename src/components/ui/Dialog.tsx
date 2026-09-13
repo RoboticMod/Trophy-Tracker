@@ -75,7 +75,7 @@ export const Dialog: React.FC<DialogProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-gray-25/80 backdrop-blur-sm"
+            className="fixed inset-0 bg-gray-25/85 backdrop-blur-md"
           />
 
           <motion.div
@@ -92,7 +92,11 @@ export const Dialog: React.FC<DialogProps> = ({
               // Capped height with an internally scrolling body, so the footer
               // actions stay reachable no matter how long the form is.
               'relative my-8 flex max-h-[calc(100dvh-4rem)] w-full flex-col overflow-hidden rounded-xl',
-              'border border-gray-200 bg-gray-100 shadow-xl focus:outline-none',
+              // Opaque rather than glass: a dialog sits over content it must
+              // not let through, so it borrows the panel's edge and light but
+              // keeps a solid ground.
+              'border border-gray-300/70 bg-gray-100 shadow-xl focus:outline-none',
+              'shadow-[inset_0_1px_0_rgb(255_255_255/0.07),var(--shadow-xl)]',
               size === 'l' ? 'max-w-4xl' : 'max-w-2xl',
             )}
           >
@@ -104,9 +108,11 @@ export const Dialog: React.FC<DialogProps> = ({
                   </div>
                 ) : null}
                 <div className="min-w-0">
-                  <h2 className="truncate text-300 font-bold text-gray-1000">{title}</h2>
+                  <h2 className="truncate text-300 font-bold tracking-tight text-gray-1000">
+                    {title}
+                  </h2>
                   {description ? (
-                    <p className="text-75 text-gray-700">{description}</p>
+                    <p className="text-75 text-gray-600">{description}</p>
                   ) : null}
                 </div>
               </div>
@@ -124,7 +130,7 @@ export const Dialog: React.FC<DialogProps> = ({
             <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
 
             {footer ? (
-              <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-75 p-4">
+              <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-black/25 p-4">
                 {footer}
               </footer>
             ) : null}

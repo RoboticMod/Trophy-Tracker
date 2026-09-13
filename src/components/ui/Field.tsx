@@ -26,7 +26,7 @@ export const Field: React.FC<FieldProps> = ({
   return (
     <div className={cn('space-y-1.5', className)}>
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-75 font-semibold text-gray-800">
+        <label htmlFor={id} className="eyebrow text-gray-700">
           {label}
         </label>
         {action}
@@ -41,10 +41,17 @@ export const Field: React.FC<FieldProps> = ({
   );
 };
 
+/**
+ * Fields are cut into the panel rather than laid on it: a dark well, a hairline
+ * edge, and an inner shadow along the top. Focus lights the edge and blooms
+ * outward instead of drawing a second ring around the control.
+ */
 export const inputClass = cn(
-  'w-full rounded-sm border bg-gray-75 px-3 text-100 text-gray-900',
-  'border-gray-300 placeholder:text-gray-600',
-  'transition-colors hover:border-gray-400 focus:border-accent-800 focus:outline-none',
+  'w-full rounded-sm border px-3 text-100 text-gray-900',
+  'bg-black/25 border-gray-300 placeholder:text-gray-600',
+  'shadow-[inset_0_1px_2px_rgb(0_0_0/0.4)]',
+  'transition-colors hover:border-gray-400',
+  'focus:border-accent-700 focus:shadow-[inset_0_1px_2px_rgb(0_0_0/0.4),0_0_0_3px_color-mix(in_srgb,var(--color-accent-700)_22%,transparent)] focus:outline-none',
   'disabled:opacity-40',
 );
 

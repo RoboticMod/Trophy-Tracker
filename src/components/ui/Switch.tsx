@@ -17,8 +17,10 @@ export const Switch: React.FC<SwitchProps> = ({ checked, onChange, label, classN
     title={label}
     onClick={() => onChange(!checked)}
     className={cn(
-      'relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors',
-      checked ? 'bg-accent-700' : 'bg-gray-300',
+      'relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-all',
+      checked
+        ? 'bg-accent-700 shadow-[0_0_12px_-4px_var(--color-accent-700)]'
+        : 'bg-gray-300 shadow-[inset_0_1px_2px_rgb(0_0_0/0.5)]',
       className,
     )}
   >

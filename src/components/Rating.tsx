@@ -15,6 +15,11 @@ interface RatingValueProps {
    * where a second bordered shape nested inside the first only adds clutter.
    */
   bare?: boolean;
+  /**
+   * Appends the score's verdict word beside the number. Only where there is
+   * room for it — on a card the digits have to stand alone.
+   */
+  verdict?: boolean;
 }
 
 const SIZE: Record<NonNullable<RatingValueProps['size']>, string> = {
@@ -37,6 +42,7 @@ export const RatingValue: React.FC<RatingValueProps> = ({
   className,
   label = 'Rated',
   bare = false,
+  verdict = false,
 }) => {
   const clamped = snapRating(value);
   const color = ratingColor(clamped);
@@ -54,12 +60,19 @@ export const RatingValue: React.FC<RatingValueProps> = ({
             }
       }
       className={cn(
-        'inline-flex items-center justify-center font-bold tabular-nums',
+        'inline-flex items-center justify-center gap-1.5 font-bold tabular-nums',
         bare ? SIZE_BARE[size] : cn('rounded-sm border', SIZE[size]),
+        // The word needs breathing room the bare number does not.
+        verdict && !bare && 'px-2',
         className,
       )}
     >
       {formatRating(clamped)}
+      {verdict ? (
+        <span className="text-50 font-bold uppercase tracking-wide opacity-90">
+          {ratingLabel(clamped)}
+        </span>
+      ) : null}
     </span>
   );
 };
@@ -92,7 +105,9 @@ export const RatingControl: React.FC<RatingControlProps> = ({
   const fillPercent = (clamped / MAX_RATING) * 100;
 
   return (
-    <div className="flex items-center gap-3">
+    // Wraps rather than overflows: this control sits in a form column that can
+    // be half a dialog wide, and the verdict word beside it is not always short.
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <input
         id={id}
         type="range"
@@ -103,7 +118,7 @@ export const RatingControl: React.FC<RatingControlProps> = ({
         onChange={(e) => onChange(snapRating(Number(e.target.value)))}
         aria-label={`Rating out of ${MAX_RATING}`}
         {...rest}
-        className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300 accent-current"
+        className="h-1.5 min-w-24 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300 accent-current"
         style={{
           color,
           background: `linear-gradient(90deg, ${color} ${fillPercent}%, var(--color-gray-300) ${fillPercent}%)`,
@@ -121,18 +136,32 @@ export const RatingControl: React.FC<RatingControlProps> = ({
           aria-label="Rating value"
           style={{ color, borderColor: isRated ? color : undefined }}
           className={cn(
-            'h-9 w-16 rounded-sm border bg-gray-75 px-2 text-center text-100 font-bold tabular-nums',
+            'h-9 w-16 rounded-sm border bg-black/25 px-2 text-center text-100 font-bold tabular-nums',
             'focus:outline-none',
             isRated ? '' : 'border-gray-300 text-gray-700',
           )}
         />
       )}
 
+      {/* The score's own verdict, live beside the number. The guided flow
+          already says "that works out to 8 — Great"; the slider said nothing,
+          so the two ways of rating disagreed about how much they explained. */}
+      {!compact && (
+        // Never truncated: "OUTSTAND…" is worse than no verdict at all. The row
+        // wraps instead, which is what the flex-wrap above is for.
+        <span
+          className="shrink-0 whitespace-nowrap text-50 font-bold uppercase tracking-wide"
+          style={{ color: isRated ? color : 'var(--color-gray-600)' }}
+        >
+          {isRated ? ratingLabel(clamped) : 'Unrated'}
+        </span>
+      )}
+
       <button
         type="button"
         onClick={() => onChange(0)}
         disabled={!isRated}
-        className="rounded-sm px-2 py-1 text-50 text-gray-600 transition-colors hover:text-gray-900 disabled:opacity-30"
+        className="rounded-sm px-2 py-1 text-50 font-semibold text-gray-600 transition-colors hover:text-gray-900 disabled:opacity-30"
       >
         Clear
       </button>

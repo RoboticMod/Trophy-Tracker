@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { QuickAddModal } from './QuickAddModal';
-import { APP_NAME } from '../lib/constants';
 import { statusLabel } from '../lib/status';
 import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
+import { Wordmark } from './Wordmark';
 import { cn } from '../lib/cn';
 
 interface NavItem {
@@ -31,7 +31,7 @@ interface NavItem {
   icon: React.ElementType | null;
   art?: React.ReactNode;
   badge?: number;
-  badgeTone?: 'accent' | 'trophy';
+  badgeTone?: 'accent' | 'trophy' | 'neutral';
   enabled: boolean;
 }
 
@@ -91,7 +91,10 @@ export const AppLayout: React.FC = () => {
       path: '/backlog',
       icon: Gamepad2,
       badge: backlogCount || undefined,
-      badgeTone: 'trophy',
+      // Neutral, not gold: gold is what a finished game earns, and a queue of
+      // games you have not started yet has earned nothing. This matches how the
+      // backlog status is toned everywhere else in the app.
+      badgeTone: 'neutral',
       enabled: sidebarConfig?.showBacklog ?? true,
     },
     {
@@ -127,125 +130,91 @@ export const AppLayout: React.FC = () => {
     })
     .filter((item) => item.enabled);
 
+  const syncTitle = !isOnline
+    ? 'Offline — changes are queued'
+    : pendingWrites > 0
+      ? `${pendingWrites} change(s) waiting to sync`
+      : 'Synced with Supabase';
+
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-gray-50 text-gray-900">
-      {/* Sidebar: icon rail from md, full labels from lg ------------------- */}
-      <aside className="hidden w-16 shrink-0 flex-col justify-between border-r border-gray-200 bg-gray-100 p-2 md:flex lg:w-64 lg:p-4 2xl:w-72">
-        <div className="space-y-5">
-          <div className="flex items-center gap-3 px-1 pt-1 lg:px-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-200">
-              <TrophyPair size={17} />
-            </div>
-            <div className="hidden min-w-0 lg:block">
-              <h1 className="truncate text-200 font-bold tracking-tight text-gray-1000">
-                {APP_NAME}
-              </h1>
-              <p className="truncate text-50 text-gray-700">Steam & PlayStation progress</p>
-            </div>
-          </div>
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-gray-50 text-gray-900">
+      {/* The lit ground every translucent surface in the app sits on. Fixed, so
+          it stays put while the content scrolls over it. */}
+      <div aria-hidden className="app-ambient" />
 
-          <Button
-            variant="accent"
-            size="l"
-            onClick={() => setIsQuickAddOpen(true)}
-            className="w-full px-0 lg:px-5"
-            aria-label="Add game"
-          >
-            <Plus size={16} />
-            <span className="hidden lg:inline">Add game</span>
-          </Button>
+      {/* Desktop top bar ----------------------------------------------------
+          One horizontal row from md up. Labels appear at lg; below that the
+          destinations stay as icons so seven of them still fit beside the
+          brand and the actions. */}
+      <header className="relative z-20 hidden shrink-0 items-center gap-3 border-b border-gray-200 bg-gray-100/70 px-4 backdrop-blur-xl md:flex 2xl:px-8">
+        <Wordmark className="shrink-0 py-2.5" />
 
-          <nav className="space-y-1">
-            <div className="hidden px-3 pb-1.5 text-50 font-bold uppercase tracking-wide text-gray-600 lg:block">
-              Navigation
-            </div>
+        <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={item.name}
+                className={cn(
+                  'relative flex h-14 shrink-0 items-center gap-2 px-3 text-75 font-semibold transition-colors',
+                  isActive ? 'text-accent-900' : 'text-gray-700 hover:text-gray-1000',
+                )}
+              >
+                {/* A lit rule along the bottom edge of the tab, the way a top
+                    bar marks its current section — the vertical bar the rail
+                    used has no edge to sit on here. */}
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent-800 shadow-[0_0_9px_-1px_var(--color-accent-700)]"
+                  />
+                )}
 
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  title={item.name}
-                  className={cn(
-                    'flex h-9 items-center justify-between gap-2.5 rounded-sm px-3 text-75 font-medium transition-colors',
-                    isActive
-                      ? 'bg-accent-100 font-semibold text-accent-900'
-                      : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900',
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    {Icon ? <Icon size={16} className="shrink-0" /> : item.art}
-                    <span className="hidden truncate lg:inline">{item.name}</span>
+                {Icon ? <Icon size={16} className="shrink-0" /> : item.art}
+                {/* The short label, not the full name: seven destinations plus
+                    the brand and the actions have to share one row, and
+                    "Achievements & Trophies" alone would push two of them off
+                    the end of it. The full name stays as the tooltip. */}
+                <span className="hidden truncate lg:inline">{item.short}</span>
+
+                {item.badge !== undefined && (
+                  <span
+                    className={cn(
+                      'rounded-full border px-1.5 py-0.5 text-50 font-bold tabular-nums',
+                      item.badgeTone === 'accent'
+                        ? 'border-accent-700/45 bg-accent-700/16 text-accent-900'
+                        : item.badgeTone === 'trophy'
+                          ? 'border-trophy-700/50 bg-trophy-700/16 text-trophy-900'
+                          : 'border-gray-500/40 bg-gray-700/12 text-gray-700',
+                    )}
+                  >
+                    {item.badge}
                   </span>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
 
-                  {item.badge !== undefined && (
-                    <span
-                      className={cn(
-                        'hidden rounded-full px-2 py-0.5 text-50 font-bold lg:inline',
-                        item.badgeTone === 'accent'
-                          ? 'bg-accent-200 text-accent-900'
-                          : 'bg-trophy-100 text-trophy-900',
-                      )}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </NavLink>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="space-y-2 border-t border-gray-200 pt-3">
-          <NavLink
-            to="/settings"
-            title="Settings and account"
-            className={({ isActive }) =>
-              cn(
-                'flex h-9 items-center justify-between gap-2.5 rounded-sm px-3 text-75 font-medium transition-colors',
-                isActive
-                  ? 'bg-accent-100 font-semibold text-accent-900'
-                  : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900',
-              )
-            }
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              {profile.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt=""
-                  className="h-5 w-5 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-50 font-bold text-gray-700">
-                  {profile.username?.charAt(0)?.toUpperCase() || 'P'}
-                </span>
-              )}
-              <span className="hidden truncate lg:inline">{profile.username || 'Account'}</span>
-            </span>
-            <Settings size={15} className="hidden shrink-0 text-gray-600 lg:block" />
-          </NavLink>
-
-          <div
-            title={
-              !isOnline
-                ? 'Offline — changes are queued'
-                : pendingWrites > 0
-                  ? `${pendingWrites} change(s) waiting to sync`
-                  : 'Synced with Supabase'
-            }
-            className="flex h-9 items-center gap-2 rounded-sm bg-gray-75 px-3 text-50 text-gray-700"
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            title={syncTitle}
+            className="panel-inset hidden h-8 items-center gap-2 rounded-sm px-2.5 text-50 font-semibold text-gray-700 xl:flex"
           >
             {!isOnline ? (
               <CloudOff size={13} className="shrink-0 text-notice-900" />
             ) : loading || pendingWrites > 0 ? (
               <RefreshCw size={13} className="shrink-0 animate-spin text-accent-900" />
             ) : (
-              <Cloud size={13} className="shrink-0 text-positive-900" />
+              <Cloud
+                size={13}
+                className="shrink-0 text-positive-900 drop-shadow-[0_0_5px_currentColor]"
+              />
             )}
-            <span className="hidden truncate lg:inline">
+            <span className="truncate">
               {!isOnline
                 ? 'Offline'
                 : pendingWrites > 0
@@ -254,18 +223,47 @@ export const AppLayout: React.FC = () => {
                     ? 'Loading…'
                     : 'Synced'}
             </span>
-          </div>
+          </span>
+
+          <Button variant="accent" onClick={() => setIsQuickAddOpen(true)} aria-label="Add game">
+            <Plus size={16} />
+            <span className="hidden lg:inline">Add game</span>
+          </Button>
+
+          <NavLink
+            to="/settings"
+            title="Settings and account"
+            className={({ isActive }) =>
+              cn(
+                'flex h-8 items-center gap-2 rounded-sm border px-2 text-75 font-semibold transition-colors',
+                isActive
+                  ? 'border-accent-700/45 bg-accent-700/12 text-accent-900'
+                  : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:text-gray-1000',
+              )
+            }
+          >
+            {profile.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt=""
+                className="h-5 w-5 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-50 font-bold text-gray-700">
+                {profile.username?.charAt(0)?.toUpperCase() || 'P'}
+              </span>
+            )}
+            <span className="hidden max-w-28 truncate 2xl:inline">
+              {profile.username || 'Account'}
+            </span>
+            <Settings size={14} className="hidden shrink-0 text-gray-600 lg:block" />
+          </NavLink>
         </div>
-      </aside>
+      </header>
 
       {/* Mobile header ------------------------------------------------------ */}
-      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-gray-100/95 px-4 py-3 backdrop-blur-xl md:hidden">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gray-200">
-            <TrophyPair size={15} />
-          </div>
-          <span className="text-100 font-bold text-gray-1000">{APP_NAME}</span>
-        </div>
+      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-gray-100/85 px-4 py-3 backdrop-blur-xl md:hidden">
+        <Wordmark size="sm" />
         <Button variant="accent" size="s" onClick={() => setIsQuickAddOpen(true)}>
           <Plus size={15} />
           <span>Add</span>
@@ -273,11 +271,14 @@ export const AppLayout: React.FC = () => {
       </header>
 
       {/* Content ------------------------------------------------------------ */}
-      <main className="h-full flex-1 overflow-y-auto px-4 pb-24 pt-16 sm:px-6 md:py-8 2xl:px-10">
+      {/* min-h-0, not h-full: the top bar is a flex sibling now, so a main
+          claiming the full viewport height would push its own scroll past the
+          bottom of the window by exactly the height of the bar. */}
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-16 sm:px-6 md:py-8 2xl:px-10">
         {error ? (
           <div
             role="alert"
-            className="mx-auto mb-5 flex max-w-[1760px] items-start gap-3 rounded-md border border-notice-700 bg-notice-100 p-3 text-75 text-notice-900"
+            className="mx-auto mb-5 flex max-w-[1760px] items-start gap-3 rounded-md border border-notice-700/50 bg-notice-700/12 p-3 text-75 font-semibold text-notice-900 backdrop-blur-sm"
           >
             <span className="flex-1">{error}</span>
             <button
@@ -295,7 +296,7 @@ export const AppLayout: React.FC = () => {
       </main>
 
       {/* Mobile bottom bar: four destinations plus settings ------------------ */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-gray-200 bg-gray-100/95 px-2 py-2 backdrop-blur-xl md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-gray-200 bg-gray-100/85 px-2 py-2 backdrop-blur-xl md:hidden">
         {navItems.slice(0, 4).map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
@@ -304,8 +305,8 @@ export const AppLayout: React.FC = () => {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-sm px-2.5 py-1 transition-colors',
-                isActive ? 'font-bold text-accent-900' : 'text-gray-700',
+                'flex flex-col items-center gap-0.5 rounded-sm px-2.5 py-1 text-50 font-bold uppercase tracking-wide transition-colors',
+                isActive ? 'text-accent-900' : 'text-gray-600',
               )}
             >
               {Icon ? <Icon size={18} /> : item.art}

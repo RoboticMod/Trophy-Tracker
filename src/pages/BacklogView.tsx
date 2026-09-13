@@ -6,8 +6,7 @@ import { PlatformIcon } from '../components/PlatformIcon';
 import { Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
 import { statusLabel } from '../lib/status';
-import { Button, Card, EmptyState } from '../components/ui';
-import { cn } from '../lib/cn';
+import { Button, EmptyState, FilterChip, StatTile } from '../components/ui';
 
 export const BacklogView: React.FC = () => {
   const { games, setIsQuickAddOpen, updateGame, profile } = useGame();
@@ -33,48 +32,50 @@ export const BacklogView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-300 text-gray-800">
-            <Hourglass size={20} />
+      {/* Icon and title on one line, description spanning underneath both —
+          the same header shape every other view uses. */}
+      <div className="space-y-1 border-b border-gray-200 pb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gray-300 text-gray-800">
+            <Hourglass size={18} />
           </div>
-          <div>
-            <h1 className="text-600 font-bold tracking-tight text-gray-1000">
-              {statusLabel('backlog', profile)}
-            </h1>
-            <p className="text-75 text-gray-700">
-              Games queued and waiting to be played — start any of them from its card
-            </p>
-          </div>
+          <h1 className="text-600 font-bold tracking-tight text-gray-1000">
+            {statusLabel('backlog', profile)}
+          </h1>
         </div>
+        <p className="text-75 text-gray-600">
+          Games queued and waiting to be played — start any of them from its card
+        </p>
       </div>
 
       <div className="grid-metrics">
-        <Card>
-          <div className="text-600 font-bold text-gray-1000">{backlogGames.length}</div>
-          <div className="text-50 font-medium text-gray-700">Games in queue</div>
-        </Card>
-        <Card>
-          <div className="text-600 font-bold text-gray-1000">{potentialAchievements}</div>
-          <div className="text-50 font-medium text-gray-700">Achievements still to unlock</div>
-        </Card>
+        <StatTile label="Games in queue" value={String(backlogGames.length)} />
+        <StatTile
+          label="Achievements still to unlock"
+          value={String(potentialAchievements)}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 flex items-center gap-1 text-75 font-medium text-gray-700">
+        <span className="eyebrow mr-1 flex items-center gap-1 text-gray-600">
           <Filter size={13} />
           Platform
         </span>
 
-        <Chip selected={platformFilter === 'all'} onClick={() => setPlatformFilter('all')}>
+        <FilterChip
+          tone="neutral"
+          selected={platformFilter === 'all'}
+          onClick={() => setPlatformFilter('all')}
+        >
           All ({backlogGames.length})
-        </Chip>
+        </FilterChip>
 
         {PLATFORM_IDS.map((p) => {
           const count = backlogGames.filter((g) => g.platform === p).length;
           return (
-            <Chip
+            <FilterChip
               key={p}
+              tone="neutral"
               selected={platformFilter === p}
               onClick={() => setPlatformFilter(p)}
               title={PLATFORMS[p].name}
@@ -82,7 +83,7 @@ export const BacklogView: React.FC = () => {
               <PlatformIcon platform={p} size={15} />
               <span>{PLATFORMS[p].shortName}</span>
               <span className="opacity-70">({count})</span>
-            </Chip>
+            </FilterChip>
           );
         })}
       </div>
@@ -120,25 +121,3 @@ export const BacklogView: React.FC = () => {
     </div>
   );
 };
-
-const Chip: React.FC<{
-  selected: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}> = ({ selected, onClick, title, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    aria-pressed={selected}
-    className={cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-semibold transition-colors',
-      selected
-        ? 'border-gray-400 bg-gray-300 text-gray-1000'
-        : 'border-gray-200 bg-gray-100 text-gray-700 hover:border-gray-300 hover:text-gray-900',
-    )}
-  >
-    {children}
-  </button>
-);

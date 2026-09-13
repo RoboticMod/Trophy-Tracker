@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Loader2, LogIn, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { TrophyPair } from '../components/TrophyBadge';
-import { APP_NAME } from '../lib/constants';
+import { Wordmark } from '../components/Wordmark';
 import { getRememberMe } from '../lib/supabase';
 import { Button, Field, TextInput } from '../components/ui';
 
@@ -45,11 +44,11 @@ export const AuthView: React.FC = () => {
     return (
       <Shell>
         <div className="space-y-4 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-positive-100 text-positive-900">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-positive-700/16 text-positive-900">
             <Mail size={22} />
           </div>
-          <h1 className="text-400 font-bold text-gray-1000">Confirm your email</h1>
-          <p className="text-100 text-gray-700">
+          <h1 className="text-400 font-bold tracking-tight text-gray-1000">Confirm your email</h1>
+          <p className="text-100 text-gray-600">
             We sent a confirmation link to <span className="text-gray-900">{email}</span>. Open it,
             then come back and sign in.
           </p>
@@ -72,13 +71,11 @@ export const AuthView: React.FC = () => {
 
   return (
     <Shell>
-      <div className="mb-6 space-y-2 text-center">
-        {/* Same brand lockup as the sidebar: both award marks, not a glyph. */}
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-gray-200">
-          <TrophyPair size={22} />
-        </div>
-        <h1 className="text-500 font-bold tracking-tight text-gray-1000">{APP_NAME}</h1>
-        <p className="text-100 text-gray-700">
+      <div className="mb-6 space-y-3 text-center">
+        {/* The same lockup the app's top bar carries, so the first screen and
+            every screen after it introduce the app the same way. */}
+        <Wordmark className="justify-center" />
+        <p className="text-100 text-gray-600">
           {mode === 'signin'
             ? 'Sign in to reach your library on any device.'
             : 'Create an account to start tracking.'}
@@ -132,7 +129,7 @@ export const AuthView: React.FC = () => {
         {error ? (
           <p
             role="alert"
-            className="rounded-sm border border-negative-700 bg-negative-100 px-3 py-2 text-75 text-negative-900"
+            className="rounded-sm border border-negative-700/50 bg-negative-700/12 px-3 py-2 text-75 font-semibold text-negative-900"
           >
             {error}
           </p>
@@ -144,7 +141,7 @@ export const AuthView: React.FC = () => {
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-75 text-gray-700">
+      <p className="mt-5 text-center text-75 text-gray-600">
         {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
         <button
           type="button"
@@ -162,12 +159,14 @@ export const AuthView: React.FC = () => {
 };
 
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex min-h-dvh items-center justify-center bg-gray-50 p-6">
+  <div className="relative flex min-h-dvh items-center justify-center bg-gray-50 p-6">
+    {/* The sign-in screen stands on the same lit ground as the app behind it. */}
+    <div aria-hidden className="app-ambient" />
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="w-full max-w-sm rounded-lg border border-gray-200 bg-gray-100 p-7 shadow-lg"
+      className="panel relative z-10 w-full max-w-sm rounded-lg p-7"
     >
       {children}
     </motion.div>
