@@ -15,6 +15,8 @@ import { useGame } from '../context/GameContext';
 import { GameStatus, RawgGameResult } from '../types';
 import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
 import { snapRating } from '../lib/rating';
+import { fromDateInput } from '../lib/format';
+import { syncSourceFor } from '../lib/sync';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
@@ -34,6 +36,8 @@ const EMPTY_GAME: GameDetailsValues = {
   achievementsTotal: 0,
   collections: [],
   notes: '',
+  completedAt: '',
+  autoSync: false,
 };
 
 export const QuickAddModal: React.FC = () => {
@@ -136,6 +140,10 @@ export const QuickAddModal: React.FC = () => {
       achievementRating: values.achievementRating || undefined,
       collections: values.collections,
       notes: values.notes.trim() || undefined,
+      completedAt: fromDateInput(values.completedAt),
+      steamAppId: values.steamAppId,
+      autoSync: values.autoSync,
+      syncSource: values.autoSync ? syncSourceFor(values.platform) : 'manual',
     });
 
     close();

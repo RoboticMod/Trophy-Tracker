@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Library,
   BarChart3,
@@ -16,6 +16,11 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { QuickAddModal } from './QuickAddModal';
+import { DEFAULT_START_PATH } from '../lib/constants';
+import { isPerfect } from '../lib/completion';
+import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
+import { useSteamSync } from '../lib/useSteamSync';
+import { usePsnSync } from '../lib/usePsnSync';
 import { statusLabel } from '../lib/status';
 import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
@@ -37,6 +42,7 @@ interface NavItem {
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     sidebarConfig,
     setIsQuickAddOpen,
@@ -51,11 +57,7 @@ export const AppLayout: React.FC = () => {
 
   const playingCount = games.filter((g) => g.status === 'playing').length;
   const backlogCount = games.filter((g) => g.status === 'backlog').length;
-  const perfectCount = games.filter(
-    (g) =>
-      g.status === 'mastered' ||
-      (g.achievementsTotal > 0 && g.achievementsUnlocked >= g.achievementsTotal),
-  ).length;
+  const perfectCount = games.filter(isPerfect).length;
 
   const rawNavItems: NavItem[] = [
     { name: 'Dashboard', short: 'Library', path: '/', icon: Library, enabled: true },
@@ -129,6 +131,59 @@ export const AppLayout: React.FC = () => {
       return (idxA === -1 ? navOrder.length : idxA) - (idxB === -1 ? navOrder.length : idxB);
     })
     .filter((item) => item.enabled);
+
+  /**
+   * The destination the app opens on.
+   *
+   * Once per mount, and only from the root: the start page is where a session
+   * begins, not a place you are sent back to. Without the ref, clicking Library
+   * would bounce straight off it again. Waits for the profile to arrive so a
+   * saved choice is not overtaken by the default on a cold load, and falls back
+   * to Library when the chosen destination has since been hidden.
+   */
+  const redirected = useRef(false);
+  useEffect(() => {
+    if (redirected.current || loading) return;
+    redirected.current = true;
+
+    if (location.pathname !== '/') return;
+    const start = sidebarConfig?.startPath ?? DEFAULT_START_PATH;
+    if (start === '/' || !navItems.some((item) => item.path === start)) return;
+
+    navigate(start, { replace: true });
+  });
+
+  /**
+   * One pass over the linked games when the app opens, for anything that has
+   * not been looked at within the hour. Deliberately quiet: it writes through
+   * the ordinary update path, so a game that finished on the console since you
+   * last looked arrives with its celebration, and everything else simply
+   * changes its numbers.
+   */
+  /**
+   * The completion-sound level saved on the profile, for a device that has none
+   * of its own — a new browser, or one that clears site data when it closes.
+   *
+   * Applied here rather than in Settings: a level that only takes effect once
+   * you happen to open Settings is no use to the celebration that fires before
+   * you ever go there.
+   */
+  useEffect(() => {
+    if (loading) return;
+    adoptSoundVolume(sidebarConfig?.prefs?.[VOLUME_PREF_KEY]);
+  }, [loading, sidebarConfig]);
+
+  const steam = useSteamSync();
+  const psn = usePsnSync();
+  const syncedOnce = useRef(false);
+  useEffect(() => {
+    if (syncedOnce.current || loading) return;
+    if (!steam.isLinked && !psn.isLinked) return;
+
+    syncedOnce.current = true;
+    if (steam.isLinked) void steam.syncAll({ onlyDue: true });
+    if (psn.isLinked) void psn.syncAll({ onlyDue: true });
+  }, [loading, steam, psn]);
 
   const syncTitle = !isOnline
     ? 'Offline — changes are queued'

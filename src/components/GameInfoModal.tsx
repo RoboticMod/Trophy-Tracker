@@ -1,0 +1,646 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Clock,
+  ExternalLink,
+  Loader2,
+  Link2,
+  RefreshCw,
+  Search,
+  Users,
+  WifiOff,
+} from 'lucide-react';
+import { UserGame } from '../types';
+import { PLATFORMS } from '../lib/constants';
+import { useGame } from '../context/GameContext';
+import { completionPercent, isPerfect } from '../lib/completion';
+import { formatCount, relativeTime } from '../lib/format';
+import { statusLabel, STATUS_TONE } from '../lib/status';
+import { oneOf } from '../lib/usePersistentState';
+import { useSyncedPreference } from '../lib/useSyncedPreference';
+import {
+  PLAYER_RANGES,
+  PLAYER_RANGE_LABELS,
+  PlayerRange,
+  PlayerSeries,
+  SteamAppInfo,
+  SteamError,
+  SteamSearchResult,
+  getPlayerSeries,
+  getSteamApp,
+  playstationStoreSearchUrl,
+  searchSteam,
+  steamCommunityUrl,
+  steamDbUrl,
+  steamStoreUrl,
+} from '../lib/steam';
+import { CoverArt } from './CoverArt';
+import { PlatformIcon } from './PlatformIcon';
+import { TrophyBadge, awardNoun } from './TrophyBadge';
+import { RatingValue } from './Rating';
+import {
+  Badge,
+  Button,
+  Dialog,
+  FilterChip,
+  Meter,
+  SectionTitle,
+  StatTile,
+  Sparkline,
+  TextInput,
+} from './ui';
+import { cn } from '../lib/cn';
+
+interface GameInfoModalProps {
+  game: UserGame | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+/** Plain-language versions of the failures the client can report. */
+const ERROR_TEXT: Record<SteamError, string> = {
+  'not-configured': 'Supabase is not configured, so live data cannot be fetched.',
+  'not-signed-in': 'Your session expired. Sign in again to load live data.',
+  'not-linked': 'This game is not linked to a Steam app yet.',
+  'not-found': 'Steam has nothing for this app id.',
+  'private-profile': 'Your Steam profile hides its game details, so progress cannot be read.',
+  'request-failed': 'Could not reach Steam. The game-data function may not be deployed yet.',
+};
+
+const formatPrice = (cents: number, currency: string) => {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency}`;
+  }
+};
+
+const formatDate = (iso: string | null | undefined) =>
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
+
+export const GameInfoModal: React.FC<GameInfoModalProps> = ({ game, isOpen, onClose }) => {
+  if (typeof document === 'undefined' || !game) return null;
+
+  // Keyed on the game, so opening a second card is a fresh load rather than the
+  // previous game's chart with a new title over it.
+  return createPortal(
+    <GameInfo key={game.id} game={game} isOpen={isOpen} onClose={onClose} />,
+    document.body,
+  );
+};
+
+const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void }> = ({
+  game,
+  isOpen,
+  onClose,
+}) => {
+  const { profile, updateGame } = useGame();
+  const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
+
+  const [info, setInfo] = useState<SteamAppInfo | null>(null);
+  const [infoError, setInfoError] = useState<SteamError | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const [series, setSeries] = useState<PlayerSeries | null>(null);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [range, setRange] = useSyncedPreference<PlayerRange>(
+    'game-info-range',
+    '30d',
+    oneOf(PLAYER_RANGES),
+  );
+
+  const [shot, setShot] = useState<string | null>(null);
+
+  const appId = game.steamAppId;
+
+  /* -- Live data --------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!isOpen || !appId) return;
+    let cancelled = false;
+
+    setLoading(true);
+    void getSteamApp(appId).then((result) => {
+      if (cancelled) return;
+      setInfo(result.data ?? null);
+      setInfoError(result.error ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, appId]);
+
+  useEffect(() => {
+    if (!isOpen || !appId) return;
+    let cancelled = false;
+
+    setSeriesLoading(true);
+    void getPlayerSeries(appId, range).then((result) => {
+      if (cancelled) return;
+      setSeries(result.data ?? null);
+      setSeriesLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, appId, range]);
+
+  const points = useMemo(
+    () => (series?.points ?? []).map((p) => ({ ts: p.ts, value: p.players })),
+    [series],
+  );
+
+  /** Fills in the catalog details a hand-entered game usually lacks. */
+  const applyDetails = () => {
+    if (!info) return;
+    updateGame(game.id, {
+      coverImage: game.coverImage || info.headerImage || undefined,
+      releaseDate: info.releaseDate ?? game.releaseDate,
+      genres: game.genres.length ? game.genres : info.genres,
+    });
+  };
+
+  const progress = completionPercent(game);
+  const perfect = isPerfect(game);
+
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      size="l"
+      title={game.title}
+      description={`${platform.name} • ${statusLabel(game.status, profile)}`}
+      icon={<PlatformIcon platform={game.platform} size={18} />}
+      footer={
+        <>
+          {appId ? (
+            <span className="mr-auto flex items-center gap-1.5 text-50 text-gray-600">
+              <Link2 size={12} />
+              Linked to Steam app {appId}
+            </span>
+          ) : null}
+
+          {info ? (
+            <Button buttonStyle="outline" onClick={applyDetails} title="Cover, release date, genres">
+              <RefreshCw size={14} />
+              Fill in missing details
+            </Button>
+          ) : null}
+
+          <Button variant="accent" onClick={onClose}>
+            Close
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        {/* Hero ------------------------------------------------------------ */}
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <CoverArt
+            src={info?.headerImage || game.coverImage}
+            title={game.title}
+            className="h-28 w-full shrink-0 rounded-md object-cover sm:w-52"
+          />
+
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={STATUS_TONE[game.status]}>{statusLabel(game.status, profile)}</Badge>
+              {perfect ? <Badge tone="trophy">100%</Badge> : null}
+              {game.rating ? <RatingValue value={game.rating} size="xs" label="Game rated" /> : null}
+            </div>
+
+            {info?.description ? (
+              <p className="line-clamp-3 text-75 leading-relaxed text-gray-700">
+                {info.description}
+              </p>
+            ) : null}
+
+            {/* Your own figures, beside whatever Steam says — this dialog is
+                where a drift between the two becomes visible. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-75 text-gray-700">
+              <span className="flex items-center gap-1.5">
+                <Clock size={13} />
+                {game.hoursPlayed}h played
+              </span>
+              <span className="flex items-center gap-1.5">
+                <TrophyBadge platform={game.platform} size={14} muted={!perfect} />
+                {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
+                {awardNoun(game.platform).toLowerCase()} ({progress}%)
+              </span>
+              {game.completedAt ? (
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays size={13} />
+                  Finished {formatDate(game.completedAt)}
+                </span>
+              ) : null}
+            </div>
+
+            <Meter
+              value={progress}
+              tone={perfect ? 'trophy' : 'accent'}
+              label={`${game.title} progress`}
+            />
+          </div>
+        </div>
+
+        {/* Unlinked, or the wrong platform ---------------------------------- */}
+        {!appId ? (
+          game.platform === 'steam' ? (
+            <LinkToSteam game={game} />
+          ) : (
+            <div className="panel-inset space-y-2 rounded-md p-4">
+              <SectionTitle>PlayStation</SectionTitle>
+              <p className="text-75 text-gray-700">
+                PlayStation has no public catalog API, so charts and media are not available for
+                PS5 titles. Trophy progress comes from your linked PSN account instead.
+              </p>
+              <a
+                href={playstationStoreSearchUrl(game.title)}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1.5 text-75 font-bold text-accent-900 hover:text-accent-1000"
+              >
+                Find on the PlayStation Store
+                <ArrowUpRight size={13} />
+              </a>
+            </div>
+          )
+        ) : null}
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-gray-600">
+            <Loader2 size={20} className="animate-spin" />
+            <span className="text-75">Loading live data…</span>
+          </div>
+        ) : null}
+
+        {infoError && appId ? (
+          <div className="panel-inset flex items-start gap-3 rounded-md p-4 text-75 text-gray-700">
+            <WifiOff size={16} className="mt-0.5 shrink-0 text-notice-900" />
+            <span>{ERROR_TEXT[infoError]}</span>
+          </div>
+        ) : null}
+
+        {info ? (
+          <>
+            {/* Players ---------------------------------------------------- */}
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionTitle>
+                  <span className="flex items-center gap-2">
+                    <Users size={13} className="text-accent-900" />
+                    Concurrent players
+                  </span>
+                </SectionTitle>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {PLAYER_RANGES.map((option) => (
+                    <FilterChip
+                      key={option}
+                      selected={range === option}
+                      onClick={() => setRange(option)}
+                    >
+                      {PLAYER_RANGE_LABELS[option]}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <StatTile
+                  label="Playing now"
+                  value={info.players.now === null ? '—' : formatCount(info.players.now)}
+                  caption={info.players.rank ? `#${info.players.rank} on Steam` : undefined}
+                />
+                <StatTile
+                  label="24 hour peak"
+                  value={info.players.peak24h === null ? '—' : formatCount(info.players.peak24h)}
+                />
+                <StatTile
+                  label="All-time peak"
+                  value={
+                    info.players.peakAllTime === null ? '—' : formatCount(info.players.peakAllTime)
+                  }
+                />
+              </div>
+
+              {seriesLoading ? (
+                <div className="panel-inset flex h-[132px] items-center justify-center rounded-md text-gray-600">
+                  <Loader2 size={18} className="animate-spin" />
+                </div>
+              ) : (
+                <Sparkline
+                  points={points}
+                  color="var(--color-accent-800)"
+                  formatValue={formatCount}
+                  label={`${info.name} concurrent players over ${PLAYER_RANGE_LABELS[range]}`}
+                />
+              )}
+            </section>
+
+            {/* Reviews ---------------------------------------------------- */}
+            {info.reviews ? (
+              <section className="space-y-3">
+                <SectionTitle
+                  action={
+                    info.reviews.label ? (
+                      <Badge
+                        tone={
+                          (info.reviews.positivePercent ?? 0) >= 70
+                            ? 'positive'
+                            : (info.reviews.positivePercent ?? 0) >= 40
+                              ? 'notice'
+                              : 'negative'
+                        }
+                      >
+                        {info.reviews.label}
+                      </Badge>
+                    ) : null
+                  }
+                >
+                  Reviews
+                </SectionTitle>
+
+                <div className="panel-inset space-y-3 rounded-md p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2 text-75">
+                    <span className="font-bold tabular-nums text-gray-1000">
+                      {info.reviews.positivePercent ?? 0}% positive
+                    </span>
+                    <span className="tabular-nums text-gray-600">
+                      {formatCount(info.reviews.positive)} positive ·{' '}
+                      {formatCount(info.reviews.negative)} negative ·{' '}
+                      {formatCount(info.reviews.total)} total
+                    </span>
+                  </div>
+                  <Meter
+                    value={info.reviews.positivePercent ?? 0}
+                    tone="positive"
+                    label="Positive reviews"
+                  />
+                </div>
+              </section>
+            ) : null}
+
+            {/* Media ------------------------------------------------------ */}
+            {info.videos.length > 0 || info.screenshots.length > 0 ? (
+              <section className="space-y-3">
+                <SectionTitle>Media</SectionTitle>
+
+                {info.videos.length > 0 ? (
+                  <video
+                    key={info.videos[0].id}
+                    controls
+                    preload="none"
+                    poster={info.videos[0].thumbnail}
+                    className="w-full rounded-md border border-gray-300/70 bg-gray-25"
+                  >
+                    {info.videos[0].webm ? (
+                      <source src={info.videos[0].webm} type="video/webm" />
+                    ) : null}
+                    {info.videos[0].mp4 ? (
+                      <source src={info.videos[0].mp4} type="video/mp4" />
+                    ) : null}
+                  </video>
+                ) : null}
+
+                {info.screenshots.length > 0 ? (
+                  <>
+                    {/* The enlarged shot takes the place of the grid rather than
+                        opening a second layer over a dialog that is already a
+                        layer over the page. */}
+                    {shot ? (
+                      <button
+                        type="button"
+                        onClick={() => setShot(null)}
+                        className="block w-full"
+                        title="Back to all screenshots"
+                      >
+                        <img
+                          src={shot}
+                          alt=""
+                          className="w-full rounded-md border border-gray-300/70"
+                        />
+                      </button>
+                    ) : null}
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {info.screenshots.map((screenshot) => (
+                        <button
+                          key={screenshot.id}
+                          type="button"
+                          onClick={() => setShot(screenshot.full)}
+                          className={cn(
+                            'overflow-hidden rounded-sm border transition-all',
+                            shot === screenshot.full
+                              ? 'border-accent-700/60 opacity-60'
+                              : 'border-gray-300/70 hover:border-gray-400',
+                          )}
+                        >
+                          <img
+                            src={screenshot.thumbnail}
+                            alt=""
+                            loading="lazy"
+                            className="aspect-[16/9] w-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </section>
+            ) : null}
+
+            {/* Details ---------------------------------------------------- */}
+            <section className="space-y-3">
+              <SectionTitle>Details</SectionTitle>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <StatTile label="Released" value={info.releaseDateLabel || formatDate(info.releaseDate)} />
+                <StatTile
+                  label="Last updated on Steam"
+                  value={info.lastUpdatedAt ? relativeTime(info.lastUpdatedAt) : '—'}
+                  caption={info.lastUpdatedAt ? formatDate(info.lastUpdatedAt) : undefined}
+                />
+                <StatTile label="Developer" value={info.developer || '—'} />
+                <StatTile label="Publisher" value={info.publisher || '—'} />
+                <StatTile
+                  label="Price"
+                  value={
+                    info.price.isFree
+                      ? 'Free'
+                      : info.price.cents !== null
+                        ? formatPrice(info.price.cents, info.price.currency)
+                        : '—'
+                  }
+                  caption={
+                    info.price.discountPercent > 0
+                      ? `${info.price.discountPercent}% off right now`
+                      : undefined
+                  }
+                />
+                <StatTile
+                  label="Achievements on Steam"
+                  value={info.achievements > 0 ? String(info.achievements) : 'None'}
+                  caption={
+                    info.achievements > 0 && info.achievements !== game.achievementsTotal
+                      ? `You are tracking ${game.achievementsTotal}`
+                      : undefined
+                  }
+                />
+              </div>
+
+              {info.genres.length > 0 || info.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {info.genres.map((genre) => (
+                    <Badge key={genre} tone="accent">
+                      {genre}
+                    </Badge>
+                  ))}
+                  {info.tags
+                    .filter((tag) => !info.genres.includes(tag))
+                    .map((tag) => (
+                      <Badge key={tag}>{tag}</Badge>
+                    ))}
+                </div>
+              ) : null}
+            </section>
+
+            {/* Links ------------------------------------------------------ */}
+            <section className="space-y-3">
+              <SectionTitle>Links</SectionTitle>
+              <div className="flex flex-wrap gap-2">
+                <OutboundLink href={steamStoreUrl(info.appid)}>Steam store page</OutboundLink>
+                <OutboundLink href={steamDbUrl(info.appid)}>SteamDB</OutboundLink>
+                <OutboundLink href={steamCommunityUrl(info.appid)}>Community hub</OutboundLink>
+                {info.website ? (
+                  <OutboundLink href={info.website}>Official site</OutboundLink>
+                ) : null}
+              </div>
+            </section>
+          </>
+        ) : null}
+      </div>
+    </Dialog>
+  );
+};
+
+const OutboundLink: React.FC<{ href: string; children: React.ReactNode }> = ({ href, children }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noreferrer noopener"
+    className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-gray-300 bg-white/3 px-3 text-75 font-bold text-gray-800 transition-colors hover:border-gray-400 hover:bg-white/6 hover:text-gray-1000"
+  >
+    {children}
+    <ExternalLink size={12} />
+  </a>
+);
+
+/**
+ * Matching a tracked game to its store entry.
+ *
+ * Offered here as well as in the edit dialog, because this is where the absence
+ * is felt: the page you opened for charts and screenshots is the natural place
+ * to say which game it should be showing them for.
+ */
+const LinkToSteam: React.FC<{ game: UserGame }> = ({ game }) => {
+  const { updateGame } = useGame();
+  const [query, setQuery] = useState(game.title);
+  const [results, setResults] = useState<SteamSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<SteamError | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      const result = await searchSteam(query);
+      if (cancelled) return;
+      setResults(result.data ?? []);
+      setError(result.error ?? null);
+      setSearching(false);
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
+
+  return (
+    <section className="panel-inset space-y-3 rounded-md p-4">
+      <SectionTitle>Find on Steam</SectionTitle>
+      <p className="text-75 text-gray-700">
+        Link this game to its Steam app to see players, screenshots and reviews here — and to let a
+        sync keep its figures current.
+      </p>
+
+      <div className="relative">
+        <Search
+          size={15}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-600"
+        />
+        <TextInput
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search Steam"
+          placeholder="Search the Steam catalog"
+          className="pl-9"
+        />
+      </div>
+
+      {searching ? (
+        <div className="flex items-center gap-2 py-4 text-75 text-gray-600">
+          <Loader2 size={16} className="animate-spin" />
+          Searching Steam…
+        </div>
+      ) : error ? (
+        <p className="text-75 text-gray-700">{ERROR_TEXT[error]}</p>
+      ) : results.length === 0 ? (
+        <p className="text-75 text-gray-600">No Steam app matches that name.</p>
+      ) : (
+        <ul className="space-y-2">
+          {results.map((result) => (
+            <li key={result.appid}>
+              <button
+                type="button"
+                onClick={() => updateGame(game.id, { steamAppId: result.appid })}
+                className="flex w-full items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
+              >
+                <CoverArt
+                  src={result.image ?? undefined}
+                  title={result.name}
+                  className="h-10 w-20 shrink-0 rounded-sm object-cover"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-75 font-bold text-gray-1000">
+                    {result.name}
+                  </span>
+                  <span className="block text-50 text-gray-600">
+                    App {result.appid}
+                    {result.players_now !== null
+                      ? ` · ${formatCount(result.players_now)} playing now`
+                      : ''}
+                  </span>
+                </span>
+                <Link2 size={14} className="shrink-0 text-accent-900" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+};

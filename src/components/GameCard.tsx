@@ -9,10 +9,12 @@ import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
+import { GameInfoModal } from './GameInfoModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
 import { ratingColor } from '../lib/rating';
+import { completionPercent, isPerfect } from '../lib/completion';
 import { cn } from '../lib/cn';
 
 interface GameCardProps {
@@ -26,6 +28,7 @@ interface GameCardProps {
 export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
   const { profile, celebration, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const celebrating = celebration?.gameId === game.id;
 
   const followToken = follow?.gameId === game.id ? follow.token : null;
@@ -78,14 +81,13 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   }, [followToken, game.id]);
 
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
-  const progress =
-    game.achievementsTotal > 0
-      ? Math.min(100, Math.round((game.achievementsUnlocked / game.achievementsTotal) * 100))
-      : 0;
+  const progress = completionPercent(game);
 
-  const isMastered =
-    game.status === 'mastered' ||
-    (game.achievementsTotal > 0 && game.achievementsUnlocked >= game.achievementsTotal);
+  // Earned, not declared: the gold treatment follows the unlock counts alone.
+  // It used to accept the "mastered" status as proof on its own, which meant a
+  // card kept its rim and its emblem after an unlock was taken back, while the
+  // meter underneath honestly read 95%.
+  const isMastered = isPerfect(game);
 
   // "Achievements"/"Trophies" while there is more to unlock, then the platform's
   // own completion announcement.
@@ -121,6 +123,20 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         highlight,
       )}
     >
+      {/* The whole card opens the game's details.
+          A transparent button laid over the tile rather than a click handler on
+          the card itself: the card contains its own controls and, on the backlog,
+          a button in its footer, and a nested button inside a clickable parent is
+          neither valid markup nor operable by keyboard. This sits below every
+          one of them in the stack, so it catches only the parts of the card that
+          do nothing else. */}
+      <button
+        type="button"
+        onClick={() => setIsInfoOpen(true)}
+        aria-label={`Game info for ${game.title}`}
+        title="Open game info"
+        className="absolute inset-0 z-20 rounded-lg"
+      />
       {/* The finished-game treatment: a warm pool of light in the upper right,
           and two highlights travelling around the rim. The rim is drawn over
           the card rather than behind it, because a card paints its own
@@ -178,7 +194,10 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         {/* Completion emblem: a round disc carrying the platform's own trophy
             artwork, ringed in gold so it reads as an award rather than a chip. */}
         {isMastered && (
-          <div className="absolute bottom-3 right-3 z-20">
+          // Below the card-wide info button rather than above it: a medal in
+          // the corner of a clickable card should not be the one patch of it
+          // that does nothing when clicked.
+          <div className="absolute bottom-3 right-3 z-10">
             <OverlayBadge
               circle
               size={40}
@@ -292,11 +311,16 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         />
       </div>
 
-      {action ? <div className="border-t border-gray-200 p-3">{action}</div> : null}
+      {/* Lifted above the info button, so a view's own action — starting a
+          backlog game — stays clickable rather than opening the dialog. */}
+      {action ? (
+        <div className="relative z-30 border-t border-gray-200 p-3">{action}</div>
+      ) : null}
 
       {celebrating && <Celebration key={celebration.token} platform={game.platform} />}
 
       <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
+      <GameInfoModal game={game} isOpen={isInfoOpen} onClose={() => setIsInfoOpen(false)} />
     </motion.div>
   );
 };

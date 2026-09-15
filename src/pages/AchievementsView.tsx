@@ -6,7 +6,9 @@ import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
 import { PLATFORMS, describePlatformOrder } from '../lib/constants';
 import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
-import { oneOf, usePersistentState } from '../lib/usePersistentState';
+import { isPerfect } from '../lib/completion';
+import { oneOf } from '../lib/usePersistentState';
+import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { Platform, PLATFORM_IDS } from '../types';
 import { EmptyState, FilterChip, MetricCard, Select } from '../components/ui';
 
@@ -15,6 +17,8 @@ import { EmptyState, FilterChip, MetricCard, Select } from '../components/ui';
  * sorting by it would leave the list untouched.
  */
 const SORT_OPTIONS = [
+  'completed-desc',
+  'completed-asc',
   'platform',
   'recent',
   'unlocked-desc',
@@ -27,20 +31,19 @@ const SORT_OPTIONS = [
 export const AchievementsView: React.FC = () => {
   const { games, profile } = useGame();
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
-  const [sortBy, setSortBy] = usePersistentState<GameSortOption>(
-    'achievements-sort',
-    'platform',
+  // A new key rather than the old one: this page now defaults to the date a
+  // game was finished, and an install that had already saved a choice under the
+  // previous key would be pinned to the old default forever.
+  const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
+    'achievements-sort-v2',
+    'completed-desc',
     oneOf(SORT_OPTIONS),
   );
 
   const platformOrder = profile.platformOrder;
 
   /** Games where every achievement or trophy has been unlocked. */
-  const completedGames = useMemo(
-    () =>
-      games.filter((g) => g.achievementsTotal > 0 && g.achievementsUnlocked >= g.achievementsTotal),
-    [games],
-  );
+  const completedGames = useMemo(() => games.filter(isPerfect), [games]);
 
   // Sorted before the grid splits the list into platform sections, so the
   // chosen order runs through both sections rather than only the first.
@@ -74,7 +77,7 @@ export const AchievementsView: React.FC = () => {
       {/* Summary ----------------------------------------------------------- */}
       <div className="grid-metrics">
         <MetricCard
-          icon={<TrophyPair size={17} />}
+          icon={<TrophyPair size={22} />}
           tone="bg-trophy-700/16"
           value={String(completedGames.length)}
           label="100% finished titles"
@@ -86,7 +89,7 @@ export const AchievementsView: React.FC = () => {
           }))}
         />
         <MetricCard
-          icon={<Sparkles size={20} />}
+          icon={<Sparkles size={24} />}
           tone="bg-accent-700/16 text-accent-900"
           value={String(totalUnlocked)}
           label="Achievements unlocked"
@@ -111,17 +114,15 @@ export const AchievementsView: React.FC = () => {
             <Select
               id="achievements-sort"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as GameSortOption)}
-              className="w-auto"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option === 'platform'
+              onChange={setSortBy}
+              options={SORT_OPTIONS.map((option) => ({
+                value: option,
+                label:
+                  option === 'platform'
                     ? `Platform (${describePlatformOrder(platformOrder)})`
-                    : SORT_LABELS[option]}
-                </option>
-              ))}
-            </Select>
+                    : SORT_LABELS[option],
+              }))}
+            />
           </div>
 
           <div className="flex items-center gap-1.5">

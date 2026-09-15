@@ -2,6 +2,13 @@ import { Platform, PlatformConfig, Collection, GameStatus, isPlatform } from '..
 
 export const APP_NAME = 'Trophy Tracker';
 
+/**
+ * Where the app opens. The games you are actually playing are what you come
+ * back for; the whole library is a place you go looking for something.
+ * Overridable per user in Settings.
+ */
+export const DEFAULT_START_PATH = '/playing';
+
 export const DEFAULT_STATUS_NAMES: Record<GameStatus, string> = {
   backlog: 'Backlog',
   playing: 'Playing',

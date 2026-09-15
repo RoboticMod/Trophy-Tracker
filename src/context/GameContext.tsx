@@ -17,8 +17,10 @@ const ADD_CELEBRATION_DELAY_MS = 750;
 
 import {
   Collection,
+  GAME_STATUSES,
   GameStatus,
   Platform,
+  PlatformAccounts,
   SidebarConfig,
   UserGame,
   UserProfile,
@@ -29,8 +31,10 @@ import {
   DEFAULT_PLATFORM_SORT_ORDER,
   withSystemColors,
 } from '../lib/constants';
+import { isPerfect } from '../lib/completion';
 import { normalizeRating } from '../lib/rating';
 import { playAwardSound, preloadAwardSounds } from '../lib/sound';
+import { oneOf, usePersistentState } from '../lib/usePersistentState';
 import { useAuth } from './AuthContext';
 import * as db from '../lib/db';
 import {
@@ -61,6 +65,12 @@ interface GameContextType {
   collections: Collection[];
   profile: UserProfile;
   sidebarConfig: SidebarConfig;
+  /** Linked Steam and PlayStation accounts, or null when none are. */
+  platformAccounts: PlatformAccounts | null;
+  linkSteamAccount: (account: { steamId: string; persona?: string }) => Promise<void>;
+  unlinkSteamAccount: () => Promise<void>;
+  /** Re-reads the link row, after the edge function has changed it. */
+  refreshPlatformAccounts: () => Promise<void>;
 
   loading: boolean;
   /** Message shown when a write could not reach the cloud. */
@@ -76,13 +86,23 @@ interface GameContextType {
   setActivePlatformFilter: (platform: Platform | 'all') => void;
   activeStatusFilter: GameStatus | 'all';
   setActiveStatusFilter: (status: GameStatus | 'all') => void;
+  /** Library collection filter. 'all', or a collection id. */
+  activeCollectionFilter: string;
+  setActiveCollectionFilter: (collectionId: string) => void;
   isQuickAddOpen: boolean;
   setIsQuickAddOpen: (open: boolean) => void;
 
   addGame: (game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => void;
   updateGame: (id: string, updates: Partial<UserGame>) => void;
   deleteGame: (id: string) => void;
-  createCollection: (name: string, description?: string, color?: string, icon?: string) => void;
+  /** Returns the created collection, so a caller can file a game into it. */
+  createCollection: (
+    name: string,
+    description?: string,
+    color?: string,
+    icon?: string,
+  ) => Collection;
+  updateCollection: (id: string, updates: Partial<Omit<Collection, 'id' | 'createdAt'>>) => void;
   deleteCollection: (id: string) => void;
 
   updateProfile: (updates: Partial<UserProfile>) => void;
@@ -111,8 +131,11 @@ const newId = () =>
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-const isPerfect = (game: Pick<UserGame, 'achievementsUnlocked' | 'achievementsTotal'>) =>
-  game.achievementsTotal > 0 && game.achievementsUnlocked >= game.achievementsTotal;
+/** Guards for the filters below, which survive a reload in localStorage. */
+const isPlatformFilter = (value: unknown): value is Platform | 'all' =>
+  value === 'all' || value === 'steam' || value === 'ps5';
+const isStatusFilter = oneOf(['all', ...GAME_STATUSES] as const);
+const isCollectionFilter = (value: unknown): value is string => typeof value === 'string';
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -127,14 +150,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     platformOrder: DEFAULT_PLATFORM_SORT_ORDER,
   }));
 
+  const [platformAccounts, setPlatformAccounts] = useState<PlatformAccounts | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [pendingWrites, setPendingWrites] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  const [activePlatformFilter, setActivePlatformFilter] = useState<Platform | 'all'>('all');
-  const [activeStatusFilter, setActiveStatusFilter] = useState<GameStatus | 'all'>('all');
+  // Persisted rather than plain state: these describe how you like the library
+  // laid out, and re-picking them after every reload was busywork — the same
+  // reasoning the sort and rating filters already follow.
+  const [activePlatformFilter, setActivePlatformFilter] = usePersistentState<Platform | 'all'>(
+    'library-platform',
+    'all',
+    isPlatformFilter,
+  );
+  const [activeStatusFilter, setActiveStatusFilter] = usePersistentState<GameStatus | 'all'>(
+    'library-status',
+    'all',
+    isStatusFilter,
+  );
+  const [activeCollectionFilter, setActiveCollectionFilter] = usePersistentState<string>(
+    'library-collection',
+    'all',
+    isCollectionFilter,
+  );
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   // Latest state, so queue flushes and cache writes never close over stale data.
@@ -300,6 +341,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           platformOrder: DEFAULT_PLATFORM_SORT_ORDER,
         };
 
+        // Fetched on its own rather than in the batch above: this table arrived
+        // after the others, so a project running an older schema answers with
+        // "relation does not exist" — which must not take the whole library
+        // down with it. No link simply means no live platform data.
+        db.getPlatformAccounts(id)
+          .then(setPlatformAccounts)
+          .catch(() => setPlatformAccounts(null));
+
         setGames(remoteGames);
         setCollections(nextCollections);
         setProfile(nextProfile);
@@ -366,6 +415,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (data: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => {
       const now = new Date().toISOString();
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
+
+      // A game added already finished is dated now unless a date was given, so
+      // it has somewhere to sit in a list ordered by completion.
+      if (!game.completedAt && (game.status === 'mastered' || isPerfect(game))) {
+        game.completedAt = now;
+      }
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
 
@@ -399,13 +454,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         current.status !== 'mastered';
       if (becameFinished) merged.completedAt = merged.completedAt ?? merged.updatedAt;
 
+      /**
+       * Taking an unlock back undoes the completion.
+       *
+       * The status was standing in for 100% in several places, so a game filed
+       * as mastered kept its gold rim, its nav badge and its place in the
+       * showcase after an unlock was removed — while the meter underneath
+       * honestly read 95%. Losing the last unlock now demotes the shelf the
+       * game sits on, and the completion date goes with it, since there is no
+       * longer a completion for it to date. Only the status the app set itself
+       * is withdrawn: an explicit status in this same edit is left alone.
+       */
+      if (
+        updates.status === undefined &&
+        merged.status === 'mastered' &&
+        isPerfect(current) &&
+        !isPerfect(merged)
+      ) {
+        merged.status = 'playing';
+        merged.completedAt = undefined;
+      }
+
       // Explicit undefined check: dropping back to 0 unlocked is a real edit.
       const progressed =
         updates.achievementsUnlocked !== undefined || updates.hoursPlayed !== undefined;
       if (progressed) merged.lastPlayedAt = merged.updatedAt;
 
       // Unlocking the last one counts even when the status never changes.
-      const celebrate = becameFinished || (!isPerfect(current) && isPerfect(merged));
+      const becamePerfect = !isPerfect(current) && isPerfect(merged);
+      const celebrate = becameFinished || becamePerfect;
+
+      // The last unlock is a completion in its own right, whatever shelf the
+      // game is filed on, so it carries a date like any other.
+      if (becamePerfect && !merged.completedAt) merged.completedAt = merged.updatedAt;
 
       // A status change re-files a game: out of the backlog, into another
       // section, sometimes off the current view entirely. Follow it so the move
@@ -441,7 +522,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date().toISOString(),
       };
       setCollections((prev) => [...prev, collection]);
+      // Kept on the ref as well as in state: a caller that creates a collection
+      // and files a game into it in the same tick would otherwise look it up
+      // before React has applied the update and create a second one.
+      latest.current.collections = [...latest.current.collections, collection];
       void push({ kind: 'collections', op: 'upsert', collections: [collection] });
+      return collection;
+    },
+    [push],
+  );
+
+  const updateCollection = useCallback(
+    (id: string, updates: Partial<Omit<Collection, 'id' | 'createdAt'>>) => {
+      const current = latest.current.collections.find((c) => c.id === id);
+      if (!current) return;
+
+      // A system collection's colour is identity rather than user data —
+      // withSystemColors restores it on every load — so an attempt to change it
+      // would be undone on the next refresh. Everything else is editable.
+      const { color, ...rest } = updates;
+      const merged: Collection = {
+        ...current,
+        ...rest,
+        ...(current.isSystem ? {} : { color: color ?? current.color }),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setCollections((prev) => prev.map((c) => (c.id === id ? merged : c)));
+      void push({ kind: 'collections', op: 'upsert', collections: [merged] });
     },
     [push],
   );
@@ -466,6 +574,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     [push],
   );
+
+  /**
+   * Linking an account writes straight through rather than joining the offline
+   * queue: there is nothing to do with a link until the network is back anyway,
+   * and a queued one would report success for a connection that never happened.
+   */
+  const linkSteamAccount = useCallback(
+    async (account: { steamId: string; persona?: string }) => {
+      if (!userId) return;
+      await db.saveSteamAccount(
+        { steamId: account.steamId, steamPersona: account.persona ?? null },
+        userId,
+      );
+      setPlatformAccounts((prev) => ({
+        ...(prev ?? {}),
+        steamId: account.steamId,
+        steamPersona: account.persona,
+      }));
+    },
+    [userId],
+  );
+
+  const unlinkSteamAccount = useCallback(async () => {
+    if (!userId) return;
+    await db.saveSteamAccount({ steamId: null, steamPersona: null }, userId);
+    setPlatformAccounts((prev) => ({ ...(prev ?? {}), steamId: undefined, steamPersona: undefined }));
+  }, [userId]);
+
+  /**
+   * The PlayStation link is established by the edge function rather than from
+   * here — the NPSSO is exchanged server-side and never touches this client —
+   * so afterwards the row is simply re-read.
+   */
+  const refreshPlatformAccounts = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setPlatformAccounts(await db.getPlatformAccounts(userId));
+    } catch {
+      setPlatformAccounts(null);
+    }
+  }, [userId]);
 
   const updateProfile = useCallback(
     (updates: Partial<UserProfile>) => {
@@ -521,6 +670,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       collections,
       profile,
       sidebarConfig: profile.sidebarConfig || DEFAULT_SIDEBAR_CONFIG,
+      platformAccounts,
+      linkSteamAccount,
+      unlinkSteamAccount,
+      refreshPlatformAccounts,
       loading,
       error,
       dismissError: () => setError(null),
@@ -532,12 +685,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActivePlatformFilter,
       activeStatusFilter,
       setActiveStatusFilter,
+      activeCollectionFilter,
+      setActiveCollectionFilter,
       isQuickAddOpen,
       setIsQuickAddOpen,
       addGame,
       updateGame,
       deleteGame,
       createCollection,
+      updateCollection,
       deleteCollection,
       updateProfile,
       updateSidebarConfig,
@@ -550,6 +706,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       games,
       collections,
       profile,
+      platformAccounts,
+      linkSteamAccount,
+      unlinkSteamAccount,
+      refreshPlatformAccounts,
       loading,
       error,
       isOnline,
@@ -557,12 +717,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastSyncedAt,
       refresh,
       activePlatformFilter,
+      setActivePlatformFilter,
       activeStatusFilter,
+      setActiveStatusFilter,
+      activeCollectionFilter,
+      setActiveCollectionFilter,
       isQuickAddOpen,
       addGame,
       updateGame,
       deleteGame,
       createCollection,
+      updateCollection,
       deleteCollection,
       updateProfile,
       updateSidebarConfig,

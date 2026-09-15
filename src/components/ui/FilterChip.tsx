@@ -19,6 +19,12 @@ interface FilterChipProps {
   selected: boolean;
   onClick: () => void;
   tone?: FilterChipTone;
+  /**
+   * A raw colour for the selected state, overriding the tone. Used where the
+   * thing being filtered carries its own identity colour — a collection — so
+   * the chip lights in that colour rather than in the page's accent.
+   */
+  color?: string;
   title?: string;
   children: React.ReactNode;
   className?: string;
@@ -32,6 +38,7 @@ export const FilterChip: React.FC<FilterChipProps> = ({
   selected,
   onClick,
   tone = 'accent',
+  color,
   title,
   children,
   className,
@@ -41,11 +48,24 @@ export const FilterChip: React.FC<FilterChipProps> = ({
     onClick={onClick}
     title={title}
     aria-pressed={selected}
+    // A supplied colour is data rather than a token, so it is carried inline —
+    // the same wash, edge and bloom the tone classes apply, in that colour.
+    style={
+      selected && color
+        ? {
+            borderColor: color,
+            backgroundColor: `${color}22`,
+            boxShadow: `0 0 14px -5px ${color}`,
+          }
+        : undefined
+    }
     className={cn(
       'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3',
       'text-75 font-bold whitespace-nowrap transition-all',
       selected
-        ? SELECTED[tone]
+        ? color
+          ? 'text-gray-1000'
+          : SELECTED[tone]
         : 'border-gray-300 bg-white/3 text-gray-700 hover:border-gray-400 hover:bg-white/6 hover:text-gray-900',
       className,
     )}

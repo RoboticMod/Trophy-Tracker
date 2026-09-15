@@ -21,6 +21,12 @@ interface WordmarkProps {
  * thing about the site this design borrows from, and copying it would make this
  * app look like that one rather than like itself. Gold, not blue, is this app's
  * own colour anyway: it is what a finished game earns.
+ *
+ * Both halves are set at one size. They were previously a step apart on the
+ * ramp, which put two different cap heights on the same line — the second word
+ * read as a subtitle that had drifted up rather than as the other half of a
+ * name. Weight and tracking now carry the whole contrast, which is what the
+ * lockup was always meant to do, and the two words share a baseline.
  */
 export const Wordmark: React.FC<WordmarkProps> = ({
   size = 'md',
@@ -43,22 +49,19 @@ export const Wordmark: React.FC<WordmarkProps> = ({
       </span>
 
       {markOnly ? null : (
-        <span className="min-w-0 truncate leading-none">
-          <span
-            className={cn(
-              'font-bold uppercase tracking-tight text-gray-1000',
-              size === 'sm' ? 'text-200' : 'text-300',
-            )}
-          >
-            {first}
-          </span>
+        <span
+          className={cn(
+            'min-w-0 truncate uppercase leading-none',
+            size === 'sm' ? 'text-200' : 'text-300',
+          )}
+        >
+          <span className="font-bold tracking-tight text-gray-1000">{first}</span>
           {rest.length ? (
-            <span
-              className={cn(
-                'ml-1 font-normal uppercase tracking-[0.18em] text-gray-700',
-                size === 'sm' ? 'text-100' : 'text-200',
-              )}
-            >
+            // Letter-spacing is applied after every glyph, including the last,
+            // so the open second word already carries a gap on its right. The
+            // left margin matches it, and the pair sits optically centred
+            // rather than shunted towards the mark.
+            <span className="ml-1.5 font-normal tracking-[0.16em] text-gray-700">
               {rest.join(' ')}
             </span>
           ) : null}

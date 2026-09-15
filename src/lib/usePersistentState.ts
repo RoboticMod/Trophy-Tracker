@@ -19,25 +19,38 @@ export function usePersistentState<T>(
   isValid: (value: unknown) => value is T,
 ) {
   const [value, setValue] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem(KEY_PREFIX + key);
-      if (raw === null) return initial;
-      const parsed: unknown = JSON.parse(raw);
-      return isValid(parsed) ? parsed : initial;
-    } catch {
-      return initial;
-    }
+    const stored = readPreference(key);
+    return isValid(stored) ? stored : initial;
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY_PREFIX + key, JSON.stringify(value));
-    } catch {
-      // Private browsing or a full quota — the choice just will not persist.
-    }
+    writePreference(key, value);
   }, [key, value]);
 
   return [value, setValue] as const;
+}
+
+/**
+ * The raw store behind the hook, for the two places that need it without a
+ * component: `useSyncedPreference`, which derives rather than holds its value,
+ * and the sound module, which is read from outside React entirely.
+ */
+export function readPreference(key: string): unknown {
+  try {
+    const raw = localStorage.getItem(KEY_PREFIX + key);
+    return raw === null ? undefined : (JSON.parse(raw) as unknown);
+  } catch {
+    return undefined;
+  }
+}
+
+export function writePreference(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(KEY_PREFIX + key, JSON.stringify(value));
+  } catch {
+    // Private browsing or a full quota — the local copy just will not persist,
+    // and the profile copy carries the choice instead.
+  }
 }
 
 /** Builds an `isValid` guard from a fixed list of allowed values. */

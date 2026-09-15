@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Settings,
   Database,
@@ -31,6 +31,7 @@ import {
   Volume2,
   Volume1,
   VolumeX,
+  Home,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
@@ -49,17 +50,25 @@ import { getRawgCacheCount, clearRawgCache } from '../lib/rawg';
 import {
   DEFAULT_STATUS_NAMES,
   DEFAULT_PLATFORM_SORT_ORDER,
+  DEFAULT_START_PATH,
   PLATFORMS,
   describePlatformOrder,
   normalizePlatform,
 } from '../lib/constants';
 import { validateStatusName, MAX_STATUS_NAME_LENGTH } from '../lib/status';
 import { fileToAvatarDataUrl } from '../lib/image';
-import { getSoundVolume, playAwardSound, setSoundVolume } from '../lib/sound';
+import {
+  VOLUME_PREF_KEY,
+  getSoundVolume,
+  onSoundVolumeChange,
+  playAwardSound,
+  setSoundVolume,
+} from '../lib/sound';
 import { PLATFORM_IDS } from '../types';
 import { PlatformIcon } from '../components/PlatformIcon';
+import { ConnectedAccounts } from '../components/ConnectedAccounts';
 import { TrophyBadge, TrophyPair, awardNoun } from '../components/TrophyBadge';
-import { Button, Card, Field, SectionHeader, Switch, TextInput } from '../components/ui';
+import { Button, Card, Field, SectionHeader, Select, Switch, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
 /** Speaker icon matching the level, the way a system volume control does. */
@@ -171,8 +180,10 @@ export const SettingsView: React.FC = () => {
   const [cacheCount, setCacheCount] = useState(() => getRawgCacheCount());
   const [statusErrors, setStatusErrors] = useState<Partial<Record<GameStatus, string>>>({});
   // Mirrors the stored level so the slider and the preview stay in step; the
-  // module below localStorage remains the source of truth for playback.
+  // sound module remains the source of truth for playback, and tells this back
+  // whenever the level changes.
   const [soundVolume, setSoundVolumeState] = useState(getSoundVolume);
+  useEffect(() => onSoundVolumeChange(setSoundVolumeState), []);
 
   const platformOrder = profile.platformOrder?.length
     ? profile.platformOrder
@@ -248,6 +259,18 @@ export const SettingsView: React.FC = () => {
   });
 
   const navNames = sidebarConfig.navNames || {};
+
+  /**
+   * Somewhere to open on. A hidden destination is not offered: sending the app
+   * to a page that is not in the navigation would leave you somewhere you
+   * cannot get back to.
+   */
+  const startPageOptions = orderedNavItems
+    .filter((item) => !item.configKey || (sidebarConfig[item.configKey] as boolean))
+    .map((item) => ({
+      value: item.path,
+      label: navNames[item.path]?.trim() || item.name,
+    }));
 
   const renameNav = (path: string, value: string) => {
     const next = { ...navNames };
@@ -592,6 +615,12 @@ export const SettingsView: React.FC = () => {
                   const next = Number(e.target.value) / 100;
                   setSoundVolumeState(next);
                   setSoundVolume(next);
+                  // Also kept on the profile, so the level survives a browser
+                  // that clears site data — and so a new device starts where
+                  // this one left off rather than back at the default.
+                  updateSidebarConfig({
+                    prefs: { ...(sidebarConfig.prefs ?? {}), [VOLUME_PREF_KEY]: next },
+                  });
                 }}
                 aria-label="Completion sound volume"
                 className="h-1.5 min-w-32 flex-1 cursor-pointer appearance-none rounded-full"
@@ -704,6 +733,32 @@ export const SettingsView: React.FC = () => {
             </div>
           ))}
         </div>
+      </Card>
+
+      {/* Connected accounts -------------------------------------------------- */}
+      <ConnectedAccounts />
+
+      {/* Start page ---------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Home size={18} />}
+          title="Start page"
+          description="Where the app opens when you arrive"
+        />
+
+        <Field
+          label="Open on"
+          description="Only destinations you have kept visible are offered here."
+        >
+          {(props) => (
+            <Select
+              {...props}
+              value={sidebarConfig.startPath ?? DEFAULT_START_PATH}
+              onChange={(startPath) => updateSidebarConfig({ startPath })}
+              options={startPageOptions}
+            />
+          )}
+        </Field>
       </Card>
 
       {/* Navigation ---------------------------------------------------------- */}

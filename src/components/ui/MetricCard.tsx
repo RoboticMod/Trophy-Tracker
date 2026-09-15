@@ -29,6 +29,13 @@ interface MetricCardProps {
  * The per-platform split sits on the number's own line rather than in a divided
  * row beneath it. Given three or four of these side by side, a separate row for
  * two small figures left the cards mostly empty space.
+ *
+ * The emblem is set against the right edge and centred on the card's full
+ * height rather than tucked into the top corner. In the corner it shared a line
+ * with the label and left the whole lower right of the card empty; centred, it
+ * balances the number and reads as the card's mark. It is also given a well
+ * comfortably larger than the artwork inside it, so the glyph has room to
+ * breathe instead of filling its box edge to edge.
  */
 export const MetricCard: React.FC<MetricCardProps> = ({
   icon,
@@ -37,27 +44,33 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   label,
   breakdown,
 }) => (
-  <Card className="flex flex-col justify-between gap-2 p-4">
-    <div className="flex items-start justify-between gap-3">
-      <div className="eyebrow min-w-0 truncate pt-0.5 text-gray-600">{label}</div>
-      <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', tone)}>
-        {icon}
+  <Card className="flex items-center justify-between gap-4 p-4">
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="eyebrow min-w-0 truncate text-gray-600">{label}</div>
+
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-700 font-bold leading-none tabular-nums text-gray-1000">{value}</span>
+
+        {breakdown?.length ? (
+          <span className="flex items-center gap-3">
+            {breakdown.map((entry) => (
+              <span key={entry.key} className="flex items-center gap-1.5" title={entry.title}>
+                {entry.icon}
+                <span className="text-75 font-bold tabular-nums text-gray-700">{entry.count}</span>
+              </span>
+            ))}
+          </span>
+        ) : null}
       </div>
     </div>
 
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <span className="text-700 font-bold leading-none tabular-nums text-gray-1000">{value}</span>
-
-      {breakdown?.length ? (
-        <span className="flex items-center gap-3">
-          {breakdown.map((entry) => (
-            <span key={entry.key} className="flex items-center gap-1.5" title={entry.title}>
-              {entry.icon}
-              <span className="text-75 font-bold tabular-nums text-gray-700">{entry.count}</span>
-            </span>
-          ))}
-        </span>
-      ) : null}
+    <div
+      className={cn(
+        'flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-lg',
+        tone,
+      )}
+    >
+      {icon}
     </div>
   </Card>
 );

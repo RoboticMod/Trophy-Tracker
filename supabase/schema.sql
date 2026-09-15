@@ -24,7 +24,16 @@ create table if not exists public.games (
   last_played_at        timestamptz,
   added_at              timestamptz not null default now(),
   completed_at          timestamptz,
-  updated_at            timestamptz not null default now()
+  updated_at            timestamptz not null default now(),
+  -- Platform links. Set when a game is matched to a store entry, which is what
+  -- makes live data and auto-sync possible. Null on a hand-entered game.
+  steam_appid           integer,
+  psn_communication_id  text,
+  psn_title_id          text,
+  sync_source           text not null default 'manual'
+                          check (sync_source in ('manual', 'steam', 'psn')),
+  auto_sync             boolean not null default false,
+  last_synced_at        timestamptz
 );
 create index if not exists games_user_id_idx on public.games (user_id);
 
@@ -60,6 +69,34 @@ create table if not exists public.user_profile (
   updated_at     timestamptz not null default now()
 );
 
+-- 3b. Linked platform accounts ------------------------------------------------
+--     One row per user, holding what is needed to fetch live Steam and PSN
+--     data. The PSN refresh token lives here rather than in the browser: the
+--     edge function reads it with the service role, and the client never
+--     selects that column.
+create table if not exists public.platform_accounts (
+  user_id              uuid primary key default auth.uid()
+                         references auth.users(id) on delete cascade,
+  steam_id             text,
+  steam_persona        text,
+  psn_account_id       text,
+  psn_online_id        text,
+  psn_refresh_token    text,
+  psn_access_token     text,
+  psn_token_expires_at timestamptz,
+  updated_at           timestamptz not null default now()
+);
+
+alter table public.platform_accounts
+  add column if not exists steam_id             text,
+  add column if not exists steam_persona        text,
+  add column if not exists psn_account_id       text,
+  add column if not exists psn_online_id        text,
+  add column if not exists psn_refresh_token    text,
+  add column if not exists psn_access_token     text,
+  add column if not exists psn_token_expires_at timestamptz,
+  add column if not exists updated_at           timestamptz not null default now();
+
 -- 4. Reconcile columns -------------------------------------------------------
 --    "create table if not exists" leaves an EXISTING table completely alone, so
 --    a project set up against an older version of this file silently keeps the
@@ -80,7 +117,19 @@ alter table public.games
   add column if not exists notes                 text,
   add column if not exists last_played_at        timestamptz,
   add column if not exists completed_at          timestamptz,
-  add column if not exists updated_at            timestamptz not null default now();
+  add column if not exists updated_at            timestamptz not null default now(),
+  add column if not exists steam_appid           integer,
+  add column if not exists psn_communication_id  text,
+  add column if not exists psn_title_id          text,
+  add column if not exists sync_source           text not null default 'manual',
+  add column if not exists auto_sync             boolean not null default false,
+  add column if not exists last_synced_at        timestamptz;
+
+-- The CHECK is added separately: a table created before sync_source existed
+-- gets the column from the statement above, but no constraint with it.
+alter table public.games drop constraint if exists games_sync_source_check;
+alter table public.games add constraint games_sync_source_check
+  check (sync_source in ('manual', 'steam', 'psn'));
 
 alter table public.collections
   add column if not exists description text,
@@ -121,12 +170,17 @@ drop trigger if exists user_profile_touch_updated_at on public.user_profile;
 create trigger user_profile_touch_updated_at before update on public.user_profile
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists platform_accounts_touch_updated_at on public.platform_accounts;
+create trigger platform_accounts_touch_updated_at before update on public.platform_accounts
+  for each row execute function public.touch_updated_at();
+
 -- 6. Row level security ------------------------------------------------------
 --    Note: "create policy if not exists" is not valid PostgreSQL, so each
 --    policy is dropped first to make this script safe to re-run.
-alter table public.games        enable row level security;
-alter table public.collections  enable row level security;
-alter table public.user_profile enable row level security;
+alter table public.games             enable row level security;
+alter table public.collections       enable row level security;
+alter table public.user_profile      enable row level security;
+alter table public.platform_accounts enable row level security;
 
 drop policy if exists "games are private" on public.games;
 create policy "games are private" on public.games
@@ -140,5 +194,10 @@ create policy "collections are private" on public.collections
 
 drop policy if exists "profile is private" on public.user_profile;
 create policy "profile is private" on public.user_profile
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "platform accounts are private" on public.platform_accounts;
+create policy "platform accounts are private" on public.platform_accounts
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);

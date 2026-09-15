@@ -12,11 +12,13 @@ import {
 import { useGame } from '../context/GameContext';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
 import { statusLabel, STATUS_COLOR, STATUS_TONE } from '../lib/status';
+import { aggregateCompletion, completionPercent, isPerfect } from '../lib/completion';
 import { backlogLabel, completionColor } from '../lib/rating';
 import { formatCount, relativeTime } from '../lib/format';
 import { GameStatus, PLATFORM_IDS } from '../types';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
+import { PlatformSectionHeader } from '../components/PlatformSectionHeader';
 import { TrophyBadge, TrophyPair, trophyLabel, awardNoun } from '../components/TrophyBadge';
 import { RatingValue } from '../components/Rating';
 import {
@@ -85,18 +87,14 @@ export const StatsView: React.FC = () => {
 
   const totalGames = games.length;
   const totalHours = games.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0);
-  const totalAchievements = games.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
-  const totalMaxAchievements = games.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
+  const {
+    unlocked: totalAchievements,
+    unlockable: totalMaxAchievements,
+    percent: overallCompletionRate,
+  } = aggregateCompletion(games);
   const completedGames = games.filter((g) => g.status === 'completed' || g.status === 'mastered');
-  const perfectGames = games.filter(
-    (g) =>
-      g.status === 'mastered' ||
-      (g.achievementsTotal > 0 && g.achievementsUnlocked >= g.achievementsTotal),
-  );
+  const perfectGames = games.filter(isPerfect);
   const activePlaying = games.filter((g) => g.status === 'playing');
-
-  const overallCompletionRate =
-    totalMaxAchievements > 0 ? Math.round((totalAchievements / totalMaxAchievements) * 100) : 0;
 
   const backlogCount = games.filter((g) => g.status === 'backlog').length;
   // An empty library is 0% cleared rather than 100%: nothing has been worked
@@ -118,20 +116,16 @@ export const StatsView: React.FC = () => {
     () =>
       PLATFORM_IDS.map((p) => {
         const pGames = games.filter((g) => g.platform === p);
-        const achievements = pGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
-        const maxAchievements = pGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
+        const { unlocked, unlockable, percent } = aggregateCompletion(pGames);
         return {
           platform: p,
           config: PLATFORMS[p],
           count: pGames.length,
           hours: pGames.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0),
-          achievements,
-          maxAchievements,
-          completionRate:
-            maxAchievements > 0 ? Math.round((achievements / maxAchievements) * 100) : 0,
-          perfectCount: pGames.filter(
-            (g) => g.achievementsTotal > 0 && g.achievementsUnlocked >= g.achievementsTotal,
-          ).length,
+          achievements: unlocked,
+          maxAchievements: unlockable,
+          completionRate: percent,
+          perfectCount: pGames.filter(isPerfect).length,
         };
       })
         .filter((s) => s.count > 0)
@@ -157,6 +151,19 @@ export const StatsView: React.FC = () => {
         color: STATUS_COLOR[status],
       })).filter((slice) => slice.value > 0),
     [games, profile],
+  );
+
+  /** The showcase, split into platform sections in the user's own order. */
+  const showcaseGroups = useMemo(
+    () =>
+      [...PLATFORM_IDS]
+        .sort((a, b) => comparePlatformOrder(a, b, platformOrder))
+        .map((platform) => ({
+          platform,
+          games: perfectGames.filter((g) => g.platform === platform),
+        }))
+        .filter((group) => group.games.length > 0),
+    [perfectGames, platformOrder],
   );
 
   const recentGames = useMemo(
@@ -314,27 +321,37 @@ export const StatsView: React.FC = () => {
             }
           />
 
-          <div className="grid-metrics">
-            {perfectGames.map((game) => (
-              <div key={game.id} className="panel-inset flex items-center gap-3 rounded-md p-3">
-                <CoverArt
-                  src={game.coverImage}
-                  title={game.title}
-                  className="h-12 w-12 shrink-0 rounded-sm object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <PlatformIcon platform={game.platform} size={13} className="text-gray-600" />
-                    <h3 className="truncate text-75 font-bold text-gray-1000">{game.title}</h3>
-                  </div>
-                  {/* The platform's own word, as everywhere else: Steam games
-                      have achievements, PlayStation games have trophies. */}
-                  <div className="eyebrow mt-1 text-gray-600">
-                    {formatCount(game.achievementsUnlocked)} {awardNoun(game.platform)}
-                  </div>
+          {/* Split by platform under the same rule the 100% tab and the library
+              grid use, so a Steam perfect game and a PlayStation platinum are
+              never read as one undivided run of tiles. */}
+          <div className="space-y-5">
+            {showcaseGroups.map(({ platform, games: list }) => (
+              <section key={platform} className="space-y-3">
+                <PlatformSectionHeader platform={platform} count={list.length} />
+
+                <div className="grid-metrics">
+                  {list.map((game) => (
+                    <div key={game.id} className="panel-inset flex items-center gap-3 rounded-md p-3">
+                      <CoverArt
+                        src={game.coverImage}
+                        title={game.title}
+                        className="h-12 w-12 shrink-0 rounded-sm object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-75 font-bold text-gray-1000">{game.title}</h3>
+                        {/* The platform's own word, as everywhere else: Steam
+                            games have achievements, PlayStation games have
+                            trophies. The platform itself is stated by the
+                            heading above, so the row no longer repeats it. */}
+                        <div className="eyebrow mt-1 text-gray-600">
+                          {formatCount(game.achievementsUnlocked)} {awardNoun(game.platform)}
+                        </div>
+                      </div>
+                      <TrophyBadge platform={game.platform} size={26} />
+                    </div>
+                  ))}
                 </div>
-                <TrophyBadge platform={game.platform} size={26} />
-              </div>
+              </section>
             ))}
           </div>
         </Card>
@@ -369,10 +386,7 @@ export const StatsView: React.FC = () => {
 
           <ol className="space-y-1.5">
             {recentGames.map((g) => {
-              const progress =
-                g.achievementsTotal > 0
-                  ? Math.round((g.achievementsUnlocked / g.achievementsTotal) * 100)
-                  : 0;
+              const progress = completionPercent(g);
 
               return (
                 <li

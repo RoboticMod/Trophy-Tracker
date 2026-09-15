@@ -67,7 +67,13 @@ export const TextArea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement
   ...rest
 }) => <textarea className={cn(inputClass, 'py-2 leading-relaxed', className)} {...rest} />;
 
-export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({
+/**
+ * The browser's own select, kept for a form control that genuinely wants native
+ * behaviour. Every filter and sort in the app uses `Select` instead — the
+ * native list cannot be styled, so it is the one surface the token layer cannot
+ * reach.
+ */
+export const NativeSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({
   className,
   ...rest
 }) => (

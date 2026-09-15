@@ -29,3 +29,40 @@ export function relativeTime(iso: string | undefined | null): string {
 
 /** "1,204" — thousands separators for counts large enough to need scanning. */
 export const formatCount = (value: number): string => value.toLocaleString();
+
+/**
+ * A date input speaks yyyy-mm-dd in local time, while the app stores instants.
+ *
+ * Both conversions go through the local calendar rather than through
+ * toISOString, which would shift the date by a day for anyone west of UTC —
+ * finishing a game at eight in the evening in New York would be recorded, and
+ * then shown back, as the following morning.
+ */
+export function toDateInput(iso: string | undefined | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Today, in the form a date input wants. */
+export const today = (): string => toDateInput(new Date().toISOString());
+
+/**
+ * A yyyy-mm-dd back to an instant, at midday local time.
+ *
+ * Midday rather than midnight: a date-only value has no time in it, and midday
+ * is the one hour of the day that no timezone offset can push onto a different
+ * date.
+ */
+export function fromDateInput(value: string): string | undefined {
+  if (!value) return undefined;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return undefined;
+
+  const date = new Date(year, month - 1, day, 12, 0, 0);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}

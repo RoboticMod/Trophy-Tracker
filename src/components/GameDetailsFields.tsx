@@ -1,16 +1,19 @@
 import React from 'react';
-import { Clock, Minus, Plus } from 'lucide-react';
+import { CalendarCheck, Clock, Minus, Plus } from 'lucide-react';
 import { Collection, GameStatus, Platform, PLATFORM_IDS, UserProfile } from '../types';
 import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
 import { statusLabel, STATUS_SELECTED_CLASS } from '../lib/status';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
 import { RatingControl } from './Rating';
-import { Button, Field, TextArea, TextInput } from './ui';
+import { Button, Field, Switch, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 import { MAX_RATING } from '../lib/rating';
 import { GuidedRating } from './GuidedRating';
+import { SteamLinkField } from './SteamLinkField';
+import { isPerfect } from '../lib/completion';
+import { today } from '../lib/format';
 import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/ratingQuestions';
 
 /** Everything both the add and edit dialogs collect about a game. */
@@ -26,6 +29,12 @@ export interface GameDetailsValues {
   achievementsTotal: number;
   collections: string[];
   notes: string;
+  /** The day it was finished, as yyyy-mm-dd. Empty until there is one. */
+  completedAt: string;
+  /** The Steam app this game is, once matched. */
+  steamAppId?: number;
+  /** Whether a sync may overwrite the tracked figures. Off by default. */
+  autoSync: boolean;
 }
 
 interface GameDetailsFieldsProps {
@@ -102,7 +111,12 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
     achievementsTotal,
     collections: selectedCollections,
     notes,
+    completedAt,
   } = values;
+
+  // The date is only asked for once there is a completion to date — either
+  // every award earned, or the game filed on the finished shelf by hand.
+  const finished = isPerfect(values) || status === 'mastered' || status === 'completed';
 
   // Follows the platform picker above, so switching a game to PS5 relabels this
   // section to trophies straight away.
@@ -268,7 +282,16 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
             buttonStyle="subtle"
             size="s"
             disabled={achievementsTotal === 0}
-            onClick={() => onChange({ achievementsUnlocked: achievementsTotal })}
+            // Finishing a game here dates it today unless a date is already
+            // set, so the common case — unlocking the last one this evening —
+            // takes no second step, and a game being entered from memory can
+            // still have its real date typed over the top.
+            onClick={() =>
+              onChange({
+                achievementsUnlocked: achievementsTotal,
+                completedAt: completedAt || today(),
+              })
+            }
           >
             Set to 100%
           </Button>
@@ -331,6 +354,54 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           </div>
         </div>
 
+        {finished ? (
+          <div className="border-t border-gray-200 pt-3">
+            <Field
+              label="Date completed"
+              description={`The day the last of the ${nounLower} was earned. The 100% tab is ordered by this.`}
+              action={
+                completedAt ? (
+                  <Button
+                    buttonStyle="subtle"
+                    size="s"
+                    onClick={() => onChange({ completedAt: '' })}
+                  >
+                    Clear
+                  </Button>
+                ) : null
+              }
+            >
+              {(props) => (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <CalendarCheck
+                      size={15}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-600"
+                    />
+                    <TextInput
+                      {...props}
+                      type="date"
+                      // A game cannot have been finished tomorrow, and the
+                      // field is easy to mistype by a year.
+                      max={today()}
+                      value={completedAt}
+                      onChange={(e) => onChange({ completedAt: e.target.value })}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button
+                    size="m"
+                    variant="secondary"
+                    onClick={() => onChange({ completedAt: today() })}
+                  >
+                    Today
+                  </Button>
+                </div>
+              )}
+            </Field>
+          </div>
+        ) : null}
+
         <div className="space-y-1.5 border-t border-gray-200 pt-3">
           <span className="eyebrow text-gray-700">{noun} rating</span>
           {guided ? (
@@ -351,6 +422,36 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           )}
         </div>
       </div>
+
+      {/* Only Steam games can be linked to a Steam app. PlayStation progress
+          comes from the account link in Settings, since PSN has no per-title
+          catalog to search. */}
+      {platform === 'steam' ? (
+        <SteamLinkField
+          title={title}
+          appId={values.steamAppId}
+          autoSync={values.autoSync}
+          onChange={onChange}
+        />
+      ) : (
+        <fieldset className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
+          <legend className="eyebrow flex items-center gap-2 text-gray-700">
+            <PlatformIcon platform="ps5" size={14} />
+            PlayStation
+          </legend>
+
+          <Switch
+            checked={values.autoSync}
+            onChange={(next) => onChange({ autoSync: next })}
+            label="Auto fetch from PlayStation"
+          />
+          <p className="text-50 text-gray-600">
+            {values.autoSync
+              ? 'Trophy counts follow your linked PSN account. The trophy list is matched by title, so keep the name close to how PlayStation spells it.'
+              : 'Trophies stay exactly as you enter them. Turn this on to have your linked PSN account keep them current.'}
+          </p>
+        </fieldset>
+      )}
 
       {collections.length > 0 && (
         <fieldset>

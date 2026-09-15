@@ -17,33 +17,106 @@ const SOURCE: Record<Platform, string> = {
  * It is a property of the device you are listening on, not of you — the level
  * that suits a desktop at a desk is rarely the one that suits a phone — so it
  * deliberately does not sync, and needs no column adding to the profile table.
+ *
+ * Stored as JSON, like every other preference under this prefix. The first
+ * version of this wrote a bare number string into the same namespace that
+ * usePersistentState reads as JSON, which is a trap waiting for the first
+ * value that is not a plain number — and a level that came back as NaN was
+ * read as "no preference" and silently replaced by the default.
  */
-const VOLUME_KEY = 'trophy-tracker.pref.sound-volume';
+export const VOLUME_PREF_KEY = 'sound-volume-v2';
+
+const VOLUME_KEY = `trophy-tracker.pref.${VOLUME_PREF_KEY}`;
+
+/** The bare-number key this replaced, read once so a saved level carries over. */
+const LEGACY_VOLUME_KEY = 'trophy-tracker.pref.sound-volume';
 
 /** 0 is silent, 1 is the file's own level. */
 const DEFAULT_VOLUME = 0.6;
 
 const clampVolume = (value: number) => Math.max(0, Math.min(1, value));
 
-export function getSoundVolume(): number {
+/**
+ * The level, held in memory so playback and the Settings slider read one value
+ * rather than each keeping a copy that the other cannot see. Storage is still
+ * the record; this is just what everything in the tab agrees on.
+ */
+let volume: number | null = null;
+
+const listeners = new Set<(value: number) => void>();
+
+function readStoredVolume(): number {
   try {
     const raw = window.localStorage.getItem(VOLUME_KEY);
-    if (raw === null) return DEFAULT_VOLUME;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? clampVolume(parsed) : DEFAULT_VOLUME;
+    if (raw !== null) {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === 'number' && Number.isFinite(parsed)) return clampVolume(parsed);
+    }
+
+    // Nothing under the current key: carry over a level saved by the version
+    // that wrote a bare number, then let the next write settle it in JSON.
+    const legacy = Number(window.localStorage.getItem(LEGACY_VOLUME_KEY));
+    if (Number.isFinite(legacy) && legacy > 0) return clampVolume(legacy);
   } catch {
     // Private browsing, or storage disabled. A missing preference is not worth
     // failing over — fall back to the default and carry on.
-    return DEFAULT_VOLUME;
+  }
+  return DEFAULT_VOLUME;
+}
+
+export function getSoundVolume(): number {
+  if (volume === null) volume = readStoredVolume();
+  return volume;
+}
+
+/**
+ * Whether this device has a level of its own.
+ *
+ * False after storage has been cleared, which is the moment the copy kept on
+ * the profile is worth restoring — see `adoptSoundVolume`.
+ */
+export function hasStoredVolume(): boolean {
+  try {
+    return (
+      window.localStorage.getItem(VOLUME_KEY) !== null ||
+      window.localStorage.getItem(LEGACY_VOLUME_KEY) !== null
+    );
+  } catch {
+    return false;
   }
 }
 
+/**
+ * Takes the level saved on the profile, for a device that has none — a new
+ * browser, or one that clears site data when it closes. Does nothing when this
+ * device has already made its own choice, which stays local.
+ */
+export function adoptSoundVolume(value: unknown): void {
+  if (hasStoredVolume()) return;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return;
+  setSoundVolume(value);
+}
+
 export function setSoundVolume(value: number): void {
+  const next = clampVolume(value);
+  volume = next;
+
   try {
-    window.localStorage.setItem(VOLUME_KEY, String(clampVolume(value)));
+    window.localStorage.setItem(VOLUME_KEY, JSON.stringify(next));
+    window.localStorage.removeItem(LEGACY_VOLUME_KEY);
   } catch {
     /* Nothing to do: the level simply will not survive a reload. */
   }
+
+  listeners.forEach((listener) => listener(next));
+}
+
+/** Subscribes to level changes, for a control that has to stay in step. */
+export function onSoundVolumeChange(listener: (value: number) => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 /**

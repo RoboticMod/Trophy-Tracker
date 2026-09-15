@@ -4,6 +4,8 @@ import { Trash2 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { UserGame, GameStatus } from '../types';
 import { PLATFORMS } from '../lib/constants';
+import { fromDateInput, toDateInput } from '../lib/format';
+import { syncSourceFor } from '../lib/sync';
 import { PlatformIcon } from './PlatformIcon';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog } from './ui';
@@ -45,6 +47,9 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     achievementsTotal: game.achievementsTotal || 0,
     collections: game.collections || [],
     notes: game.notes || '',
+    completedAt: toDateInput(game.completedAt),
+    steamAppId: game.steamAppId,
+    autoSync: game.autoSync ?? false,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -64,6 +69,17 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
       achievementsTotal: values.achievementsTotal,
       collections: values.collections,
       notes: values.notes.trim() || undefined,
+      completedAt: fromDateInput(values.completedAt),
+      steamAppId: values.steamAppId,
+      autoSync: values.autoSync,
+      // Unlinking, or switching auto-fetch off, hands the game back: from here
+      // on its figures are whatever you type. A Steam game also needs an app to
+      // fetch from; a PlayStation one is matched from the account's trophy list,
+      // so the platform alone is enough.
+      syncSource:
+        values.autoSync && (values.platform === 'ps5' || values.steamAppId)
+          ? syncSourceFor(values.platform)
+          : 'manual',
     });
 
     onClose();

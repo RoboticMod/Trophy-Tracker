@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Platform, PLATFORM_IDS, UserGame } from '../types';
-import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
-import { PlatformIcon } from './PlatformIcon';
+import { comparePlatformOrder } from '../lib/constants';
+import { PlatformSectionHeader } from './PlatformSectionHeader';
 import { GameCard } from './GameCard';
 
 interface GameGridProps {
@@ -53,22 +53,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
     <div className="space-y-7">
       {groups.map(({ platform, games: list }) => (
         <section key={platform} className="space-y-3">
-          {/* The rule runs to the edge of the section rather than boxing it:
-              with translucent cards, a line is what separates one platform's
-              band of the page from the next. */}
-          <div className="flex items-center gap-2.5">
-            <span
-              style={{ color: PLATFORMS[platform].color }}
-              className="flex items-center drop-shadow-[0_0_5px_currentColor]"
-            >
-              <PlatformIcon platform={platform} size={17} />
-            </span>
-            <h3 className="eyebrow shrink-0 text-gray-900">{PLATFORMS[platform].name}</h3>
-            <span className="shrink-0 rounded-full border border-gray-300 bg-gray-200 px-2 py-0.5 text-50 font-bold tabular-nums text-gray-700">
-              {list.length}
-            </span>
-            <span aria-hidden className="h-px min-w-4 flex-1 bg-gray-200" />
-          </div>
+          <PlatformSectionHeader platform={platform} count={list.length} />
           <div className="grid-cards">
             <AnimatePresence>
               {list.map((game) => (

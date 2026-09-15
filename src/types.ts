@@ -14,6 +14,12 @@ export type RatingMode = 'manual' | 'guided';
 
 export type GameStatus = 'backlog' | 'playing' | 'completed' | 'mastered' | 'dropped';
 
+/**
+ * Where a game's figures come from. Manual is the default and always will be:
+ * linking a game to a platform account is opt-in, per game.
+ */
+export type SyncSource = 'manual' | 'steam' | 'psn';
+
 export const GAME_STATUSES: GameStatus[] = [
   'backlog',
   'playing',
@@ -44,6 +50,23 @@ export interface UserGame {
   completedAt?: string;
   /** Real modification time — drives last-write-wins against the cloud copy. */
   updatedAt: string;
+
+  /* -- Platform links -------------------------------------------------------
+     Set when a game is matched to a store entry, which is what makes live data
+     and auto-sync possible. Absent on a hand-entered game, which stays fully
+     editable and is never touched by a sync.                                 */
+
+  /** Steam application id, e.g. 367520 for Hollow Knight. */
+  steamAppId?: number;
+  /** PSN trophy-set id (NPWR…), which is what trophy calls are keyed by. */
+  psnCommunicationId?: string;
+  /** PSN title id (CUSA…/PPSA…), for store links. */
+  psnTitleId?: string;
+  /** Which account last supplied this game's figures. */
+  syncSource?: SyncSource;
+  /** Whether a sync is allowed to overwrite the tracked figures. */
+  autoSync?: boolean;
+  lastSyncedAt?: string;
 }
 
 export interface Collection {
@@ -68,6 +91,20 @@ export interface SidebarConfig {
   /** User-supplied labels for sidebar destinations, keyed by route path. */
   navNames?: Record<string, string>;
   /**
+   * The destination the app opens on. Stored here for the same reason
+   * statsOrder is: this object is already a jsonb blob, so it needs no
+   * migration and follows you between devices.
+   */
+  startPath?: string;
+  /**
+   * View preferences — sort orders, the rating filter, the completion-sound
+   * level. They live in localStorage first, because they are per-device
+   * choices and must be readable before the profile has loaded; this is the
+   * durable copy, so clearing site data does not lose them and a second device
+   * starts from the same choices.
+   */
+  prefs?: Record<string, unknown>;
+  /**
    * Order of the sections down the statistics page. Stored here rather than in
    * its own profile column because this object is already a jsonb blob, so it
    * takes no migration and reaches other devices with everything else.
@@ -89,6 +126,22 @@ export interface UserProfile {
   highlightStyle?: HighlightStyle;
   /** Whether ratings are set by hand, or worked out from a few questions. */
   ratingMode?: RatingMode;
+}
+
+/**
+ * The accounts a user has linked, one row per user.
+ *
+ * The PSN refresh token is held server-side by the edge function and never
+ * reaches the client, so it is deliberately absent from this type — the app
+ * only ever needs to know whether a link exists and who it points at.
+ */
+export interface PlatformAccounts {
+  steamId?: string;
+  steamPersona?: string;
+  psnAccountId?: string;
+  psnOnlineId?: string;
+  psnTokenExpiresAt?: string;
+  updatedAt?: string;
 }
 
 export interface PlatformConfig {

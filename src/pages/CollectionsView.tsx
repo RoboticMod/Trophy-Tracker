@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FolderKanban, Plus, Trash2, Folder, Check } from 'lucide-react';
+import { FolderKanban, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import {
@@ -10,18 +10,64 @@ import {
 import { Badge, Button, Card, EmptyState, Field, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
+/**
+ * The palette a collection's accent is picked from, shared by the create form
+ * and the editor so a colour cannot be offered in one and missing from the
+ * other.
+ */
+const ColourSwatches: React.FC<{
+  value: string;
+  onChange: (color: string) => void;
+  legend?: string;
+}> = ({ value, onChange, legend = 'Colour accent' }) => (
+  <fieldset>
+    <legend className="eyebrow mb-2 text-gray-700">{legend}</legend>
+    <div className="flex flex-wrap gap-2">
+      {COLLECTION_COLORS.map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          onClick={() => onChange(preset)}
+          style={{ backgroundColor: preset }}
+          aria-label={`Use colour ${preset}`}
+          aria-pressed={value === preset}
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-full transition-transform',
+            value === preset ? 'scale-110 ring-2 ring-gray-1000' : 'opacity-80 hover:opacity-100',
+          )}
+        >
+          {value === preset && <Check size={12} className="text-gray-25" />}
+        </button>
+      ))}
+    </div>
+  </fieldset>
+);
+
 export const CollectionsView: React.FC = () => {
-  const { collections, createCollection, deleteCollection, games, setIsQuickAddOpen, profile } =
-    useGame();
+  const {
+    collections,
+    createCollection,
+    updateCollection,
+    deleteCollection,
+    games,
+    setIsQuickAddOpen,
+    profile,
+  } = useGame();
 
   const [activeCollectionId, setActiveCollectionId] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
+  // Held by id rather than as a boolean, so switching tabs closes the editor
+  // instead of carrying it over onto a collection you only meant to look at.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /** The rename in progress, which is allowed to be briefly empty. */
+  const [nameDraft, setNameDraft] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(DEFAULT_COLLECTION_COLOR);
 
   const activeCollection =
     collections.find((c) => c.id === activeCollectionId) ?? collections[0] ?? null;
+  const isEditing = activeCollection !== null && editingId === activeCollection.id;
   const platformOrder = profile.platformOrder;
 
   const collectionGames = useMemo(() => {
@@ -95,27 +141,7 @@ export const CollectionsView: React.FC = () => {
               )}
             </Field>
 
-            <fieldset>
-              <legend className="eyebrow mb-2 text-gray-700">Colour accent</legend>
-              <div className="flex gap-2">
-                {COLLECTION_COLORS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setColor(preset)}
-                    style={{ backgroundColor: preset }}
-                    aria-label={`Use colour ${preset}`}
-                    aria-pressed={color === preset}
-                    className={cn(
-                      'flex h-6 w-6 items-center justify-center rounded-full transition-transform',
-                      color === preset ? 'scale-110 ring-2 ring-gray-1000' : 'opacity-80 hover:opacity-100',
-                    )}
-                  >
-                    {color === preset && <Check size={12} className="text-gray-25" />}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+            <ColourSwatches value={color} onChange={setColor} />
 
             <div className="flex justify-end gap-2 pt-1">
               <Button buttonStyle="subtle" onClick={() => setIsCreating(false)}>
@@ -175,36 +201,110 @@ export const CollectionsView: React.FC = () => {
       </div>
 
       {activeCollection && (
-        <Card className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: activeCollection.color }}
-              />
-              <h2 className="text-200 font-bold tracking-tight text-gray-1000">{activeCollection.name}</h2>
-              {activeCollection.isSystem && (
-                <Badge>Default</Badge>
+        <Card className="space-y-4">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: activeCollection.color }}
+                />
+                <h2 className="text-200 font-bold tracking-tight text-gray-1000">
+                  {activeCollection.name}
+                </h2>
+                {activeCollection.isSystem && <Badge>Default</Badge>}
+              </div>
+              {activeCollection.description && (
+                <p className="text-75 text-gray-600">{activeCollection.description}</p>
               )}
             </div>
-            {activeCollection.description && (
-              <p className="text-75 text-gray-600">{activeCollection.description}</p>
-            )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant={isEditing ? 'accent' : 'secondary'}
+                buttonStyle={isEditing ? 'fill' : 'outline'}
+                size="s"
+                aria-expanded={isEditing}
+                onClick={() => {
+                  setNameDraft(activeCollection.name);
+                  setEditingId(isEditing ? null : activeCollection.id);
+                }}
+              >
+                <Pencil size={13} />
+                <span>{isEditing ? 'Done' : 'Edit'}</span>
+              </Button>
+
+              {!activeCollection.isSystem && (
+                <Button
+                  variant="negative"
+                  buttonStyle="outline"
+                  size="s"
+                  onClick={() => deleteCollection(activeCollection.id)}
+                >
+                  <Trash2 size={13} />
+                  <span>Delete</span>
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {!activeCollection.isSystem && (
-              <Button
-                variant="negative"
-                buttonStyle="outline"
-                size="s"
-                onClick={() => deleteCollection(activeCollection.id)}
-              >
-                <Trash2 size={13} />
-                <span>Delete</span>
-              </Button>
-            )}
-          </div>
+          {/* Edited in place rather than in a dialog: the tab strip above is
+              where the colour actually shows, so the change is visible in the
+              same glance that makes it. Every keystroke saves — the list a
+              collection holds is untouched by any of this, so there is nothing
+              here to cancel out of. */}
+          {isEditing && (
+            <div className="space-y-4 border-t border-gray-200 pt-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Name">
+                  {(props) => (
+                    <TextInput
+                      {...props}
+                      required
+                      value={nameDraft}
+                      onChange={(e) => {
+                        // The field shows exactly what is typed, including an
+                        // empty box mid-rename. Only a real name is saved, so
+                        // clearing it to type a new one cannot leave a
+                        // collection called nothing.
+                        setNameDraft(e.target.value);
+                        const next = e.target.value.trim();
+                        if (next) updateCollection(activeCollection.id, { name: next });
+                      }}
+                      onBlur={() => setNameDraft(activeCollection.name)}
+                    />
+                  )}
+                </Field>
+
+                <Field label="Description" description="Optional">
+                  {(props) => (
+                    <TextInput
+                      {...props}
+                      value={activeCollection.description ?? ''}
+                      onChange={(e) =>
+                        updateCollection(activeCollection.id, {
+                          description: e.target.value || undefined,
+                        })
+                      }
+                      placeholder="What belongs in here?"
+                    />
+                  )}
+                </Field>
+              </div>
+
+              {activeCollection.isSystem ? (
+                <p className="text-50 text-gray-600">
+                  A default collection keeps the app&rsquo;s own colour, so it stays recognisable
+                  everywhere it appears. Its name and description are yours to change.
+                </p>
+              ) : (
+                <ColourSwatches
+                  value={activeCollection.color || DEFAULT_COLLECTION_COLOR}
+                  onChange={(next) => updateCollection(activeCollection.id, { color: next })}
+                />
+              )}
+            </div>
+          )}
         </Card>
       )}
 

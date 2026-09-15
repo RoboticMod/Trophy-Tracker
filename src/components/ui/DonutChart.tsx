@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../lib/cn';
 
 export interface DonutSlice {
@@ -32,6 +32,17 @@ const BLEED = 10;
 const GAP = 0.006;
 
 /**
+ * How long one full turn of the ring takes, in seconds.
+ *
+ * Every segment used to animate at once, over its own full duration, so five
+ * arcs inflated simultaneously from five different angles — motion with no
+ * direction to it, which is what made the chart stick out on a page where
+ * everything else moves one way. Each segment now draws in sequence at one
+ * shared speed, so the ring is a single line travelling once around the circle.
+ */
+const SWEEP_SECONDS = 0.8;
+
+/**
  * A ring split into proportional segments, with the total in the hole.
  *
  * Deliberately a donut rather than a filled pie: the app already states figures
@@ -46,6 +57,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
   size = 168,
   className,
 }) => {
+  const reduceMotion = useReducedMotion();
   const radius = (size - STROKE) / 2;
   const box = size + BLEED * 2;
   const mid = box / 2;
@@ -59,11 +71,18 @@ export const DonutChart: React.FC<DonutChartProps> = ({
   const segments = drawn.map((slice) => {
     const fraction = sum > 0 ? slice.value / sum : 0;
     const startAngle = cursor * 360;
+    const startFraction = cursor;
     cursor += fraction;
     // One slice filling the whole ring must not have a gap cut into it, or the
     // ring would show a notch for no reason.
     const gap = drawn.length > 1 ? GAP : 0;
-    return { ...slice, fraction, startAngle, length: Math.max(fraction - gap, 0.001) };
+    return {
+      ...slice,
+      fraction,
+      startAngle,
+      startFraction,
+      length: Math.max(fraction - gap, 0.001),
+    };
   });
 
   return (
@@ -101,9 +120,21 @@ export const DonutChart: React.FC<DonutChartProps> = ({
             strokeDasharray={`${segment.length} ${1 - segment.length}`}
             // -90 puts the first segment at twelve o'clock rather than at three.
             transform={`rotate(${segment.startAngle - 90} ${mid} ${mid})`}
-            initial={{ strokeDashoffset: segment.length }}
+            initial={{ strokeDashoffset: reduceMotion ? 0 : segment.length }}
             animate={{ strokeDashoffset: 0 }}
-            transition={{ duration: 0.7, ease: 'easeOut' }}
+            // Linear, and timed by where this segment sits on the circle: it
+            // waits for the arcs before it and then draws at the same rate they
+            // did, so the whole ring reads as one continuous stroke rather than
+            // as five arcs growing at once.
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : {
+                    duration: segment.fraction * SWEEP_SECONDS,
+                    delay: segment.startFraction * SWEEP_SECONDS,
+                    ease: 'linear',
+                  }
+            }
             style={{
               filter: `drop-shadow(0 0 5px color-mix(in srgb, ${segment.color} 40%, transparent))`,
             }}
@@ -131,6 +162,7 @@ export const DonutLegend: React.FC<{ slices: DonutSlice[]; className?: string }>
   slices,
   className,
 }) => {
+  const reduceMotion = useReducedMotion();
   const sum = slices.reduce((acc, s) => acc + s.value, 0);
 
   return (
@@ -161,9 +193,9 @@ export const DonutLegend: React.FC<{ slices: DonutSlice[]; className?: string }>
 
             <div className="h-1 w-full overflow-hidden rounded-full bg-gray-300/60">
               <motion.div
-                initial={{ width: 0 }}
+                initial={{ width: reduceMotion ? `${share}%` : 0 }}
                 animate={{ width: `${share}%` }}
-                transition={{ duration: 0.7, ease: 'easeOut' }}
+                transition={{ duration: reduceMotion ? 0 : SWEEP_SECONDS, ease: 'easeOut' }}
                 className="h-full rounded-full"
                 style={{ backgroundColor: slice.color, boxShadow: `0 0 8px -3px ${slice.color}` }}
               />

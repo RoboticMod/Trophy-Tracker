@@ -45,6 +45,49 @@ npm run lint     # tsc --noEmit
 npm run build    # production bundle in dist/
 ```
 
+### 4. Live game data (optional)
+
+Player charts, screenshots, reviews and auto-fetched progress all come through one Supabase edge
+function, `supabase/functions/game-data`. Without it the app works exactly as before: everything
+is entered by hand.
+
+It exists because none of the three upstreams can be called from a browser. SteamRaw,
+`store.steampowered.com` and `api.steampowered.com` all answer a request happily and send **no**
+`Access-Control-Allow-Origin` header with it, so the response is unreadable from the page. The
+Steam Web API also needs a key, and Vite inlines every `VITE_*` value into the shipped bundle —
+so the key has to live somewhere that is not the client.
+
+```bash
+supabase login
+supabase link --project-ref <your-project-ref>
+supabase secrets set STEAM_API_KEY=<your-steam-web-api-key>   # steamcommunity.com/dev/apikey
+supabase functions deploy game-data
+```
+
+Then re-run the schema SQL (Settings → Cloud storage → "Copy schema SQL") to add the
+`platform_accounts` table and the new columns on `games`.
+
+**Steam.** Settings → Connected accounts takes a profile URL, a custom URL name or a SteamID64.
+Your Steam profile's *Game details* privacy must be **Public**, or the Web API reports no
+achievements at all. Each game is then linked to its app in its own edit dialog, where
+"Auto fetch from Steam" turns syncing on for that game.
+
+**PlayStation.** Sony publishes no API. The working route is the NPSSO cookie:
+
+1. Sign in at [playstation.com](https://www.playstation.com).
+2. In the same browser open <https://ca.account.sony.com/api/v1/ssocookie>.
+3. Copy the 64-character `npsso` value into Settings → Connected accounts.
+
+That token is equivalent to your account password. It is posted straight to the edge function,
+exchanged there for an access/refresh pair, and **never stored** — only the resulting tokens are,
+in your own RLS-protected row. Access tokens last about an hour and are refreshed automatically;
+the refresh token lasts about two months, after which the app asks for a new NPSSO.
+
+A sync only ever writes achievement counts, playtime, last played and completion dates. Ratings,
+status, notes and collections are yours and are never overwritten — with one exception: a finished
+game whose award list has grown (a DLC, usually) comes off the 100% shelf and is filed into a
+**New Achievements** collection, created on demand.
+
 ---
 
 ## Architecture
