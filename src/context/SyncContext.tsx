@@ -3,6 +3,7 @@ import { UserGame } from '../types';
 import { useGame } from './GameContext';
 import { SYNC_INTERVAL_MS, SyncReport, SyncState, useSteamSync } from '../lib/useSteamSync';
 import { PsnSyncReport, PsnSyncState, usePsnSync } from '../lib/usePsnSync';
+import { PsnError, PsnTitle } from '../lib/psn';
 import { isSyncLinked } from '../lib/sync';
 
 interface SyncContextType {
@@ -19,6 +20,8 @@ interface SyncContextType {
   syncEverything: () => Promise<void>;
   /** One game, straight away — after it is added or linked. */
   syncGame: (game: UserGame) => Promise<void>;
+  /** The PSN account's trophy lists, for matching a game by hand. */
+  loadPsnTitles: () => Promise<PsnTitle[] | PsnError>;
 }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
@@ -126,6 +129,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastRunAt,
       syncEverything,
       syncGame,
+      loadPsnTitles: psn.loadTitles,
     }),
     [
       steam.isLinked,
@@ -136,6 +140,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastRunAt,
       syncEverything,
       syncGame,
+      psn.loadTitles,
     ],
   );
 

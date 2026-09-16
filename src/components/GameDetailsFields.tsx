@@ -42,6 +42,11 @@ interface GameDetailsFieldsProps {
   statuses: GameStatus[];
   collections: Collection[];
   profile: UserProfile;
+  /**
+   * Shown in the PlayStation panel — the saved game's sync status. Only the edit
+   * dialog has one; a game being added has not been synced yet.
+   */
+  psnStatus?: React.ReactNode;
   /** Appended below the fields, e.g. a note about syncing. */
   children?: React.ReactNode;
 }
@@ -93,6 +98,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   statuses,
   collections,
   profile,
+  psnStatus,
   children,
 }) => {
   const {
@@ -420,13 +426,20 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
       {platform === 'steam' ? (
         <SteamLinkField title={title} appId={values.steamAppId} onChange={onChange} />
       ) : (
-        <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-black/25 p-4">
-          <PlatformIcon platform="ps5" size={16} className="mt-0.5 shrink-0 text-playstation-900" />
-          <p className="text-75 text-gray-700">
-            Trophies and playtime follow your linked PlayStation account and update on their own.
-            The trophy list is matched by title, so keep the name close to how PlayStation spells
-            it.
-          </p>
+        <div className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
+          <div className="flex items-start gap-3">
+            <PlatformIcon
+              platform="ps5"
+              size={16}
+              className="mt-0.5 shrink-0 text-playstation-900"
+            />
+            <p className="text-75 text-gray-700">
+              Trophies, playtime and the date of your latest trophy follow your linked PlayStation
+              account and update on their own. The trophy list is matched by title, or chosen
+              below.
+            </p>
+          </div>
+          {psnStatus ? <div className="border-t border-gray-200 pt-3">{psnStatus}</div> : null}
         </div>
       )}
 

@@ -41,6 +41,7 @@ import {
   steamStoreUrl,
 } from '../lib/steam';
 import { CoverArt } from './CoverArt';
+import { PsnSyncStatus } from './PsnSyncStatus';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
 import { RatingValue } from './Rating';
@@ -300,6 +301,13 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
                 {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
                 {awardNoun(game.platform).toLowerCase()} ({progress}%)
               </span>
+              {game.lastUnlockedAt ? (
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays size={13} />
+                  Last {game.platform === 'ps5' ? 'trophy' : 'achievement'}{' '}
+                  {formatDate(game.lastUnlockedAt)}
+                </span>
+              ) : null}
               {game.completedAt ? (
                 <span className="flex items-center gap-1.5">
                   <CalendarDays size={13} />
@@ -316,28 +324,36 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
           </div>
         </div>
 
-        {/* Unlinked, or the wrong platform ---------------------------------- */}
-        {!appId ? (
-          game.platform === 'steam' ? (
-            <LinkToSteam game={game} />
-          ) : (
-            <div className="panel-inset space-y-2 rounded-md p-4">
-              <SectionTitle>PlayStation</SectionTitle>
-              <p className="text-75 text-gray-700">
-                PlayStation has no public catalog API, so charts and media are not available for
-                PS5 titles. Trophy progress comes from your linked PSN account instead.
+        {/* PlayStation sync ----------------------------------------------- */}
+        {/* Every PS5 game, linked to a Steam app or not: this is where you can
+            see whether its trophies and playtime are actually coming through. */}
+        {game.platform === 'ps5' ? (
+          <section className="panel-inset space-y-3 rounded-md p-4">
+            <SectionTitle
+              action={
+                <a
+                  href={playstationStoreSearchUrl(game.title)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="eyebrow inline-flex shrink-0 items-center gap-1 text-accent-900 hover:text-accent-1000"
+                >
+                  PlayStation Store
+                  <ArrowUpRight size={12} />
+                </a>
+              }
+            >
+              PlayStation sync
+            </SectionTitle>
+            <PsnSyncStatus game={game} />
+            {!appId ? (
+              <p className="text-50 text-gray-600">
+                PlayStation has no public catalog, so charts and media appear only for games
+                that are also on Steam.
               </p>
-              <a
-                href={playstationStoreSearchUrl(game.title)}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center gap-1.5 text-75 font-bold text-accent-900 hover:text-accent-1000"
-              >
-                Find on the PlayStation Store
-                <ArrowUpRight size={13} />
-              </a>
-            </div>
-          )
+            ) : null}
+          </section>
+        ) : !appId ? (
+          <LinkToSteam game={game} />
         ) : null}
 
         {loading ? (

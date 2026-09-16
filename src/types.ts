@@ -67,6 +67,8 @@ export interface UserGame {
   /** Whether a sync is allowed to overwrite the tracked figures. */
   autoSync?: boolean;
   lastSyncedAt?: string;
+  /** When the platform says the most recent achievement or trophy was earned. */
+  lastUnlockedAt?: string;
 }
 
 export interface Collection {

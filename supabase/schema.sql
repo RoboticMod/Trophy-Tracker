@@ -33,7 +33,10 @@ create table if not exists public.games (
   sync_source           text not null default 'manual'
                           check (sync_source in ('manual', 'steam', 'psn')),
   auto_sync             boolean not null default false,
-  last_synced_at        timestamptz
+  last_synced_at        timestamptz,
+  -- When the most recent achievement or trophy was earned, as the platform
+  -- reports it.
+  last_unlocked_at      timestamptz
 );
 create index if not exists games_user_id_idx on public.games (user_id);
 
@@ -123,7 +126,8 @@ alter table public.games
   add column if not exists psn_title_id          text,
   add column if not exists sync_source           text not null default 'manual',
   add column if not exists auto_sync             boolean not null default false,
-  add column if not exists last_synced_at        timestamptz;
+  add column if not exists last_synced_at        timestamptz,
+  add column if not exists last_unlocked_at      timestamptz;
 
 -- The CHECK is added separately: a table created before sync_source existed
 -- gets the column from the statement above, but no constraint with it.

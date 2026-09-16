@@ -53,11 +53,11 @@ export interface Reconciliation {
 /**
  * Works out what to write for one game.
  *
- * Fields a sync owns: the award counts, playtime, last played, and the date a
- * completion happened. Fields it must never touch: status (except to withdraw
- * a completion it can see is no longer true), rating, achievement rating,
- * notes and collections. Those are judgements, and no API has an opinion worth
- * overwriting them with.
+ * Fields a sync owns: the award counts, playtime, last played, when the latest
+ * award was earned, and the date a completion happened. Fields it must never
+ * touch: status (except to withdraw a completion it can see is no longer
+ * true), rating, achievement rating, notes and collections. Those are
+ * judgements, and no API has an opinion worth overwriting them with.
  */
 export function reconcile(game: UserGame, incoming: PlatformProgress): Reconciliation {
   const updates: Partial<UserGame> = {};
@@ -104,6 +104,16 @@ export function reconcile(game: UserGame, incoming: PlatformProgress): Reconcili
   if (grewList && game.status === 'mastered') {
     updates.status = 'playing';
     updates.completedAt = game.completedAt;
+  }
+
+  // The most recent unlock, as the platform dates it. Only ever moves forward:
+  // a list that loses its times (a privacy change, a PS3 title) keeps the last
+  // date it had.
+  if (incoming.lastUnlockedAt) {
+    const known = game.lastUnlockedAt ? new Date(game.lastUnlockedAt).getTime() : 0;
+    if (new Date(incoming.lastUnlockedAt).getTime() > known) {
+      updates.lastUnlockedAt = incoming.lastUnlockedAt;
+    }
   }
 
   /**

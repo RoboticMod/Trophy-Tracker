@@ -137,6 +137,52 @@ export const getPsnTitleProgress = (
  */
 export const normalizeTitle = (title: string): string =>
   title
+    // Accents off rather than dropped, so Ragnarök and Ragnarok are one name.
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[™®©]/g, '')
     .replace(/[^a-z0-9]+/g, '');
+
+/** Suffixes a library entry carries that a trophy list does not. */
+const EDITION_SUFFIX =
+  /\s*[-–—:(]\s*(multiplayer|campaign|single ?player|remastered|definitive|deluxe|standard|complete|goty|game of the year|digital|ultimate|gold|premium|directors? cut|ps[45]( edition)?|playstation ?[45]( edition)?)[\w\s']*\)?\s*$/i;
+
+/** The shortest name worth matching on its own, so "Doom" does not claim "Doom Eternal". */
+const MIN_PREFIX = 8;
+
+/**
+ * Finds the trophy list or played game a library title refers to.
+ *
+ * Exact first, on the flattened name. Then the title with an edition or mode
+ * suffix removed — "Modern Warfare Remastered - Multiplayer" is one trophy
+ * list, not two. Last, a PSN name that the library title starts with, or
+ * that starts with it — the closest in length, so a sequel is not matched
+ * to the game before it.
+ */
+export function matchByTitle<T>(title: string, items: T[], nameOf: (item: T) => string): T | undefined {
+  const byKey = new Map<string, T>();
+  items.forEach((item) => {
+    const key = normalizeTitle(nameOf(item));
+    if (key && !byKey.has(key)) byKey.set(key, item);
+  });
+
+  const key = normalizeTitle(title);
+  if (!key) return undefined;
+  const exact = byKey.get(key);
+  if (exact) return exact;
+
+  const stripped = normalizeTitle(title.replace(EDITION_SUFFIX, ''));
+  if (stripped && byKey.has(stripped)) return byKey.get(stripped);
+
+  let best: { item: T; length: number } | undefined;
+  for (const [candidate, item] of byKey) {
+    const shorter = candidate.length < key.length ? candidate : key;
+    if (shorter.length < MIN_PREFIX) continue;
+    const related = key.startsWith(candidate) || candidate.startsWith(key);
+    // Closest in length is the most specific match.
+    const distance = Math.abs(candidate.length - key.length);
+    if (related && (!best || distance < best.length)) best = { item, length: distance };
+  }
+  return best?.item;
+}

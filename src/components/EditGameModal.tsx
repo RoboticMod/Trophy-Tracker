@@ -9,6 +9,7 @@ import { syncFieldsFor } from '../lib/sync';
 import { useSync } from '../context/SyncContext';
 import { PlatformIcon } from './PlatformIcon';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
+import { PsnSyncStatus } from './PsnSyncStatus';
 import { Button, Dialog } from './ui';
 
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered', 'dropped'];
@@ -153,6 +154,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
         statuses={STATUS_CHOICES}
         collections={collections}
         profile={profile}
+        psnStatus={game.platform === 'ps5' ? <PsnSyncStatus game={game} /> : undefined}
       />
     </Dialog>
   );

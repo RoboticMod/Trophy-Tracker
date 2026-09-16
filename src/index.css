@@ -566,10 +566,11 @@
 }
 
 /* Scrolling text for a name too long for its box.
-   It rests at the start, eases across to show the end, rests, and eases back,
-   so the whole name can be read without the box growing. --marquee-shift is
-   how far the text overflows, measured by the component. The edges fade only
-   while there is hidden text to fade into. */
+   It rests at the start, moves at a steady pace to show the end, rests, and
+   moves back, so the whole name can be read without the box growing. Linear,
+   not eased: text that speeds up and slows down is harder to read while it
+   moves. --marquee-shift is how far the text overflows, measured by the
+   component. The edges fade only while there is hidden text to fade into. */
 @keyframes marquee-bounce {
   0%,
   18% {
@@ -599,7 +600,7 @@
 
   &[data-overflowing='true'][data-trigger='always'] > span,
   .group:hover &[data-overflowing='true'][data-trigger='hover'] > span {
-    animation: marquee-bounce var(--marquee-duration, 6s) cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    animation: marquee-bounce var(--marquee-duration, 6s) linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {

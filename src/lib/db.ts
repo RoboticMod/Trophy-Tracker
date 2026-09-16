@@ -44,6 +44,7 @@ interface GameRow {
   sync_source: string | null;
   auto_sync: boolean | null;
   last_synced_at: string | null;
+  last_unlocked_at: string | null;
 }
 
 /**
@@ -80,6 +81,7 @@ function toGame(row: GameRow): UserGame | null {
     syncSource: normalizeSyncSource(row.sync_source),
     autoSync: row.auto_sync ?? false,
     lastSyncedAt: row.last_synced_at ?? undefined,
+    lastUnlockedAt: row.last_unlocked_at ?? undefined,
   };
 }
 
@@ -115,6 +117,7 @@ function fromGame(game: UserGame, userId: string) {
     sync_source: game.syncSource ?? 'manual',
     auto_sync: game.autoSync ?? false,
     last_synced_at: game.lastSyncedAt ?? null,
+    last_unlocked_at: game.lastUnlockedAt ?? null,
   };
 }
 
@@ -211,6 +214,7 @@ const LINK_COLUMNS = [
   'sync_source',
   'auto_sync',
   'last_synced_at',
+  'last_unlocked_at',
 ] as const;
 
 let schemaHasLinkColumns = true;
