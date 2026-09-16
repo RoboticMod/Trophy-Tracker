@@ -1,5 +1,5 @@
 import React from 'react';
-import { MAX_RATING, RATING_STEP, formatRating, ratingColor, ratingLabel, snapRating } from '../lib/rating';
+import { MAX_RATING, RATING_STEP, formatRating, ratingColor, snapRating } from '../lib/rating';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 
@@ -15,11 +15,6 @@ interface RatingValueProps {
    * where a second bordered shape nested inside the first only adds clutter.
    */
   bare?: boolean;
-  /**
-   * Appends the score's verdict word beside the number. Only where there is
-   * room for it — on a card the digits have to stand alone.
-   */
-  verdict?: boolean;
 }
 
 const SIZE: Record<NonNullable<RatingValueProps['size']>, string> = {
@@ -35,21 +30,20 @@ const SIZE_BARE: Record<NonNullable<RatingValueProps['size']>, string> = {
   md: 'text-75',
 };
 
-/** Read-only score chip. Colour carries the value, red through to gold. */
+/** Read-only score chip. Colour carries the value, red through to green. */
 export const RatingValue: React.FC<RatingValueProps> = ({
   value,
   size = 'sm',
   className,
   label = 'Rated',
   bare = false,
-  verdict = false,
 }) => {
   const clamped = snapRating(value);
   const color = ratingColor(clamped);
 
   return (
     <span
-      title={`${label} ${formatRating(clamped)} out of ${MAX_RATING} — ${ratingLabel(clamped)}`}
+      title={`${label} ${formatRating(clamped)} out of ${MAX_RATING}`}
       style={
         bare
           ? { color }
@@ -60,19 +54,12 @@ export const RatingValue: React.FC<RatingValueProps> = ({
             }
       }
       className={cn(
-        'inline-flex items-center justify-center gap-1.5 font-bold tabular-nums',
+        'inline-flex items-center justify-center font-bold tabular-nums',
         bare ? SIZE_BARE[size] : cn('rounded-sm border', SIZE[size]),
-        // The word needs breathing room the bare number does not.
-        verdict && !bare && 'px-2',
         className,
       )}
     >
       {formatRating(clamped)}
-      {verdict ? (
-        <span className="text-50 font-bold uppercase tracking-wide opacity-90">
-          {ratingLabel(clamped)}
-        </span>
-      ) : null}
     </span>
   );
 };
@@ -80,23 +67,16 @@ export const RatingValue: React.FC<RatingValueProps> = ({
 interface RatingControlProps {
   value: number;
   onChange: (next: number) => void;
-  /** Hides the numeric entry box for compact placements. */
-  compact?: boolean;
   id?: string;
   'aria-describedby'?: string;
 }
 
 /**
- * Editable 0-100 rating: a slider whose track fills with the score colour,
- * plus a number box for precise entry.
+ * Editable 0-10 rating: a slider whose track fills with the score colour, plus
+ * a number box for precise entry. The number is the whole verdict — the colour
+ * already says good or bad, and a word beside it only repeated that.
  */
-export const RatingControl: React.FC<RatingControlProps> = ({
-  value,
-  onChange,
-  compact = false,
-  id,
-  ...rest
-}) => {
+export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, id, ...rest }) => {
   const clamped = snapRating(value);
   const color = ratingColor(clamped);
   const isRated = clamped > 0;
@@ -105,9 +85,8 @@ export const RatingControl: React.FC<RatingControlProps> = ({
   const fillPercent = (clamped / MAX_RATING) * 100;
 
   return (
-    // Wraps rather than overflows: this control sits in a form column that can
-    // be half a dialog wide, and the verdict word beside it is not always short.
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    // The height of a text input, so this lines up with the field beside it.
+    <div className="flex h-9 items-center gap-3">
       <input
         id={id}
         type="range"
@@ -125,46 +104,22 @@ export const RatingControl: React.FC<RatingControlProps> = ({
         }}
       />
 
-      {!compact && (
-        <input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          max={MAX_RATING}
-          step={RATING_STEP}
-          {...ratingField}
-          aria-label="Rating value"
-          style={{ color, borderColor: isRated ? color : undefined }}
-          className={cn(
-            'h-9 w-16 rounded-sm border bg-black/25 px-2 text-center text-100 font-bold tabular-nums',
-            'focus:outline-none',
-            isRated ? '' : 'border-gray-300 text-gray-700',
-          )}
-        />
-      )}
-
-      {/* The score's own verdict, live beside the number. The guided flow
-          already says "that works out to 8 — Great"; the slider said nothing,
-          so the two ways of rating disagreed about how much they explained. */}
-      {!compact && (
-        // Never truncated: "OUTSTAND…" is worse than no verdict at all. The row
-        // wraps instead, which is what the flex-wrap above is for.
-        <span
-          className="shrink-0 whitespace-nowrap text-50 font-bold uppercase tracking-wide"
-          style={{ color: isRated ? color : 'var(--color-gray-600)' }}
-        >
-          {isRated ? ratingLabel(clamped) : 'Unrated'}
-        </span>
-      )}
-
-      <button
-        type="button"
-        onClick={() => onChange(0)}
-        disabled={!isRated}
-        className="rounded-sm px-2 py-1 text-50 font-semibold text-gray-600 transition-colors hover:text-gray-900 disabled:opacity-30"
-      >
-        Clear
-      </button>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={MAX_RATING}
+        step={RATING_STEP}
+        placeholder="–"
+        {...ratingField}
+        aria-label="Rating value"
+        style={{ color, borderColor: isRated ? color : undefined }}
+        className={cn(
+          'h-9 w-16 shrink-0 rounded-sm border bg-black/25 px-2 text-center text-100 font-bold tabular-nums',
+          'focus:outline-none',
+          isRated ? '' : 'border-gray-300 text-gray-700',
+        )}
+      />
     </div>
   );
 };

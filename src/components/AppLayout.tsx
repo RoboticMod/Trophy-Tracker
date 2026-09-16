@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   Library,
   BarChart3,
@@ -13,14 +14,15 @@ import {
   Cloud,
   RefreshCw,
   X,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { QuickAddModal } from './QuickAddModal';
 import { DEFAULT_START_PATH } from '../lib/constants';
 import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
-import { useSteamSync } from '../lib/useSteamSync';
-import { usePsnSync } from '../lib/usePsnSync';
+import { useSync } from '../context/SyncContext';
+import { relativeTime } from '../lib/format';
 import { statusLabel } from '../lib/status';
 import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
@@ -154,13 +156,6 @@ export const AppLayout: React.FC = () => {
   });
 
   /**
-   * One pass over the linked games when the app opens, for anything that has
-   * not been looked at within the hour. Deliberately quiet: it writes through
-   * the ordinary update path, so a game that finished on the console since you
-   * last looked arrives with its celebration, and everything else simply
-   * changes its numbers.
-   */
-  /**
    * The completion-sound level saved on the profile, for a device that has none
    * of its own — a new browser, or one that clears site data when it closes.
    *
@@ -173,23 +168,31 @@ export const AppLayout: React.FC = () => {
     adoptSoundVolume(sidebarConfig?.prefs?.[VOLUME_PREF_KEY]);
   }, [loading, sidebarConfig]);
 
-  const steam = useSteamSync();
-  const psn = usePsnSync();
-  const syncedOnce = useRef(false);
-  useEffect(() => {
-    if (syncedOnce.current || loading) return;
-    if (!steam.isLinked && !psn.isLinked) return;
-
-    syncedOnce.current = true;
-    if (steam.isLinked) void steam.syncAll({ onlyDue: true });
-    if (psn.isLinked) void psn.syncAll({ onlyDue: true });
-  }, [loading, steam, psn]);
+  const sync = useSync();
+  const syncing = sync.running || loading;
 
   const syncTitle = !isOnline
     ? 'Offline — changes are queued'
-    : pendingWrites > 0
-      ? `${pendingWrites} change(s) waiting to sync`
-      : 'Synced with Supabase';
+    : syncing
+      ? 'Syncing…'
+      : `${pendingWrites > 0 ? `${pendingWrites} change(s) waiting · ` : ''}Sync everything now${
+          sync.lastRunAt ? ` — last synced ${relativeTime(sync.lastRunAt)}` : ''
+        }`;
+
+  const runSync = () => {
+    if (!syncing && isOnline) void sync.syncEverything();
+  };
+
+  // The mobile bar has room for four destinations. Everything past them lives
+  // in the "More" sheet, so no enabled page is unreachable on a phone.
+  const mobilePrimary = navItems.slice(0, 4);
+  const mobileOverflow = navItems.slice(4);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const overflowActive =
+    location.pathname === '/settings' ||
+    mobileOverflow.some((item) => item.path === location.pathname);
+
+  useEffect(() => setMoreOpen(false), [location.pathname]);
 
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-gray-50 text-gray-900">
@@ -255,30 +258,40 @@ export const AppLayout: React.FC = () => {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span
+          {/* The one sync control: the cloud, Steam and PlayStation, all at
+              once. Everything also syncs on its own, so this is for when you
+              want it now. */}
+          <button
+            type="button"
+            onClick={runSync}
+            disabled={!isOnline || syncing}
             title={syncTitle}
-            className="panel-inset hidden h-8 items-center gap-2 rounded-sm px-2.5 text-50 font-semibold text-gray-700 xl:flex"
+            aria-label={syncTitle}
+            className="panel-inset flex h-8 items-center gap-2 rounded-sm px-2.5 text-50 font-semibold text-gray-700 transition-colors hover:text-gray-1000 disabled:cursor-default"
           >
             {!isOnline ? (
               <CloudOff size={13} className="shrink-0 text-notice-900" />
-            ) : loading || pendingWrites > 0 ? (
-              <RefreshCw size={13} className="shrink-0 animate-spin text-accent-900" />
+            ) : syncing || pendingWrites > 0 ? (
+              <RefreshCw
+                size={13}
+                className={cn('shrink-0 text-accent-900', syncing && 'animate-spin')}
+              />
             ) : (
               <Cloud
                 size={13}
                 className="shrink-0 text-positive-900 drop-shadow-[0_0_5px_currentColor]"
               />
             )}
-            <span className="truncate">
+            <span className="hidden truncate xl:inline">
               {!isOnline
                 ? 'Offline'
-                : pendingWrites > 0
-                  ? `${pendingWrites} pending`
-                  : loading
-                    ? 'Loading…'
+                : syncing
+                  ? 'Syncing…'
+                  : pendingWrites > 0
+                    ? `${pendingWrites} pending`
                     : 'Synced'}
             </span>
-          </span>
+          </button>
 
           <Button variant="accent" onClick={() => setIsQuickAddOpen(true)} aria-label="Add game">
             <Plus size={16} />
@@ -319,17 +332,34 @@ export const AppLayout: React.FC = () => {
       {/* Mobile header ------------------------------------------------------ */}
       <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-gray-100/85 px-4 py-3 backdrop-blur-xl md:hidden">
         <Wordmark size="sm" />
-        <Button variant="accent" size="s" onClick={() => setIsQuickAddOpen(true)}>
-          <Plus size={15} />
-          <span>Add</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            buttonStyle="outline"
+            size="s"
+            iconOnly
+            onClick={runSync}
+            disabled={!isOnline || syncing}
+            title={syncTitle}
+            aria-label={syncTitle}
+          >
+            {isOnline ? (
+              <RefreshCw size={15} className={cn(syncing && 'animate-spin')} />
+            ) : (
+              <CloudOff size={15} className="text-notice-900" />
+            )}
+          </Button>
+          <Button variant="accent" size="s" onClick={() => setIsQuickAddOpen(true)}>
+            <Plus size={15} />
+            <span>Add</span>
+          </Button>
+        </div>
       </header>
 
       {/* Content ------------------------------------------------------------ */}
       {/* min-h-0, not h-full: the top bar is a flex sibling now, so a main
           claiming the full viewport height would push its own scroll past the
           bottom of the window by exactly the height of the bar. */}
-      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-16 sm:px-6 md:py-8 2xl:px-10">
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-32 sm:px-6 md:py-8 2xl:px-10">
         {error ? (
           <div
             role="alert"
@@ -350,9 +380,78 @@ export const AppLayout: React.FC = () => {
         <Outlet />
       </main>
 
-      {/* Mobile bottom bar: four destinations plus settings ------------------ */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-gray-200 bg-gray-100/85 px-2 py-2 backdrop-blur-xl md:hidden">
-        {navItems.slice(0, 4).map((item) => {
+      {/* Mobile "More" sheet: the destinations the bar has no room for ------ */}
+      <AnimatePresence>
+        {moreOpen ? (
+          <>
+            <motion.button
+              key="more-scrim"
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setMoreOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            />
+            <motion.nav
+              key="more-sheet"
+              aria-label="More destinations"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="panel fixed inset-x-3 bottom-20 z-40 space-y-1 rounded-lg bg-gray-100/95 p-2 md:hidden"
+            >
+              {mobileOverflow.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      'flex h-11 items-center gap-3 rounded-md px-3 text-100 font-semibold transition-colors',
+                      isActive
+                        ? 'bg-accent-700/16 text-accent-900'
+                        : 'text-gray-800 hover:bg-white/5',
+                    )}
+                  >
+                    <span className="flex w-5 justify-center">
+                      {Icon ? <Icon size={18} /> : item.art}
+                    </span>
+                    <span className="flex-1 truncate">{item.name}</span>
+                    {item.badge !== undefined ? (
+                      <span className="text-75 font-bold tabular-nums text-gray-600">
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </NavLink>
+                );
+              })}
+              <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  cn(
+                    'flex h-11 items-center gap-3 rounded-md px-3 text-100 font-semibold transition-colors',
+                    mobileOverflow.length > 0 && 'border-t border-gray-200',
+                    isActive ? 'bg-accent-700/16 text-accent-900' : 'text-gray-800 hover:bg-white/5',
+                  )
+                }
+              >
+                <span className="flex w-5 justify-center">
+                  <Settings size={18} />
+                </span>
+                <span className="flex-1">Settings</span>
+              </NavLink>
+            </motion.nav>
+          </>
+        ) : null}
+      </AnimatePresence>
+
+      {/* Mobile bottom bar: four destinations plus "More" -------------------- */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-gray-200 bg-gray-100/85 px-2 py-2 backdrop-blur-xl md:hidden">
+        {mobilePrimary.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
           return (
@@ -369,18 +468,18 @@ export const AppLayout: React.FC = () => {
             </NavLink>
           );
         })}
-        <NavLink
-          to="/settings"
-          className={({ isActive }) =>
-            cn(
-              'flex flex-col items-center gap-0.5 rounded-sm px-2.5 py-1 transition-colors',
-              isActive ? 'font-bold text-accent-900' : 'text-gray-700',
-            )
-          }
+        <button
+          type="button"
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-expanded={moreOpen}
+          className={cn(
+            'flex flex-col items-center gap-0.5 rounded-sm px-2.5 py-1 text-50 font-bold uppercase tracking-wide transition-colors',
+            moreOpen || overflowActive ? 'text-accent-900' : 'text-gray-600',
+          )}
         >
-          <Settings size={18} />
+          <MoreHorizontal size={18} />
           <span className="text-50">More</span>
-        </NavLink>
+        </button>
       </nav>
 
       <QuickAddModal />

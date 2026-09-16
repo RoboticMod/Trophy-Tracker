@@ -82,6 +82,12 @@ interface GameContextType {
   pendingWrites: number;
   lastSyncedAt: string | null;
   refresh: () => Promise<void>;
+  /**
+   * The library as of the last write, not the last render. For work that runs
+   * across awaits — a sync that starts after a reload — where the games a
+   * callback closed over may already be out of date.
+   */
+  getGames: () => UserGame[];
 
   activePlatformFilter: Platform | 'all';
   setActivePlatformFilter: (platform: Platform | 'all') => void;
@@ -351,11 +357,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .then(setPlatformAccounts)
           .catch(() => setPlatformAccounts(null));
 
-        setGames(remoteGames);
+        /**
+         * Games already at 100% on another shelf.
+         *
+         * Reaching 100% now moves a game to the 100% status as it happens, but
+         * games that got there before that rule existed are still filed as
+         * playing or main story complete. They are moved once, here, quietly —
+         * these are old completions, not new ones, so nothing celebrates.
+         */
+        const promoted: UserGame[] = [];
+        const nextGames = remoteGames.map((game) => {
+          if (!isPerfect(game) || game.status === 'mastered') return game;
+          const fixed: UserGame = {
+            ...game,
+            status: 'mastered',
+            completedAt: game.completedAt ?? game.updatedAt,
+          };
+          promoted.push(fixed);
+          return fixed;
+        });
+
+        latest.current.games = nextGames;
+        setGames(nextGames);
         setCollections(nextCollections);
         setProfile(nextProfile);
+        promoted.forEach((game) => void push({ kind: 'game', op: 'upsert', game }));
         writeSnapshot(id, {
-          games: remoteGames,
+          games: nextGames,
           collections: nextCollections,
           profile: nextProfile,
         });
@@ -375,7 +403,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
       }
     },
-    [flushQueue, user?.email],
+    [flushQueue, push, user?.email],
   );
 
   useEffect(() => {
@@ -470,7 +498,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         game.completedAt = now;
       }
 
-      if (isPerfect(game)) game.collections = fileByCompletion(game.collections, true);
+      // Every unlock earned is the 100% shelf, whatever was picked in the form.
+      if (isPerfect(game)) {
+        game.status = 'mastered';
+        game.collections = fileByCompletion(game.collections, true);
+      }
+      latest.current.games = [game, ...latest.current.games];
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
 
@@ -540,6 +573,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // game is filed on, so it carries a date like any other.
       if (becamePerfect && !merged.completedAt) merged.completedAt = merged.updatedAt;
 
+      // And it moves the game onto the 100% shelf, the mirror of the rule above
+      // that takes it off again. An explicit status in this same edit wins.
+      if (becamePerfect && updates.status === undefined) merged.status = 'mastered';
+
       // Finishing a game files it with the other finished ones, and losing that
       // status takes it back out. Only on the crossing, so a game deliberately
       // pulled out of that collection while still at 100% stays out.
@@ -555,6 +592,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         followGame(id);
       }
 
+      // The ref as well as state, so a second write to this game before the
+      // next render — a sync walking the library — builds on this one.
+      latest.current.games = latest.current.games.map((game) => (game.id === id ? merged : game));
       setGames((prev) => prev.map((game) => (game.id === id ? merged : game)));
       void push({ kind: 'game', op: 'upsert', game: merged });
       if (celebrate) triggerCelebration(id);
@@ -564,6 +604,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteGame = useCallback(
     (id: string) => {
+      latest.current.games = latest.current.games.filter((g) => g.id !== id);
       setGames((prev) => prev.filter((g) => g.id !== id));
       void push({ kind: 'game', op: 'delete', id });
     },
@@ -724,6 +765,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (userId) await load(userId);
   }, [userId, load]);
 
+  const getGames = useCallback(() => latest.current.games, []);
+
   const value = useMemo<GameContextType>(
     () => ({
       games,
@@ -741,6 +784,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingWrites,
       lastSyncedAt,
       refresh,
+      getGames,
       activePlatformFilter,
       setActivePlatformFilter,
       activeStatusFilter,
@@ -776,6 +820,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingWrites,
       lastSyncedAt,
       refresh,
+      getGames,
       activePlatformFilter,
       setActivePlatformFilter,
       activeStatusFilter,

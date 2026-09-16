@@ -119,7 +119,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       // leaves --glow unset and glow-ring goes unused.
       style={{ '--glow': 'var(--color-accent-700)' } as React.CSSProperties}
       className={cn(
-        'group relative flex flex-col rounded-lg border shadow-lg backdrop-blur-sm transition-colors',
+        // Full height of its grid row, so a row of cards always ends level.
+        'group relative flex h-full flex-col rounded-lg border shadow-lg backdrop-blur-sm transition-colors',
         highlight,
       )}
     >
@@ -272,35 +273,35 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       </div>
 
       {/* Progress ---------------------------------------------------------- */}
-      <div className="space-y-2 p-4">
-        {/* The completion announcements are long next to the count, and cards
-            can be as narrow as 17rem, so the count drops to its own line rather
-            than squeezing the label into an ellipsis. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-75">
-          <span
-            className={cn(
-              'eyebrow flex min-w-0 items-center gap-1.5',
-              isMastered ? 'text-trophy-900' : 'text-gray-600',
-            )}
-          >
-            {/* The platform's own award, dimmed until it is actually earned. */}
-            <TrophyBadge platform={game.platform} size={16} muted={!isMastered} />
-            <span className="truncate" title={awardLabel}>
-              {awardLabel}
-            </span>
+      {/* Always the same three lines — label, count, meter — whatever the
+          state. The count used to share the label's line and wrap below it only
+          when the long completion announcement needed the room, so finished
+          cards stood taller than the rest of their row. */}
+      <div className="mt-auto space-y-2 p-4">
+        <div
+          className={cn(
+            'eyebrow flex min-w-0 items-center gap-1.5',
+            isMastered ? 'text-trophy-900' : 'text-gray-600',
+          )}
+        >
+          {/* The platform's own award, dimmed until it is actually earned. */}
+          <TrophyBadge platform={game.platform} size={16} muted={!isMastered} />
+          <span className="truncate" title={awardLabel}>
+            {awardLabel}
           </span>
-          <span className="flex shrink-0 items-center gap-1.5 font-bold tabular-nums text-gray-900">
-            {game.achievementRating ? (
-              <RatingValue
-                value={game.achievementRating}
-                size="xs"
-                label={`${awardNoun(game.platform)} rated`}
-              />
-            ) : null}
-            <span>
-              {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
-              <span className="font-normal text-gray-600">({progress}%)</span>
-            </span>
+        </div>
+
+        <div className="flex h-4 items-center gap-1.5 text-75 font-bold tabular-nums text-gray-900">
+          {game.achievementRating ? (
+            <RatingValue
+              value={game.achievementRating}
+              size="xs"
+              label={`${awardNoun(game.platform)} rated`}
+            />
+          ) : null}
+          <span>
+            {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
+            <span className="font-normal text-gray-600">({progress}%)</span>
           </span>
         </div>
 

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2, DatabaseZap } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
+import { SyncProvider } from './context/SyncContext';
 import { isSupabaseConfigured } from './lib/supabase';
 import { APP_NAME } from './lib/constants';
 import { AppLayout } from './components/AppLayout';
@@ -57,19 +58,21 @@ function AuthenticatedApp() {
 
   return (
     <GameProvider>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<DashboardView />} />
-          <Route path="playing" element={<CurrentlyPlayingView />} />
-          <Route path="achievements" element={<AchievementsView />} />
-          <Route path="search" element={<SearchView />} />
-          <Route path="backlog" element={<BacklogView />} />
-          <Route path="collections" element={<CollectionsView />} />
-          <Route path="stats" element={<StatsView />} />
-          <Route path="settings" element={<SettingsView />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+      <SyncProvider>
+        <Routes>
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<DashboardView />} />
+            <Route path="playing" element={<CurrentlyPlayingView />} />
+            <Route path="achievements" element={<AchievementsView />} />
+            <Route path="search" element={<SearchView />} />
+            <Route path="backlog" element={<BacklogView />} />
+            <Route path="collections" element={<CollectionsView />} />
+            <Route path="stats" element={<StatsView />} />
+            <Route path="settings" element={<SettingsView />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </SyncProvider>
     </GameProvider>
   );
 }

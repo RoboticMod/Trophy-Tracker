@@ -82,6 +82,12 @@ interface StatTileProps {
   caption?: string;
   /** Overrides the value ink, for a figure that carries its own verdict. */
   color?: string;
+  /**
+   * "inset" is a well cut into the panel around it. A tile standing on the page
+   * itself has no panel to be cut into, and the well reads as a black hole
+   * there — "panel" gives it the same glass as every card beside it.
+   */
+  surface?: 'inset' | 'panel';
 }
 
 /**
@@ -89,8 +95,18 @@ interface StatTileProps {
  * a strip where several related figures belong together and a card apiece would
  * break them into separate thoughts.
  */
-export const StatTile: React.FC<StatTileProps> = ({ label, value, caption, color }) => (
-  <div className="panel-inset rounded-md px-3.5 py-3">
+export const StatTile: React.FC<StatTileProps> = ({
+  label,
+  value,
+  caption,
+  color,
+  surface = 'inset',
+}) => (
+  <div
+    className={
+      surface === 'panel' ? 'panel rounded-lg px-5 py-4' : 'panel-inset rounded-md px-3.5 py-3'
+    }
+  >
     <div className="eyebrow truncate text-gray-600">{label}</div>
     <div
       className="mt-1.5 text-500 font-bold leading-none tabular-nums text-gray-1000"

@@ -128,9 +128,39 @@ export const findNewAchievementsCollection = (collections: Collection[]): Collec
     (collection) => collection.name.trim().toLowerCase() === NEW_ACHIEVEMENTS_COLLECTION.toLowerCase(),
   );
 
+/**
+ * Whether a platform can keep this game current.
+ *
+ * Linking is the only switch: a Steam game needs the app it is, and a
+ * PlayStation game is matched to the account's trophy list by title, so the
+ * platform alone is enough there. Anything else stays exactly as typed.
+ */
+export const isSyncLinked = (game: Pick<UserGame, 'platform' | 'steamAppId'>): boolean =>
+  game.platform === 'ps5' || Boolean(game.steamAppId);
+
+/** The sync fields a save writes, derived from the link rather than chosen. */
+export const syncFieldsFor = (
+  game: Pick<UserGame, 'platform' | 'steamAppId'>,
+): Pick<UserGame, 'autoSync' | 'syncSource'> =>
+  isSyncLinked(game)
+    ? { autoSync: true, syncSource: syncSourceFor(game.platform) }
+    : { autoSync: false, syncSource: 'manual' };
+
 /** Whether a game is due another look, given how long ago it was last synced. */
 export function isDueForSync(game: UserGame, intervalMs: number): boolean {
-  if (!game.autoSync) return false;
   if (!game.lastSyncedAt) return true;
   return Date.now() - new Date(game.lastSyncedAt).getTime() > intervalMs;
+}
+
+/**
+ * Whether a platform's own "last touched" time says there may be something new.
+ *
+ * Both platforms stamp a game when it is played or an award is earned. A stamp
+ * older than this game's last sync means nothing has happened since, so the
+ * per-game request can be skipped — that is what lets the sync run every few
+ * minutes without asking about the whole library each time.
+ */
+export function hasNewActivity(game: UserGame, platformTouchedAt?: string | null): boolean {
+  if (!game.lastSyncedAt || !platformTouchedAt) return true;
+  return new Date(platformTouchedAt).getTime() > new Date(game.lastSyncedAt).getTime();
 }

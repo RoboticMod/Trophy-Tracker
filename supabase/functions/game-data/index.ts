@@ -23,6 +23,7 @@ import {
   exchangeRefreshTokenForAuthTokens,
   getProfileFromUserName,
   getTitleTrophies,
+  getUserPlayedGames,
   getUserTitles,
   getUserTrophiesEarnedForTitle,
 } from 'npm:psn-api@2';
@@ -431,6 +432,56 @@ const countTrophies = (trophies?: {
   (trophies?.gold ?? 0) +
   (trophies?.platinum ?? 0);
 
+/**
+ * Hours, to a tenth, from PSN's ISO-8601 duration — "PT228H56M33S". PSN never
+ * uses a day or larger unit here, but one is honoured if it ever appears.
+ */
+const durationHours = (duration?: string | null): number => {
+  const match = duration?.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?)?$/);
+  if (!match) return 0;
+  const [, days, hours, minutes, seconds] = match;
+  const total =
+    Number(days ?? 0) * 24 +
+    Number(hours ?? 0) +
+    Number(minutes ?? 0) / 60 +
+    Number(seconds ?? 0) / 3600;
+  return Math.round(total * 10) / 10;
+};
+
+/**
+ * Playtime for every PS4 and PS5 game the account has played.
+ *
+ * Trophy lists say nothing about time, so this is a second list — the one the
+ * console's own "played games" screen uses. It is paged at the API's maximum
+ * and walked to the end, because a library is often longer than one page.
+ * A failure here returns nothing rather than failing the trophy sync with it:
+ * trophies are the point, and playtime is a bonus.
+ */
+async function psnPlayedGames(psnAuth: { accessToken: string }, accountId: string) {
+  const played: { name: string; titleId: string; hoursPlayed: number; lastPlayedAt: string | null }[] =
+    [];
+  const pageSize = 200;
+
+  try {
+    for (let offset = 0; offset < 5000; offset += pageSize) {
+      const page = await getUserPlayedGames(psnAuth, accountId, { limit: pageSize, offset });
+      for (const title of page.titles ?? []) {
+        played.push({
+          name: title.name || title.concept?.name || '',
+          titleId: title.titleId,
+          hoursPlayed: durationHours(title.playDuration),
+          lastPlayedAt: title.lastPlayedDateTime ?? null,
+        });
+      }
+      if (!page.titles?.length || offset + pageSize >= (page.totalItemCount ?? 0)) break;
+    }
+  } catch (error) {
+    console.warn('PSN played games unavailable', error);
+  }
+
+  return played;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Router                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -580,7 +631,12 @@ Deno.serve(async (request) => {
 
       /* Every title with a trophy list, and how far through it you are. */
       if (segments[2] === 'titles') {
-        const titles = await getUserTitles(psnAuth, session.accountId);
+        // 800 is the most PSN returns at once. The default is 100, which quietly
+        // left every older trophy list out of the match.
+        const [titles, played] = await Promise.all([
+          getUserTitles(psnAuth, session.accountId, { limit: 800 }),
+          psnPlayedGames(psnAuth, session.accountId),
+        ]);
 
         return json(
           {
@@ -596,6 +652,7 @@ Deno.serve(async (request) => {
               platinumEarned: (title.earnedTrophies?.platinum ?? 0) > 0,
               lastUpdatedAt: title.lastUpdatedDateTime ?? null,
             })),
+            played,
           },
           200,
           CACHE.me,

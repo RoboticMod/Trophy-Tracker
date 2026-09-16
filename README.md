@@ -34,8 +34,9 @@ VITE_RAWG_API_KEY=""   # optional
 ```
 
 Without Supabase credentials the app renders a setup screen instead of booting.
-Without a [RAWG](https://rawg.io/apidocs) key, catalog search returns nothing — every catalog
-result comes from RAWG, so games have to be entered by hand instead.
+Game search uses the Steam store by default, through the edge function below. [RAWG](https://rawg.io/apidocs)
+is optional: pick it under Settings → Game catalog and paste a key there, or set
+`VITE_RAWG_API_KEY` to give every user a default one.
 
 ### 3. Run
 
@@ -47,9 +48,9 @@ npm run build    # production bundle in dist/
 
 ### 4. Live game data (optional)
 
-Player charts, screenshots, reviews and auto-fetched progress all come through one Supabase edge
-function, `supabase/functions/game-data`. Without it the app works exactly as before: everything
-is entered by hand.
+Steam search, player charts, screenshots, reviews and synced progress all come through one
+Supabase edge function, `supabase/functions/game-data`. Without it, games are entered by hand (or
+found through RAWG).
 
 It exists because none of the three upstreams can be called from a browser. SteamRaw,
 `store.steampowered.com` and `api.steampowered.com` all answer a request happily and send **no**
@@ -69,8 +70,8 @@ Then re-run the schema SQL (Settings → Cloud storage → "Copy schema SQL") to
 
 **Steam.** Settings → Connected accounts takes a profile URL, a custom URL name or a SteamID64.
 Your Steam profile's *Game details* privacy must be **Public**, or the Web API reports no
-achievements at all. Each game is then linked to its app in its own edit dialog, where
-"Auto fetch from Steam" turns syncing on for that game.
+achievements at all. A game added from Steam search arrives linked; any other can be linked to its
+app in its edit dialog. Every linked game syncs on its own.
 
 **PlayStation.** Sony publishes no API. The working route is the NPSSO cookie:
 
@@ -82,6 +83,14 @@ That token is equivalent to your account password. It is posted straight to the 
 exchanged there for an access/refresh pair, and **never stored** — only the resulting tokens are,
 in your own RLS-protected row. Access tokens last about an hour and are refreshed automatically;
 the refresh token lasts about two months, after which the app asks for a new NPSSO.
+
+Every PS5 game is matched to your trophy lists and played games by title, which brings its
+trophies and playtime with it.
+
+Syncing is automatic: when the app opens, every 15 minutes while it is on screen, when the tab
+comes back into view or the connection returns, and as soon as a game is added or linked. Each
+pass only asks about games the platform says have been played since the last one. The sync
+button in the top bar reloads from the cloud and asks about every linked game at once.
 
 A sync only ever writes achievement counts, playtime, last played and completion dates. Ratings,
 status, notes and collections are yours and are never overwritten — with one exception: a finished

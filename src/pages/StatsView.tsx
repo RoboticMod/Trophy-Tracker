@@ -214,22 +214,25 @@ export const StatsView: React.FC = () => {
           />
         </Card>
 
-        {/* The four figures stand on their own rather than inside a panel. Each
-            tile is already a well cut into the page, so wrapping them in a card
-            drew a box around four boxes. */}
+        {/* The four figures stand on their own rather than inside a panel, so
+            each is a panel itself — the same glass as the gauge card beside
+            them, rather than a well cut into nothing. */}
         <div className="grid gap-3 sm:grid-cols-2">
           <StatTile
+            surface="panel"
             label="Tracked games"
             value={formatCount(totalGames)}
             caption={`${activePlaying.length} in progress right now`}
           />
           <StatTile
+            surface="panel"
             label="Achievement completion"
             value={`${overallCompletionRate}%`}
             color={completionColor(overallCompletionRate)}
             caption={`${formatCount(totalAchievements)} of ${formatCount(totalMaxAchievements)} unlocked`}
           />
           <StatTile
+            surface="panel"
             label="Playtime logged"
             value={`${formatCount(totalHours)}h`}
             caption={`~${(totalHours / 24).toFixed(1)} days · most: ${
@@ -237,6 +240,7 @@ export const StatsView: React.FC = () => {
             }`}
           />
           <StatTile
+            surface="panel"
             label="100% completed"
             value={String(perfectGames.length)}
             color="var(--color-trophy-900)"

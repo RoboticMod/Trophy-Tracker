@@ -3,38 +3,23 @@ import { Check, Link2, Loader2, Search, Unlink } from 'lucide-react';
 import { SteamError, SteamSearchResult, searchSteam, steamStoreUrl } from '../lib/steam';
 import { formatCount } from '../lib/format';
 import { CoverArt } from './CoverArt';
-import { SyncNowButton, SyncOutcome } from './SyncNowButton';
-import { Button, Switch, TextInput } from './ui';
+import { Button, TextInput } from './ui';
 import { cn } from '../lib/cn';
 
 interface SteamLinkFieldProps {
   title: string;
   appId?: number;
-  autoSync: boolean;
-  onChange: (patch: { steamAppId?: number; autoSync?: boolean }) => void;
-  /** Fetches this one game now. Absent on a game that has not been saved yet. */
-  onSync?: () => Promise<SyncOutcome>;
-  /** Why syncing is not possible yet, shown on the disabled button. */
-  syncDisabledReason?: string;
+  onChange: (patch: { steamAppId?: number }) => void;
 }
 
 /**
- * Matching a game to its Steam app, and deciding whether Steam is allowed to
- * keep its figures current.
+ * Matching a game to its Steam app.
  *
- * Two separate choices on purpose. Linking is what makes the game info dialog
- * useful — charts, screenshots, reviews — and costs nothing you have typed.
- * Auto-sync is the one that starts overwriting your own numbers, so it is a
- * deliberate second step and is off until you take it.
+ * Linking is the whole decision: a linked game gets the charts, screenshots and
+ * reviews in its info dialog, and your Steam account keeps its achievements and
+ * playtime current from then on. A game left unlinked stays exactly as typed.
  */
-export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
-  title,
-  appId,
-  autoSync,
-  onChange,
-  onSync,
-  syncDisabledReason,
-}) => {
+export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({ title, appId, onChange }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(title);
   const [results, setResults] = useState<SteamSearchResult[]>([]);
@@ -83,7 +68,7 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
             <Button
               buttonStyle="subtle"
               size="s"
-              onClick={() => onChange({ steamAppId: undefined, autoSync: false })}
+              onClick={() => onChange({ steamAppId: undefined })}
             >
               <Unlink size={13} />
               Unlink
@@ -98,24 +83,14 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
       </div>
 
       {appId ? (
-        <>
-          <Switch
-            checked={autoSync}
-            onChange={(next) => onChange({ autoSync: next })}
-            label="Auto fetch from Steam"
-          />
-          <p className="text-50 text-gray-600">
-            {autoSync
-              ? 'Achievements, playtime and last played are kept up to date from your Steam account. Your rating, notes, status and collections are never touched.'
-              : 'Linked for game info only. Turn this on to let Steam keep the achievement counts and playtime current.'}
-          </p>
-
-          {onSync ? <SyncNowButton onSync={onSync} disabledReason={syncDisabledReason} /> : null}
-        </>
+        <p className="text-50 text-gray-600">
+          Achievements, playtime and last played update on their own from your Steam account. Your
+          rating, notes, status and collections are never touched.
+        </p>
       ) : (
         <p className="text-50 text-gray-600">
-          Optional. Linking adds player charts, screenshots and reviews to this game, and makes
-          auto-fetch possible. Everything here can stay hand-entered.
+          Optional. Linking adds player charts, screenshots and reviews to this game, and keeps its
+          achievements and playtime current. Unlinked, everything stays hand-entered.
         </p>
       )}
 

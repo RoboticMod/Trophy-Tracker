@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUpRight,
@@ -17,6 +17,8 @@ import {
 import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { useGame } from '../context/GameContext';
+import { useSync } from '../context/SyncContext';
+import { syncFieldsFor } from '../lib/sync';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { formatCount, relativeTime } from '../lib/format';
 import { statusLabel, STATUS_TONE } from '../lib/status';
@@ -495,7 +497,7 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
                   ) : null}
                 </div>
 
-                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                <WheelScrollStrip className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                   {media.map((item, index) => (
                     <button
                       key={`${item.kind}-${item.id}`}
@@ -524,7 +526,7 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
                       ) : null}
                     </button>
                   ))}
-                </div>
+                </WheelScrollStrip>
               </section>
             ) : null}
 
@@ -602,6 +604,51 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
   );
 };
 
+/**
+ * A sideways-scrolling row that a mouse wheel can move.
+ *
+ * A wheel only scrolls vertically, so over a horizontal strip it did nothing
+ * at all. The vertical movement is turned into horizontal scroll while the
+ * strip still has somewhere to go; at either end it is let through, so the
+ * dialog keeps scrolling rather than the pointer becoming a dead zone.
+ * Registered by hand because React's own wheel listener is passive and cannot
+ * cancel the page scroll.
+ */
+const WheelScrollStrip: React.FC<{ className?: string; children: React.ReactNode }> = ({
+  className,
+  children,
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const strip = ref.current;
+    if (!strip) return;
+
+    const onWheel = (event: WheelEvent) => {
+      // A trackpad already scrolls sideways on its own.
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      const max = strip.scrollWidth - strip.clientWidth;
+      if (max <= 0) return;
+
+      const atStart = strip.scrollLeft <= 0 && event.deltaY < 0;
+      const atEnd = strip.scrollLeft >= max - 1 && event.deltaY > 0;
+      if (atStart || atEnd) return;
+
+      event.preventDefault();
+      strip.scrollLeft += event.deltaY;
+    };
+
+    strip.addEventListener('wheel', onWheel, { passive: false });
+    return () => strip.removeEventListener('wheel', onWheel);
+  }, []);
+
+  return (
+    <div ref={ref} className={className}>
+      {children}
+    </div>
+  );
+};
+
 const OutboundLink: React.FC<{ href: string; children: React.ReactNode }> = ({ href, children }) => (
   <a
     href={href}
@@ -623,6 +670,15 @@ const OutboundLink: React.FC<{ href: string; children: React.ReactNode }> = ({ h
  */
 const LinkToSteam: React.FC<{ game: UserGame }> = ({ game }) => {
   const { updateGame } = useGame();
+  const { syncGame } = useSync();
+
+  // Linking is what makes a game sync, so it fetches the moment it is linked.
+  const link = (appid: number) => {
+    const linked = { ...game, steamAppId: appid };
+    const patch = { steamAppId: appid, ...syncFieldsFor(linked) };
+    updateGame(game.id, patch);
+    void syncGame({ ...linked, ...patch });
+  };
   const [query, setQuery] = useState(game.title);
   const [results, setResults] = useState<SteamSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -649,8 +705,8 @@ const LinkToSteam: React.FC<{ game: UserGame }> = ({ game }) => {
     <section className="panel-inset space-y-3 rounded-md p-4">
       <SectionTitle>Find on Steam</SectionTitle>
       <p className="text-75 text-gray-700">
-        Link this game to its Steam app to see players, screenshots and reviews here — and to let a
-        sync keep its figures current.
+        Link this game to its Steam app to see players, screenshots and reviews here — and to keep
+        its achievements and playtime current from your Steam account.
       </p>
 
       <div className="relative">
@@ -683,7 +739,7 @@ const LinkToSteam: React.FC<{ game: UserGame }> = ({ game }) => {
             <li key={result.appid}>
               <button
                 type="button"
-                onClick={() => updateGame(game.id, { steamAppId: result.appid })}
+                onClick={() => link(result.appid)}
                 className="flex w-full items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
               >
                 <CoverArt

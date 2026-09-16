@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Check, Loader2, Plug, RefreshCw, Unlink } from 'lucide-react';
+import { Check, Loader2, Plug, Unlink } from 'lucide-react';
 import { SiPlaystation, SiSteam } from 'react-icons/si';
 import { useGame } from '../context/GameContext';
 import { resolveSteamAccount } from '../lib/steam';
 import { hasLinkColumns } from '../lib/db';
-import { useSteamSync } from '../lib/useSteamSync';
-import { usePsnSync } from '../lib/usePsnSync';
+import { useSync } from '../context/SyncContext';
 import { linkPsnAccount, unlinkPsnAccount } from '../lib/psn';
 import { NEW_ACHIEVEMENTS_COLLECTION } from '../lib/sync';
 import { relativeTime } from '../lib/format';
@@ -20,13 +19,13 @@ import { Button, Card, Field, SectionHeader, TextInput } from './ui';
  */
 export const ConnectedAccounts: React.FC = () => {
   const { games, platformAccounts, linkSteamAccount, unlinkSteamAccount } = useGame();
-  const { isLinked, state, syncAll } = useSteamSync();
+  const { state } = useSync().steam;
 
   const [input, setInput] = useState('');
   const [linking, setLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const autoSyncCount = games.filter((g) => g.autoSync && g.steamAppId).length;
+  const linkedCount = games.filter((g) => g.platform === 'steam' && g.steamAppId).length;
 
   const handleLink = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -61,26 +60,8 @@ export const ConnectedAccounts: React.FC = () => {
       <SectionHeader
         icon={<Plug size={18} />}
         title="Connected accounts"
-        description="Let Steam and PlayStation keep your tracked progress current"
+        description="Steam and PlayStation keep your linked games current on their own"
         iconClassName="bg-steam-700/16 text-steam-900"
-        action={
-          isLinked ? (
-            <Button
-              variant="secondary"
-              buttonStyle="outline"
-              size="s"
-              disabled={state.running || autoSyncCount === 0}
-              onClick={() => void syncAll()}
-            >
-              {state.running ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <RefreshCw size={13} />
-              )}
-              Sync now
-            </Button>
-          ) : null
-        }
       />
 
       {/* Shown only once a write has actually been refused for want of the new
@@ -122,9 +103,9 @@ export const ConnectedAccounts: React.FC = () => {
         {platformAccounts?.steamId ? (
           <>
             <p className="text-50 text-gray-600">
-              {autoSyncCount > 0
-                ? `${autoSyncCount} game${autoSyncCount === 1 ? '' : 's'} set to auto fetch. Turn it on for a game in its edit dialog.`
-                : 'No games are set to auto fetch yet. Link a game to a Steam app in its edit dialog and turn on “Auto fetch from Steam”.'}
+              {linkedCount > 0
+                ? `${linkedCount} linked game${linkedCount === 1 ? '' : 's'}, kept current automatically.`
+                : 'No games are linked yet. Add one from the Steam search, or link a game to its Steam app in its edit dialog.'}
             </p>
 
             {/* The single most common reason a sync comes back empty, said
@@ -190,7 +171,7 @@ export const ConnectedAccounts: React.FC = () => {
  */
 const PlayStationAccount: React.FC = () => {
   const { games, platformAccounts, refreshPlatformAccounts } = useGame();
-  const { state, syncAll } = usePsnSync();
+  const { state } = useSync().psn;
 
   const [npsso, setNpsso] = useState('');
   const [linking, setLinking] = useState(false);
@@ -198,7 +179,7 @@ const PlayStationAccount: React.FC = () => {
   const [showSteps, setShowSteps] = useState(false);
 
   const linked = Boolean(platformAccounts?.psnAccountId);
-  const autoSyncCount = games.filter((g) => g.platform === 'ps5' && g.autoSync).length;
+  const ps5Count = games.filter((g) => g.platform === 'ps5').length;
 
   const handleLink = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -244,40 +225,24 @@ const PlayStationAccount: React.FC = () => {
         </div>
 
         {linked ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              buttonStyle="outline"
-              size="s"
-              disabled={state.running || autoSyncCount === 0}
-              onClick={() => void syncAll()}
-            >
-              {state.running ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <RefreshCw size={13} />
-              )}
-              Sync
-            </Button>
-            <Button
-              variant="secondary"
-              buttonStyle="outline"
-              size="s"
-              onClick={() => void handleUnlink()}
-            >
-              <Unlink size={13} />
-              Unlink
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            buttonStyle="outline"
+            size="s"
+            onClick={() => void handleUnlink()}
+          >
+            <Unlink size={13} />
+            Unlink
+          </Button>
         ) : null}
       </div>
 
       {linked ? (
         <>
           <p className="text-50 text-gray-600">
-            {autoSyncCount > 0
-              ? `${autoSyncCount} PS5 game${autoSyncCount === 1 ? '' : 's'} set to auto fetch. Trophy lists are matched to your library by title.`
-              : 'No PS5 games are set to auto fetch yet. Turn on “Auto fetch from PlayStation” in a game’s edit dialog.'}
+            {ps5Count > 0
+              ? `${ps5Count} PS5 game${ps5Count === 1 ? '' : 's'} kept current automatically. Trophy lists and playtime are matched to your library by title.`
+              : 'No PS5 games yet. Any you add are matched to your trophy lists by title and kept current automatically.'}
           </p>
 
           {state.lastReport ? (

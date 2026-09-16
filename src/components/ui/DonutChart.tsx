@@ -95,13 +95,10 @@ export const DonutChart: React.FC<DonutChartProps> = ({
         style={{ top: -BLEED, left: -BLEED }}
         aria-hidden
       >
-        {/* Mirrored about the vertical axis, which turns the clockwise draw
-            below into a counter-clockwise one while leaving twelve o'clock
-            exactly where it is. The arithmetic stays the way a dash pattern
-            wants it — clockwise from a start angle — and only the direction it
-            is seen from changes, so the ring now unwinds the same way the
-            gauge on this page does. */}
-        <g transform={`translate(${box} 0) scale(-1 1)`}>
+        {/* Drawn clockwise from twelve o'clock, the same direction the gauge on
+            this page fills: the track shows first, empty, and the colour runs
+            round it once. */}
+        <g>
           <circle
             cx={mid}
             cy={mid}
@@ -124,7 +121,10 @@ export const DonutChart: React.FC<DonutChartProps> = ({
               // pathLength 1 lets the dash pattern be written in fractions of
               // the circle rather than in px of circumference.
               pathLength={1}
-              strokeDasharray={`${segment.length} ${1 - segment.length}`}
+              // The gap is a whole circle long, so as the offset runs down to
+              // zero the arc grows out of its own start. A gap shorter than the
+              // circle let the dash wrap round and slide into place instead.
+              strokeDasharray={`${segment.length} 1`}
               // -90 puts the first segment at twelve o'clock rather than at three.
               transform={`rotate(${segment.startAngle - 90} ${mid} ${mid})`}
               initial={{ strokeDashoffset: reduceMotion ? 0 : segment.length }}

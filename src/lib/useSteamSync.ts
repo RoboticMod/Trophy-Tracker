@@ -7,12 +7,19 @@ import {
   NEW_ACHIEVEMENTS_COLOR,
   NEW_ACHIEVEMENTS_DESCRIPTION,
   findNewAchievementsCollection,
+  hasNewActivity,
   isDueForSync,
   reconcile,
+  syncFieldsFor,
 } from './sync';
 
-/** How long a synced game is left alone before it is worth asking again. */
-export const SYNC_INTERVAL_MS = 60 * 60 * 1000;
+/**
+ * How long a synced game is left alone before it is worth asking again.
+ *
+ * Short, because the question is cheap: the library call says which games have
+ * been played since, and only those cost a request of their own.
+ */
+export const SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
 export interface SyncReport {
   checked: number;
@@ -29,15 +36,34 @@ export interface SyncState {
 }
 
 /**
+ * The longest a linked game goes unasked, whatever the platform says.
+ *
+ * A developer adding achievements to a game you finished years ago does not
+ * make it "played", so activity alone would never notice the list grew.
+ */
+export const SYNC_SAFETY_NET_MS = 24 * 60 * 60 * 1000;
+
+export interface SyncOptions {
+  /**
+   * Ask about every linked game, even one the platform says has not been
+   * played since the last sync — for when you have asked for a sync yourself.
+   */
+  force?: boolean;
+}
+
+/**
  * Pulling Steam's version of your progress into the library.
  *
  * Writes go through updateGame like any other edit, so they inherit the
  * optimistic update, the offline queue and — the good part — the completion
- * celebration. A platinum earned on the console while the app was closed still
- * gets its burst the moment the app learns about it.
+ * celebration. A game finished while the app was closed still gets its burst
+ * the moment the app learns about it.
+ *
+ * Mounted once, by the sync provider: a second copy would have its own guard
+ * and could run alongside the first.
  */
 export function useSteamSync() {
-  const { games, collections, platformAccounts, updateGame, createCollection } = useGame();
+  const { getGames, collections, platformAccounts, updateGame, createCollection } = useGame();
 
   const [state, setState] = useState<SyncState>({
     running: false,
@@ -45,9 +71,9 @@ export function useSteamSync() {
     lastRunAt: null,
   });
 
-  // A guard rather than state: an automatic run on load and a "sync now" press
-  // can land together, and syncing the same game twice would have the second
-  // run reconciling against figures the first had already written.
+  // A guard rather than state: a timed run and a button press can land
+  // together, and syncing the same game twice would have the second run
+  // reconciling against figures the first had already written.
   const running = useRef(false);
 
   const steamId = platformAccounts?.steamId;
@@ -79,10 +105,9 @@ export function useSteamSync() {
   /**
    * One game, one request.
    *
-   * Used the moment a game is linked and by its own Sync button, so neither has
-   * to walk the whole library to answer a question about a single title. The
-   * function returns playtime alongside the achievements for exactly this
-   * reason.
+   * Used the moment a game is added or linked, so the figures arrive without
+   * walking the whole library. The function returns playtime alongside the
+   * achievements for exactly this reason.
    */
   const syncOne = useCallback(
     async (game: UserGame): Promise<{ updated: boolean; grew: boolean; error?: SteamError }> => {
@@ -91,7 +116,10 @@ export function useSteamSync() {
       const result = await getSteamAchievements(steamId, game.steamAppId);
       if (!result.data) return { updated: false, grew: false, error: result.error };
 
-      const { updates, changed, grewList } = reconcile(game, {
+      // Reconciled against the stored copy, which may have moved on since the
+      // caller took its snapshot.
+      const current = getGames().find((g) => g.id === game.id) ?? game;
+      const { updates, changed, grewList } = reconcile(current, {
         unlocked: result.data.unlocked,
         total: result.data.total,
         hoursPlayed: result.data.hoursPlayed ?? undefined,
@@ -100,56 +128,65 @@ export function useSteamSync() {
       });
 
       // Stamped even when nothing moved, so an unchanged game is not asked
-      // about again on every single load.
-      const patch: Partial<UserGame> = { ...updates, lastSyncedAt: new Date().toISOString() };
-      if (grewList) patch.collections = fileAsGrown(game);
+      // about again on every single pass.
+      const patch: Partial<UserGame> = {
+        ...updates,
+        ...syncFieldsFor(current),
+        lastSyncedAt: new Date().toISOString(),
+      };
+      if (grewList) patch.collections = fileAsGrown(current);
 
       updateGame(game.id, patch);
       return { updated: changed, grew: grewList };
     },
-    [steamId, updateGame, fileAsGrown],
+    [steamId, getGames, updateGame, fileAsGrown],
   );
 
   /**
    * Every linked game, plus playtime from the owned-games list.
    *
    * Playtime comes from one call for the whole library rather than one per
-   * game — it is the same request either way, and a library of eighty games
-   * should not be eighty requests.
+   * game, and the same call says when each game was last played — so a game
+   * untouched since its last sync is skipped rather than asked about.
    */
   const syncAll = useCallback(
-    async (options: { onlyDue?: boolean } = {}): Promise<SyncReport> => {
+    async (options: SyncOptions = {}): Promise<SyncReport> => {
       const empty: SyncReport = { checked: 0, updated: 0, grown: [] };
       if (!steamId || running.current) return empty;
 
-      const candidates = games.filter(
-        (game) =>
-          game.platform === 'steam' &&
-          game.autoSync &&
-          game.steamAppId &&
-          (!options.onlyDue || isDueForSync(game, SYNC_INTERVAL_MS)),
+      const candidates = getGames().filter(
+        (game) => game.platform === 'steam' && game.steamAppId,
       );
       if (candidates.length === 0) return empty;
 
       running.current = true;
       setState((prev) => ({ ...prev, running: true }));
 
-      const report: SyncReport = { checked: candidates.length, updated: 0, grown: [] };
+      const report: SyncReport = { checked: 0, updated: 0, grown: [] };
 
       try {
         const library = await getSteamLibrary(steamId);
         const playtime = new Map(library.data?.map((entry) => [entry.appid, entry]) ?? []);
         if (library.error) report.error = library.error;
 
-        for (const game of candidates) {
-          const owned = game.steamAppId ? playtime.get(game.steamAppId) : undefined;
-          const achievements = await getSteamAchievements(steamId, game.steamAppId!);
+        for (const candidate of candidates) {
+          const owned = playtime.get(candidate.steamAppId!);
+
+          const due =
+            options.force ||
+            hasNewActivity(candidate, owned?.lastPlayedAt) ||
+            isDueForSync(candidate, SYNC_SAFETY_NET_MS);
+          if (!due) continue;
+
+          report.checked += 1;
+          const achievements = await getSteamAchievements(steamId, candidate.steamAppId!);
 
           if (!achievements.data) {
             report.error = achievements.error ?? report.error;
             continue;
           }
 
+          const game = getGames().find((g) => g.id === candidate.id) ?? candidate;
           const { updates, changed, grewList } = reconcile(game, {
             unlocked: achievements.data.unlocked,
             total: achievements.data.total,
@@ -158,7 +195,11 @@ export function useSteamSync() {
             lastUnlockedAt: achievements.data.lastUnlockedAt,
           });
 
-          const patch: Partial<UserGame> = { ...updates, lastSyncedAt: new Date().toISOString() };
+          const patch: Partial<UserGame> = {
+            ...updates,
+            ...syncFieldsFor(game),
+            lastSyncedAt: new Date().toISOString(),
+          };
           if (grewList) {
             patch.collections = fileAsGrown(game);
             report.grown.push(game.title);
@@ -178,7 +219,7 @@ export function useSteamSync() {
 
       return report;
     },
-    [games, steamId, updateGame, fileAsGrown],
+    [getGames, steamId, updateGame, fileAsGrown],
   );
 
   return {

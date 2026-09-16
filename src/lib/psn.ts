@@ -32,6 +32,17 @@ export interface PsnTitle {
   lastUpdatedAt: string | null;
 }
 
+/**
+ * A PS4 or PS5 game from the console's own played-games list — the only place
+ * PSN reports playtime. Trophy lists carry none.
+ */
+export interface PsnPlayedGame {
+  name: string;
+  titleId: string;
+  hoursPlayed: number;
+  lastPlayedAt: string | null;
+}
+
 export interface PsnTitleProgress {
   npCommunicationId: string;
   total: number;
@@ -94,9 +105,17 @@ export const linkPsnAccount = (npsso: string): Promise<PsnResult<PsnAccount>> =>
 export const unlinkPsnAccount = (): Promise<PsnResult<{ ok: boolean }>> =>
   call<{ ok: boolean }>('/me/psn/unlink', { method: 'POST' });
 
-export const getPsnTitles = async (): Promise<PsnResult<PsnTitle[]>> => {
-  const result = await call<{ titles: PsnTitle[] }>('/me/psn/titles');
-  return result.data ? { data: result.data.titles } : { error: result.error };
+export interface PsnLibrary {
+  titles: PsnTitle[];
+  /** Absent from a function deployed before playtime was added. */
+  played: PsnPlayedGame[];
+}
+
+export const getPsnTitles = async (): Promise<PsnResult<PsnLibrary>> => {
+  const result = await call<{ titles: PsnTitle[]; played?: PsnPlayedGame[] }>('/me/psn/titles');
+  return result.data
+    ? { data: { titles: result.data.titles, played: result.data.played ?? [] } }
+    : { error: result.error };
 };
 
 export const getPsnTitleProgress = (

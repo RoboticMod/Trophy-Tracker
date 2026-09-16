@@ -5,13 +5,11 @@ import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
 import { statusLabel, STATUS_SELECTED_CLASS } from '../lib/status';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
-import { RatingControl } from './Rating';
-import { Button, Field, Switch, TextArea, TextInput } from './ui';
+import { Button, Field, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 import { GuidedRating } from './GuidedRating';
 import { SteamLinkField } from './SteamLinkField';
-import { SyncNowButton, SyncOutcome } from './SyncNowButton';
 import { isPerfect } from '../lib/completion';
 import { today } from '../lib/format';
 import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/ratingQuestions';
@@ -31,10 +29,8 @@ export interface GameDetailsValues {
   notes: string;
   /** The day it was finished, as yyyy-mm-dd. Empty until there is one. */
   completedAt: string;
-  /** The Steam app this game is, once matched. */
+  /** The Steam app this game is, once matched. Linked games sync themselves. */
   steamAppId?: number;
-  /** Whether a sync may overwrite the tracked figures. Off by default. */
-  autoSync: boolean;
 }
 
 interface GameDetailsFieldsProps {
@@ -46,13 +42,6 @@ interface GameDetailsFieldsProps {
   statuses: GameStatus[];
   collections: Collection[];
   profile: UserProfile;
-  /**
-   * Fetches this one game's progress now. Only supplied by the edit dialog —
-   * a game being added does not exist to sync yet.
-   */
-  onSync?: () => Promise<SyncOutcome>;
-  /** Why syncing is unavailable, shown on the disabled button. */
-  syncDisabledReason?: string;
   /** Appended below the fields, e.g. a note about syncing. */
   children?: React.ReactNode;
 }
@@ -104,8 +93,6 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   statuses,
   collections,
   profile,
-  onSync,
-  syncDisabledReason,
   children,
 }) => {
   const {
@@ -132,7 +119,6 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   const noun = awardNoun(platform);
   const nounLower = noun.toLowerCase();
 
-  const guided = profile.ratingMode === 'guided';
   const awardRatingHint = `How good the ${nounLower} were to earn — separate from how good the game is.`;
 
   // Rounded to a tenth: hours accept decimals, but float arithmetic would
@@ -148,147 +134,151 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   );
 
   return (
-    <form id={formId} onSubmit={onSubmit} className="space-y-5">
-      <Field label="Title">
-        {(props) => (
-          <TextInput
-            {...props}
-            required
-            value={title}
-            onChange={(e) => onChange({ title: e.target.value })}
-            placeholder="Enter the game title"
-          />
-        )}
-      </Field>
+    // Grouped by spacing: what the game is, then where you are with it, then
+    // the panels. A wider gap between groups than inside them is what lets the
+    // form read as three blocks rather than one long column of equal rows.
+    <form id={formId} onSubmit={onSubmit} className="space-y-6">
+      <div className="space-y-4">
+        <Field label="Title">
+          {(props) => (
+            <TextInput
+              {...props}
+              required
+              value={title}
+              onChange={(e) => onChange({ title: e.target.value })}
+              placeholder="Enter the game title"
+            />
+          )}
+        </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <fieldset>
+            <legend className="eyebrow mb-1.5 text-gray-700">Platform</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {PLATFORM_IDS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onChange({ platform: p })}
+                  aria-pressed={platform === p}
+                  className={cn(
+                    'flex h-9 items-center justify-center gap-2 rounded-sm border text-75 font-semibold transition-colors',
+                    platform === p
+                      ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
+                      : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
+                  )}
+                >
+                  <PlatformIcon platform={p} size={15} />
+                  {PLATFORMS[p].shortName}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <Field label="Cover image URL" description="Optional — blank leaves a plain lettered tile">
+            {(props) => (
+              <TextInput
+                {...props}
+                type="url"
+                value={coverImage}
+                onChange={(e) => onChange({ coverImage: e.target.value })}
+                placeholder="https://…"
+              />
+            )}
+          </Field>
+        </div>
+      </div>
+
+      <div className="space-y-4">
         <fieldset>
-          <legend className="eyebrow mb-2 text-gray-700">Platform</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {PLATFORM_IDS.map((p) => (
+          <legend className="eyebrow mb-1.5 text-gray-700">Status</legend>
+          <div
+            className={cn(
+              'grid grid-cols-2 gap-2',
+              statuses.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
+            )}
+          >
+            {statuses.map((s) => (
               <button
-                key={p}
+                key={s}
                 type="button"
-                onClick={() => onChange({ platform: p })}
-                aria-pressed={platform === p}
+                onClick={() => onChange({ status: s })}
+                aria-pressed={status === s}
                 className={cn(
-                  'flex h-9 items-center justify-center gap-2 rounded-sm border text-75 font-semibold transition-colors',
-                  platform === p
-                    ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
+                  'flex h-9 items-center justify-center rounded-sm border px-3 text-75 font-semibold transition-colors',
+                  status === s
+                    ? STATUS_SELECTED_CLASS[s]
                     : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
                 )}
               >
-                <PlatformIcon platform={p} size={15} />
-                {PLATFORMS[p].shortName}
+                {statusLabel(s, profile)}
               </button>
             ))}
           </div>
         </fieldset>
 
-        <Field label="Cover image URL" description="Optional — blank leaves a plain lettered tile">
-          {(props) => (
-            <TextInput
-              {...props}
-              type="url"
-              value={coverImage}
-              onChange={(e) => onChange({ coverImage: e.target.value })}
-              placeholder="https://…"
-            />
-          )}
-        </Field>
-      </div>
-
-      <fieldset>
-        <legend className="eyebrow mb-2 text-gray-700">Status</legend>
-        <div
-          className={cn(
-            'grid grid-cols-2 gap-2',
-            statuses.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
-          )}
-        >
-          {statuses.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onChange({ status: s })}
-              aria-pressed={status === s}
-              className={cn(
-                'rounded-sm border px-3 py-2 text-75 font-semibold transition-colors',
-                status === s
-                  ? STATUS_SELECTED_CLASS[s]
-                  : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
-              )}
-            >
-              {statusLabel(s, profile)}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Hours played">
-          {(props) => (
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Clock
-                  size={15}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-600"
-                />
-                <TextInput
-                  {...props}
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={0.1}
-                  {...hoursField}
-                  className="pl-9"
-                />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Hours played">
+            {(props) => (
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Clock
+                    size={15}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-600"
+                  />
+                  <TextInput
+                    {...props}
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={0.1}
+                    {...hoursField}
+                    className="pl-9"
+                  />
+                </div>
+                {/* Input height, so the row is one even band. */}
+                <Button
+                  size="m"
+                  variant="secondary"
+                  className="h-9"
+                  onClick={() => onChange({ hoursPlayed: hoursPlayed + 1 })}
+                >
+                  +1h
+                </Button>
+                <Button
+                  size="m"
+                  variant="secondary"
+                  className="h-9"
+                  onClick={() => onChange({ hoursPlayed: hoursPlayed + 5 })}
+                >
+                  +5h
+                </Button>
               </div>
-              <Button
-                size="m"
-                variant="secondary"
-                onClick={() => onChange({ hoursPlayed: hoursPlayed + 1 })}
-              >
-                +1h
-              </Button>
-              <Button
-                size="m"
-                variant="secondary"
-                onClick={() => onChange({ hoursPlayed: hoursPlayed + 5 })}
-              >
-                +5h
-              </Button>
-            </div>
-          )}
-        </Field>
+            )}
+          </Field>
 
-        {/* No explanation under this one: the slider is numbered and the colour
-            ramp speaks for itself, and a paragraph saying so cost more height
-            than the control it was describing. The achievement score below
-            keeps its line, because what it scores is genuinely not obvious. */}
-        <div className="space-y-1.5">
-          <span className="eyebrow text-gray-700">Game rating</span>
-          {guided ? (
-            <GuidedRating
-              questions={GAME_RATING_QUESTIONS}
-              value={rating}
-              onChange={(next) => onChange({ rating: next })}
-            />
-          ) : (
-            <RatingControl value={rating} onChange={(next) => onChange({ rating: next })} />
-          )}
+          {/* No explanation under this one: the slider is numbered and the colour
+              ramp speaks for itself. The achievement score below keeps its line,
+              because what it scores is genuinely not obvious. */}
+          <GuidedRating
+            label="Game rating"
+            questions={GAME_RATING_QUESTIONS}
+            value={rating}
+            onChange={(next) => onChange({ rating: next })}
+          />
         </div>
       </div>
 
-      <div className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
+      <div className="space-y-4 rounded-md border border-gray-200 bg-black/25 p-4">
         <div className="flex items-center justify-between">
           <span className="eyebrow flex items-center gap-2 text-gray-700">
             <TrophyBadge platform={platform} size={15} />
             {noun}
           </span>
-          <Button
-            buttonStyle="subtle"
-            size="s"
+          {/* Styled like the other label-row actions in this form, so the
+              panel's heading keeps to one line height. */}
+          <button
+            type="button"
             disabled={achievementsTotal === 0}
             // Finishing a game here dates it today unless a date is already
             // set, so the common case — unlocking the last one this evening —
@@ -300,9 +290,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                 completedAt: completedAt || today(),
               })
             }
+            className="eyebrow text-accent-900 transition-colors hover:text-accent-1000 disabled:text-gray-500"
           >
             Set to 100%
-          </Button>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -363,7 +354,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
         </div>
 
         {finished ? (
-          <div className="border-t border-gray-200 pt-3">
+          <div className="border-t border-gray-200 pt-4">
             <Field
               label="Date completed"
               description={`The day the last of the ${nounLower} was earned. The 100% tab is ordered by this.`}
@@ -410,24 +401,14 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           </div>
         ) : null}
 
-        <div className="space-y-1.5 border-t border-gray-200 pt-3">
-          <span className="eyebrow text-gray-700">{noun} rating</span>
-          {guided ? (
-            <GuidedRating
-              questions={ACHIEVEMENT_RATING_QUESTIONS}
-              value={achievementRating}
-              onChange={(next) => onChange({ achievementRating: next })}
-              description={awardRatingHint}
-            />
-          ) : (
-            <>
-              <RatingControl
-                value={achievementRating}
-                onChange={(next) => onChange({ achievementRating: next })}
-              />
-              <p className="text-50 text-gray-600">{awardRatingHint}</p>
-            </>
-          )}
+        <div className="border-t border-gray-200 pt-4">
+          <GuidedRating
+            label={`${noun} rating`}
+            questions={ACHIEVEMENT_RATING_QUESTIONS}
+            value={achievementRating}
+            onChange={(next) => onChange({ achievementRating: next })}
+            description={awardRatingHint}
+          />
         </div>
       </div>
 
@@ -435,41 +416,21 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           comes from the account link in Settings, since PSN has no per-title
           catalog to search. */}
       {platform === 'steam' ? (
-        <SteamLinkField
-          title={title}
-          appId={values.steamAppId}
-          autoSync={values.autoSync}
-          onChange={onChange}
-          onSync={onSync}
-          syncDisabledReason={syncDisabledReason}
-        />
+        <SteamLinkField title={title} appId={values.steamAppId} onChange={onChange} />
       ) : (
-        <fieldset className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
-          <legend className="eyebrow flex items-center gap-2 text-gray-700">
-            <PlatformIcon platform="ps5" size={14} />
-            PlayStation
-          </legend>
-
-          <Switch
-            checked={values.autoSync}
-            onChange={(next) => onChange({ autoSync: next })}
-            label="Auto fetch from PlayStation"
-          />
-          <p className="text-50 text-gray-600">
-            {values.autoSync
-              ? 'Trophy counts follow your linked PSN account. The trophy list is matched by title, so keep the name close to how PlayStation spells it.'
-              : 'Trophies stay exactly as you enter them. Turn this on to have your linked PSN account keep them current.'}
+        <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-black/25 p-4">
+          <PlatformIcon platform="ps5" size={16} className="mt-0.5 shrink-0 text-playstation-900" />
+          <p className="text-75 text-gray-700">
+            Trophies and playtime follow your linked PlayStation account and update on their own.
+            The trophy list is matched by title, so keep the name close to how PlayStation spells
+            it.
           </p>
-
-          {onSync && values.autoSync ? (
-            <SyncNowButton onSync={onSync} disabledReason={syncDisabledReason} />
-          ) : null}
-        </fieldset>
+        </div>
       )}
 
       {collections.length > 0 && (
         <fieldset>
-          <legend className="eyebrow mb-2 text-gray-700">Collections</legend>
+          <legend className="eyebrow mb-1.5 text-gray-700">Collections</legend>
           <div className="flex flex-wrap gap-2">
             {collections.map((col) => {
               const selected = selectedCollections.includes(col.id);

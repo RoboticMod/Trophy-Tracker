@@ -43,20 +43,9 @@ export function ratingColor(value: number): string {
   return `hsl(${hue.toFixed(0)} ${saturation.toFixed(0)}% ${lightness.toFixed(0)}%)`;
 }
 
-/** Coarse label used in tooltips and filter chips. */
-export function ratingLabel(value: number): string {
-  if (value >= 9) return 'Outstanding';
-  if (value >= 7.5) return 'Great';
-  if (value >= 6) return 'Good';
-  if (value >= 4) return 'Mixed';
-  if (value >= 2) return 'Poor';
-  return 'Bad';
-}
-
 /**
- * The same verdict treatment as ratingLabel, for a completion percentage: one
- * word for where a library or a game stands, shown under the gauge that states
- * the number.
+ * One word for where a library or a game stands on completion, shown under the
+ * gauge that states the number.
  */
 export function completionLabel(percent: number): string {
   if (percent >= 100) return 'Perfect';

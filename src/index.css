@@ -252,7 +252,8 @@
 @utility grid-cards {
   display: grid;
   gap: --spacing(5);
-  align-items: start;
+  /* Stretched, so every card in a row is the same height. */
+  align-items: stretch;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
 }
 

@@ -12,13 +12,19 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { GameStatus, RawgGameResult } from '../types';
-import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
-import { snapRating } from '../lib/rating';
+import { GameStatus } from '../types';
+import {
+  CATALOG_SOURCE_LABELS,
+  CatalogError,
+  CatalogResult,
+  CatalogSource,
+  searchCatalog,
+  steamDetails,
+  useCatalogSettings,
+} from '../lib/catalog';
 import { fromDateInput } from '../lib/format';
-import { syncSourceFor } from '../lib/sync';
-import { useSteamSync } from '../lib/useSteamSync';
-import { usePsnSync } from '../lib/usePsnSync';
+import { syncFieldsFor } from '../lib/sync';
+import { useSync } from '../context/SyncContext';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
@@ -39,19 +45,22 @@ const EMPTY_GAME: GameDetailsValues = {
   collections: [],
   notes: '',
   completedAt: '',
-  autoSync: false,
 };
 
 export const QuickAddModal: React.FC = () => {
-  const { isQuickAddOpen, setIsQuickAddOpen, addGame, collections, profile } = useGame();
-  const steam = useSteamSync();
-  const psn = usePsnSync();
+  const { isQuickAddOpen, setIsQuickAddOpen, addGame, collections, profile, platformAccounts } =
+    useGame();
+  const { syncGame } = useSync();
+  const { source, rawgKey } = useCatalogSettings();
+  const steamId = platformAccounts?.steamId;
 
   const [tab, setTab] = useState<'search' | 'custom'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<RawgGameResult[]>([]);
+  const [searchResults, setSearchResults] = useState<CatalogResult[]>([]);
   const [searchError, setSearchError] = useState<CatalogError | undefined>();
+  const [showingRecent, setShowingRecent] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<GameDetailsValues>(EMPTY_GAME);
@@ -65,10 +74,11 @@ export const QuickAddModal: React.FC = () => {
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      const res = await searchGames(searchQuery);
+      const res = await searchCatalog(searchQuery, { source, rawgKey, steamId });
       if (cancelled) return;
       setSearchResults(res.results);
       setSearchError(res.error);
+      setShowingRecent(Boolean(res.recent));
       setIsSearching(false);
     }, 250);
 
@@ -76,7 +86,7 @@ export const QuickAddModal: React.FC = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [searchQuery, isQuickAddOpen]);
+  }, [searchQuery, isQuickAddOpen, source, rawgKey, steamId]);
 
   const clearAll = () => {
     setSearchQuery('');
@@ -107,22 +117,49 @@ export const QuickAddModal: React.FC = () => {
     values.rating > 0 ||
     values.achievementRating > 0 ||
     values.collections.length > 0 ||
+    values.steamAppId !== undefined ||
     searchQuery.trim() !== '';
 
-  /** Pulls a catalog result into the form so details can be adjusted first. */
-  const selectGameFromSearch = (game: RawgGameResult) => {
-    setReleaseDate(game.released);
-    setGenres(game.genres?.map((g) => g.name) ?? []);
-    setRawgId(game.id);
+  /**
+   * Pulls a catalog result into the form so details can be adjusted first.
+   *
+   * A Steam pick comes already linked, and its store page is read on the way
+   * in for the details search does not carry — above all the achievement
+   * count, so the form does not open at 0 / 0.
+   */
+  const selectGameFromSearch = (game: CatalogResult) => {
+    setReleaseDate(game.releaseDate);
+    setGenres(game.genres);
+    setRawgId(game.rawgId);
     setValues((v) => ({
       ...v,
-      title: game.name,
-      coverImage: game.background_image || '',
-      platform: detectPlatformFromRawg(game),
-      // RAWG scores out of 5; this app scores out of 10.
-      rating: game.rating ? snapRating(Math.min(5, Math.max(0, game.rating)) * 2) : v.rating,
+      title: game.title,
+      coverImage: game.image || '',
+      platform: game.platform,
+      steamAppId: game.steamAppId,
+      rating: game.rating ?? v.rating,
     }));
     setTab('custom');
+
+    const appid = game.steamAppId;
+    if (!appid) return;
+    setFetchingDetails(true);
+    void steamDetails(appid).then((details) => {
+      setFetchingDetails(false);
+      if (!details) return;
+      // Only onto the same pick: a second result chosen meanwhile wins.
+      setValues((v) =>
+        v.steamAppId !== appid
+          ? v
+          : {
+              ...v,
+              coverImage: details.image || v.coverImage,
+              achievementsTotal: v.achievementsTotal || details.achievementsTotal,
+            },
+      );
+      setReleaseDate((d) => d ?? details.releaseDate);
+      setGenres((g) => (g.length ? g : details.genres));
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -146,16 +183,12 @@ export const QuickAddModal: React.FC = () => {
       notes: values.notes.trim() || undefined,
       completedAt: fromDateInput(values.completedAt),
       steamAppId: values.steamAppId,
-      autoSync: values.autoSync,
-      syncSource: values.autoSync ? syncSourceFor(values.platform) : 'manual',
+      ...syncFieldsFor(values),
     });
 
-    // A game added with auto-fetch on fetches immediately, rather than sitting
-    // on whatever was typed until the next time the app is opened.
-    if (added.autoSync) {
-      if (added.platform === 'ps5' && psn.isLinked) void psn.syncAll();
-      else if (added.steamAppId && steam.isLinked) void steam.syncOne(added);
-    }
+    // A linked game fetches immediately, rather than sitting on whatever was
+    // typed until the next timed pass.
+    void syncGame(added);
 
     close();
   };
@@ -164,7 +197,7 @@ export const QuickAddModal: React.FC = () => {
     <Dialog
       isOpen={isQuickAddOpen}
       title="Add a game"
-      description="Search the catalog, or enter the details yourself"
+      description={`Search ${CATALOG_SOURCE_LABELS[source]}, or enter the details yourself`}
       icon={<Sparkles size={18} />}
       onClose={minimize}
       initialFocusRef={tab === 'search' ? searchRef : undefined}
@@ -203,7 +236,7 @@ export const QuickAddModal: React.FC = () => {
       <div className="mb-5 flex gap-1 rounded-sm bg-black/25 p-1">
         <TabButton active={tab === 'search'} onClick={() => setTab('search')}>
           <Search size={15} />
-          Search catalog
+          Search {CATALOG_SOURCE_LABELS[source]}
         </TabButton>
         <TabButton active={tab === 'custom'} onClick={() => setTab('custom')}>
           <Plus size={15} />
@@ -221,7 +254,7 @@ export const QuickAddModal: React.FC = () => {
             <TextInput
               ref={searchRef}
               type="search"
-              aria-label="Search the game catalog"
+              aria-label={`Search ${CATALOG_SOURCE_LABELS[source]}`}
               placeholder="Elden Ring, Hollow Knight, Balatro…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -235,34 +268,36 @@ export const QuickAddModal: React.FC = () => {
               <p className="text-75">Searching…</p>
             </div>
           ) : searchResults.length === 0 ? (
-            <SearchEmptyState error={searchError} query={searchQuery} />
+            <SearchEmptyState error={searchError} query={searchQuery} source={source} />
           ) : (
-            <div className="grid max-h-[380px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-              {searchResults.map((game) => (
-                <motion.button
-                  key={game.id}
-                  type="button"
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => selectGameFromSearch(game)}
-                  className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
-                >
-                  <CoverArt
-                    src={game.background_image}
-                    title={game.name}
-                    className="h-14 w-14 shrink-0 rounded-sm object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-100 font-semibold text-gray-900 group-hover:text-accent-900">
-                      {game.name}
-                    </h4>
-                    <p className="mt-0.5 text-75 text-gray-700">
-                      {game.released?.split('-')[0] || 'Unknown'} •{' '}
-                      {game.genres?.[0]?.name || 'Game'}
-                    </p>
-                  </div>
-                </motion.button>
-              ))}
+            <div className="space-y-2">
+              {showingRecent ? (
+                <p className="eyebrow text-gray-600">Recently played on Steam</p>
+              ) : null}
+              <div className="grid max-h-[380px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                {searchResults.map((game) => (
+                  <motion.button
+                    key={game.key}
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => selectGameFromSearch(game)}
+                    className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
+                  >
+                    <CoverArt
+                      src={game.image}
+                      title={game.title}
+                      className="h-12 w-[5.5rem] shrink-0 rounded-sm object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-100 font-semibold text-gray-900 group-hover:text-accent-900">
+                        {game.title}
+                      </h4>
+                      <p className="mt-0.5 truncate text-75 text-gray-700">{game.subtitle}</p>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -277,8 +312,14 @@ export const QuickAddModal: React.FC = () => {
           profile={profile}
         >
           <p className="flex items-center gap-1.5 text-50 text-gray-600">
-            <Clock size={12} />
-            Added games sync to your account automatically.
+            {fetchingDetails ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Clock size={12} />
+            )}
+            {fetchingDetails
+              ? 'Reading the Steam store page…'
+              : 'Added games sync to your account automatically.'}
           </p>
         </GameDetailsFields>
       )}
@@ -287,28 +328,33 @@ export const QuickAddModal: React.FC = () => {
 };
 
 /** Compact in-dialog explanation for an empty catalog result set. */
-const SearchEmptyState: React.FC<{ error?: CatalogError; query: string }> = ({ error, query }) => {
+const SearchEmptyState: React.FC<{
+  error?: CatalogError;
+  query: string;
+  source: CatalogSource;
+}> = ({ error, query, source }) => {
   const trimmed = query.trim();
+  const name = CATALOG_SOURCE_LABELS[source];
 
   const [icon, title, body] =
     error === 'missing-key'
       ? [
           <KeyRound size={20} key="k" />,
           'No RAWG key configured',
-          'Catalog search runs on the RAWG API. Set VITE_RAWG_API_KEY, or use “Enter details” to add the game yourself.',
+          'Add a RAWG API key in Settings, switch the catalog back to Steam, or use “Enter details” to add the game yourself.',
         ]
-      : error === 'request-failed'
+      : error
         ? [
             <WifiOff size={20} key="w" />,
-            'Could not reach RAWG',
+            `Could not reach ${name}`,
             'The catalog request failed. Check your connection, or use “Enter details” to add the game yourself.',
           ]
         : [
             <Search size={20} key="s" />,
-            trimmed ? 'No matches' : 'Nothing to show yet',
+            trimmed ? 'No matches' : 'Search for a game',
             trimmed
-              ? `RAWG has no titles matching “${trimmed}”.`
-              : 'Type a title or genre to search the RAWG catalog.',
+              ? `${name} has no games matching “${trimmed}”.`
+              : `Type a title to search ${name}.`,
           ];
 
   return (

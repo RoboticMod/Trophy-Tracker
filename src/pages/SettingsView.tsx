@@ -27,7 +27,6 @@ import {
   X,
   CloudOff,
   Cloud,
-  Star,
   Volume2,
   Volume1,
   VolumeX,
@@ -41,12 +40,17 @@ import {
   GameStatus,
   HighlightStyle,
   Platform,
-  RatingMode,
   GAME_STATUSES,
 } from '../types';
-import { MAX_RATING } from '../lib/rating';
 import { SUPABASE_SCHEMA_SQL } from '../lib/db';
-import { getRawgCacheCount, clearRawgCache } from '../lib/rawg';
+import { getRawgCacheCount, clearRawgCache, hasRawgKey } from '../lib/rawg';
+import { clearSteamCache, getSteamCacheCount } from '../lib/steam';
+import {
+  CATALOG_SOURCES,
+  CATALOG_SOURCE_LABELS,
+  CatalogSource,
+  useCatalogSettings,
+} from '../lib/catalog';
 import {
   DEFAULT_STATUS_NAMES,
   DEFAULT_PLATFORM_SORT_ORDER,
@@ -70,6 +74,126 @@ import { ConnectedAccounts } from '../components/ConnectedAccounts';
 import { TrophyBadge, TrophyPair, awardNoun } from '../components/TrophyBadge';
 import { Button, Card, Field, SectionHeader, Select, Switch, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
+
+const CATALOG_HINTS: Record<CatalogSource, string> = {
+  steam: 'The Steam store. Picks arrive linked, with their achievement count, and sync on their own.',
+  rawg: 'RAWG’s cross-platform database. Needs a free API key of your own.',
+};
+
+/**
+ * Where search finds games.
+ *
+ * Steam by default, since it is already the source of truth for linking and
+ * sync. RAWG stays available for anyone who prefers its metadata; its key is
+ * saved with your profile, so it follows you to other devices.
+ */
+const GameCatalogCard: React.FC = () => {
+  const { source, setSource, rawgKey, setRawgKey } = useCatalogSettings();
+  const [draftKey, setDraftKey] = useState(rawgKey);
+  const [cacheCount, setCacheCount] = useState(() => getRawgCacheCount() + getSteamCacheCount());
+
+  useEffect(() => setDraftKey(rawgKey), [rawgKey]);
+
+  const saveKey = () => {
+    const next = draftKey.trim();
+    if (next !== rawgKey) setRawgKey(next);
+  };
+
+  return (
+    <Card className="space-y-4">
+      <SectionHeader
+        icon={<Key size={18} />}
+        title="Game catalog"
+        description="Where search looks for games to add"
+        action={
+          <span className="rounded-full border border-gray-300 bg-gray-200 px-3 py-1 text-75 font-semibold text-gray-800">
+            {cacheCount} cached
+          </span>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {CATALOG_SOURCES.map((option) => {
+          const selected = source === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setSource(option)}
+              aria-pressed={selected}
+              className={cn(
+                'rounded-md border p-3 text-left transition-colors',
+                selected
+                  ? 'border-accent-700/60 bg-accent-700/16'
+                  : 'border-gray-300 bg-black/25 hover:border-gray-400 hover:bg-black/40',
+              )}
+            >
+              <span className="block text-100 font-semibold text-gray-1000">
+                {CATALOG_SOURCE_LABELS[option]}
+                {option === 'steam' ? (
+                  <span className="ml-2 text-50 font-bold uppercase tracking-wide text-gray-600">
+                    Default
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block text-50 text-gray-700">{CATALOG_HINTS[option]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {source === 'rawg' ? (
+        <Field
+          label="RAWG API key"
+          description={
+            draftKey.trim() || !hasRawgKey()
+              ? 'Saved when you leave the field.'
+              : 'Blank uses the key this app was built with.'
+          }
+          action={
+            <a
+              href="https://rawg.io/apidocs"
+              target="_blank"
+              rel="noreferrer"
+              className="eyebrow text-accent-900 hover:text-accent-1000"
+            >
+              Get a free key
+            </a>
+          }
+        >
+          {(props) => (
+            <TextInput
+              {...props}
+              value={draftKey}
+              onChange={(e) => setDraftKey(e.target.value)}
+              onBlur={saveKey}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveKey();
+              }}
+              placeholder="Paste your RAWG key"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          )}
+        </Field>
+      ) : null}
+
+      <Button
+        variant="secondary"
+        buttonStyle="outline"
+        disabled={cacheCount === 0}
+        onClick={() => {
+          clearRawgCache();
+          clearSteamCache();
+          setCacheCount(0);
+        }}
+      >
+        <Trash2 size={13} />
+        <span>Clear search cache</span>
+      </Button>
+    </Card>
+  );
+};
 
 /** Speaker icon matching the level, the way a system volume control does. */
 const VolumeIcon: React.FC<{ volume: number }> = ({ volume }) => {
@@ -177,7 +301,6 @@ export const SettingsView: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
-  const [cacheCount, setCacheCount] = useState(() => getRawgCacheCount());
   const [statusErrors, setStatusErrors] = useState<Partial<Record<GameStatus, string>>>({});
   // Mirrors the stored level so the slider and the preview stay in step; the
   // sound module remains the source of truth for playback, and tells this back
@@ -533,57 +656,6 @@ export const SettingsView: React.FC = () => {
         </div>
       </Card>
 
-      {/* Rating mode --------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Star size={18} />}
-          title="How you rate games"
-          description="Score a game directly, or answer a few questions and let the score follow"
-          iconClassName="bg-trophy-700/16 text-trophy-900"
-        />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                id: 'manual',
-                name: 'Set the score myself',
-                hint: `A slider from 0 to ${MAX_RATING}, in half points`,
-              },
-              {
-                id: 'guided',
-                name: 'Answer questions',
-                hint: 'A few multiple-choice questions work the score out for you',
-              },
-            ] as { id: RatingMode; name: string; hint: string }[]
-          ).map((option) => {
-            const selected = (profile.ratingMode ?? 'manual') === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => updateProfile({ ratingMode: option.id })}
-                aria-pressed={selected}
-                className={cn(
-                  'rounded-md border p-3 text-left transition-colors',
-                  selected
-                    ? 'border-accent-700/60 bg-accent-700/16'
-                    : 'border-gray-300 bg-black/25 hover:border-gray-400 hover:bg-black/40',
-                )}
-              >
-                <span className="block text-100 font-semibold text-gray-1000">{option.name}</span>
-                <span className="block text-50 text-gray-700">{option.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <p className="text-50 text-gray-600">
-          A worked-out score always lands on the ordinary slider afterwards, so you can move it if
-          you disagree. This applies to both the game and the {`achievement`} score.
-        </p>
-      </Card>
-
       {/* Completion sounds --------------------------------------------------- */}
       <Card className="space-y-4">
         <SectionHeader
@@ -927,46 +999,8 @@ export const SettingsView: React.FC = () => {
         )}
       </Card>
 
-      {/* RAWG ---------------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Key size={18} />}
-          title="Catalog cache"
-          description="RAWG search results are cached locally for 24 hours"
-          action={
-            <span className="rounded-full border border-gray-300 bg-gray-200 px-3 py-1 text-75 font-semibold text-gray-800">
-              {cacheCount} cached
-            </span>
-          }
-        />
-
-        <p className="text-75 text-gray-700">
-          Set <code className="rounded-sm bg-gray-200 px-1.5 py-0.5 text-accent-900">VITE_RAWG_API_KEY</code>{' '}
-          to search the catalog. Without a key, catalog search returns nothing and games have to be
-          entered by hand.{' '}
-          <a
-            href="https://rawg.io/apidocs"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-sm font-semibold text-accent-900 underline"
-          >
-            Get a free key
-          </a>
-          .
-        </p>
-
-        <Button
-          variant="secondary"
-          buttonStyle="outline"
-          onClick={() => {
-            clearRawgCache();
-            setCacheCount(0);
-          }}
-        >
-          <Trash2 size={13} />
-          <span>Clear search cache</span>
-        </Button>
-      </Card>
+      {/* Catalog ------------------------------------------------------------- */}
+      <GameCatalogCard />
 
       {/* Backup -------------------------------------------------------------- */}
       <Card className="space-y-4">
