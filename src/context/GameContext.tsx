@@ -29,6 +29,7 @@ import {
   DEFAULT_COLLECTIONS,
   DEFAULT_COLLECTION_COLOR,
   DEFAULT_PLATFORM_SORT_ORDER,
+  PERFECT_COLLECTION_ID,
   withSystemColors,
 } from '../lib/constants';
 import { isPerfect } from '../lib/completion';
@@ -92,7 +93,8 @@ interface GameContextType {
   isQuickAddOpen: boolean;
   setIsQuickAddOpen: (open: boolean) => void;
 
-  addGame: (game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => void;
+  /** Returns the stored game, so a caller can sync the one it just added. */
+  addGame: (game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => UserGame;
   updateGame: (id: string, updates: Partial<UserGame>) => void;
   deleteGame: (id: string) => void;
   /** Returns the created collection, so a caller can file a game into it. */
@@ -411,6 +413,52 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /* Mutations                                                               */
   /* ---------------------------------------------------------------------- */
 
+  /**
+   * The collection a finished game belongs in, created if it has been deleted.
+   *
+   * The starter set ships with one — "100% Platinum Club" — so this almost
+   * always finds it by id. Matching on the name as well covers a renamed copy,
+   * and creating one covers an account that deleted it before ever finishing a
+   * game.
+   */
+  const perfectCollection = useCallback(
+    (createIfMissing: boolean): string | null => {
+      const preset = DEFAULT_COLLECTIONS.find((c) => c.id === PERFECT_COLLECTION_ID);
+      const existing =
+        latest.current.collections.find((c) => c.id === PERFECT_COLLECTION_ID) ??
+        latest.current.collections.find(
+          (c) => c.name.trim().toLowerCase() === preset?.name.trim().toLowerCase(),
+        );
+
+      if (existing) return existing.id;
+      if (!createIfMissing || !preset) return null;
+
+      const created: Collection = { ...preset, createdAt: new Date().toISOString() };
+      setCollections((prev) => [...prev, created]);
+      latest.current.collections = [...latest.current.collections, created];
+      void push({ kind: 'collections', op: 'upsert', collections: [created] });
+      return created.id;
+    },
+    [push],
+  );
+
+  /**
+   * Keeps a game's membership of that collection in step with whether it is
+   * actually finished. Adding on the way in and removing on the way out is the
+   * same rule in both directions, so the collection never fills up with games
+   * that stopped being finished.
+   */
+  const fileByCompletion = useCallback(
+    (collections: string[], perfect: boolean): string[] => {
+      const id = perfectCollection(perfect);
+      if (!id) return collections;
+
+      if (perfect) return collections.includes(id) ? collections : [...collections, id];
+      return collections.filter((c) => c !== id);
+    },
+    [perfectCollection],
+  );
+
   const addGame = useCallback(
     (data: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => {
       const now = new Date().toISOString();
@@ -421,6 +469,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!game.completedAt && (game.status === 'mastered' || isPerfect(game))) {
         game.completedAt = now;
       }
+
+      if (isPerfect(game)) game.collections = fileByCompletion(game.collections, true);
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
 
@@ -434,6 +484,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (game.status === 'mastered' || isPerfect(game)) {
         triggerCelebration(game.id, ADD_CELEBRATION_DELAY_MS);
       }
+
+      return game;
     },
     [push, triggerCelebration, followGame],
   );
@@ -487,6 +539,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // The last unlock is a completion in its own right, whatever shelf the
       // game is filed on, so it carries a date like any other.
       if (becamePerfect && !merged.completedAt) merged.completedAt = merged.updatedAt;
+
+      // Finishing a game files it with the other finished ones, and losing that
+      // status takes it back out. Only on the crossing, so a game deliberately
+      // pulled out of that collection while still at 100% stays out.
+      const perfectNow = isPerfect(merged);
+      if (perfectNow !== isPerfect(current)) {
+        merged.collections = fileByCompletion(merged.collections, perfectNow);
+      }
 
       // A status change re-files a game: out of the backlog, into another
       // section, sometimes off the current view entirely. Follow it so the move

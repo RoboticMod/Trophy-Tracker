@@ -9,9 +9,9 @@ import { RatingControl } from './Rating';
 import { Button, Field, Switch, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
-import { MAX_RATING } from '../lib/rating';
 import { GuidedRating } from './GuidedRating';
 import { SteamLinkField } from './SteamLinkField';
+import { SyncNowButton, SyncOutcome } from './SyncNowButton';
 import { isPerfect } from '../lib/completion';
 import { today } from '../lib/format';
 import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/ratingQuestions';
@@ -46,6 +46,13 @@ interface GameDetailsFieldsProps {
   statuses: GameStatus[];
   collections: Collection[];
   profile: UserProfile;
+  /**
+   * Fetches this one game's progress now. Only supplied by the edit dialog —
+   * a game being added does not exist to sync yet.
+   */
+  onSync?: () => Promise<SyncOutcome>;
+  /** Why syncing is unavailable, shown on the disabled button. */
+  syncDisabledReason?: string;
   /** Appended below the fields, e.g. a note about syncing. */
   children?: React.ReactNode;
 }
@@ -97,6 +104,8 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   statuses,
   collections,
   profile,
+  onSync,
+  syncDisabledReason,
   children,
 }) => {
   const {
@@ -124,7 +133,6 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   const nounLower = noun.toLowerCase();
 
   const guided = profile.ratingMode === 'guided';
-  const gameRatingHint = `The game itself, scored out of ${MAX_RATING}. The colour runs red at the bottom through to green at the top.`;
   const awardRatingHint = `How good the ${nounLower} were to earn — separate from how good the game is.`;
 
   // Rounded to a tenth: hours accept decimals, but float arithmetic would
@@ -254,6 +262,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           )}
         </Field>
 
+        {/* No explanation under this one: the slider is numbered and the colour
+            ramp speaks for itself, and a paragraph saying so cost more height
+            than the control it was describing. The achievement score below
+            keeps its line, because what it scores is genuinely not obvious. */}
         <div className="space-y-1.5">
           <span className="eyebrow text-gray-700">Game rating</span>
           {guided ? (
@@ -261,13 +273,9 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
               questions={GAME_RATING_QUESTIONS}
               value={rating}
               onChange={(next) => onChange({ rating: next })}
-              description={gameRatingHint}
             />
           ) : (
-            <>
-              <RatingControl value={rating} onChange={(next) => onChange({ rating: next })} />
-              <p className="text-50 text-gray-600">{gameRatingHint}</p>
-            </>
+            <RatingControl value={rating} onChange={(next) => onChange({ rating: next })} />
           )}
         </div>
       </div>
@@ -432,6 +440,8 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           appId={values.steamAppId}
           autoSync={values.autoSync}
           onChange={onChange}
+          onSync={onSync}
+          syncDisabledReason={syncDisabledReason}
         />
       ) : (
         <fieldset className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
@@ -450,6 +460,10 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
               ? 'Trophy counts follow your linked PSN account. The trophy list is matched by title, so keep the name close to how PlayStation spells it.'
               : 'Trophies stay exactly as you enter them. Turn this on to have your linked PSN account keep them current.'}
           </p>
+
+          {onSync && values.autoSync ? (
+            <SyncNowButton onSync={onSync} disabledReason={syncDisabledReason} />
+          ) : null}
         </fieldset>
       )}
 

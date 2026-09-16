@@ -95,51 +95,59 @@ export const DonutChart: React.FC<DonutChartProps> = ({
         style={{ top: -BLEED, left: -BLEED }}
         aria-hidden
       >
-        <circle
-          cx={mid}
-          cy={mid}
-          r={radius}
-          fill="none"
-          stroke="var(--color-gray-300)"
-          strokeWidth={STROKE}
-          opacity={0.5}
-        />
-
-        {segments.map((segment) => (
-          <motion.circle
-            key={segment.key}
+        {/* Mirrored about the vertical axis, which turns the clockwise draw
+            below into a counter-clockwise one while leaving twelve o'clock
+            exactly where it is. The arithmetic stays the way a dash pattern
+            wants it — clockwise from a start angle — and only the direction it
+            is seen from changes, so the ring now unwinds the same way the
+            gauge on this page does. */}
+        <g transform={`translate(${box} 0) scale(-1 1)`}>
+          <circle
             cx={mid}
             cy={mid}
             r={radius}
             fill="none"
-            stroke={segment.color}
+            stroke="var(--color-gray-300)"
             strokeWidth={STROKE}
-            // pathLength 1 lets the dash pattern be written in fractions of the
-            // circle rather than in px of circumference.
-            pathLength={1}
-            strokeDasharray={`${segment.length} ${1 - segment.length}`}
-            // -90 puts the first segment at twelve o'clock rather than at three.
-            transform={`rotate(${segment.startAngle - 90} ${mid} ${mid})`}
-            initial={{ strokeDashoffset: reduceMotion ? 0 : segment.length }}
-            animate={{ strokeDashoffset: 0 }}
-            // Linear, and timed by where this segment sits on the circle: it
-            // waits for the arcs before it and then draws at the same rate they
-            // did, so the whole ring reads as one continuous stroke rather than
-            // as five arcs growing at once.
-            transition={
-              reduceMotion
-                ? { duration: 0 }
-                : {
-                    duration: segment.fraction * SWEEP_SECONDS,
-                    delay: segment.startFraction * SWEEP_SECONDS,
-                    ease: 'linear',
-                  }
-            }
-            style={{
-              filter: `drop-shadow(0 0 5px color-mix(in srgb, ${segment.color} 40%, transparent))`,
-            }}
+            opacity={0.5}
           />
-        ))}
+
+          {segments.map((segment) => (
+            <motion.circle
+              key={segment.key}
+              cx={mid}
+              cy={mid}
+              r={radius}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth={STROKE}
+              // pathLength 1 lets the dash pattern be written in fractions of
+              // the circle rather than in px of circumference.
+              pathLength={1}
+              strokeDasharray={`${segment.length} ${1 - segment.length}`}
+              // -90 puts the first segment at twelve o'clock rather than at three.
+              transform={`rotate(${segment.startAngle - 90} ${mid} ${mid})`}
+              initial={{ strokeDashoffset: reduceMotion ? 0 : segment.length }}
+              animate={{ strokeDashoffset: 0 }}
+              // Linear, and timed by where this segment sits on the circle: it
+              // waits for the arcs before it and then draws at the same rate
+              // they did, so the whole ring reads as one continuous stroke
+              // rather than as five arcs growing at once.
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : {
+                      duration: segment.fraction * SWEEP_SECONDS,
+                      delay: segment.startFraction * SWEEP_SECONDS,
+                      ease: 'linear',
+                    }
+              }
+              style={{
+                filter: `drop-shadow(0 0 5px color-mix(in srgb, ${segment.color} 40%, transparent))`,
+              }}
+            />
+          ))}
+        </g>
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">

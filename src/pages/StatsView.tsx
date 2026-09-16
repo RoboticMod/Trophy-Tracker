@@ -214,10 +214,10 @@ export const StatsView: React.FC = () => {
           />
         </Card>
 
-        <Card
-          bare
-          className="grid gap-px overflow-hidden rounded-lg bg-gray-200 sm:grid-cols-2"
-        >
+        {/* The four figures stand on their own rather than inside a panel. Each
+            tile is already a well cut into the page, so wrapping them in a card
+            drew a box around four boxes. */}
+        <div className="grid gap-3 sm:grid-cols-2">
           <StatTile
             label="Tracked games"
             value={formatCount(totalGames)}
@@ -242,7 +242,7 @@ export const StatsView: React.FC = () => {
             color="var(--color-trophy-900)"
             caption={`${completedGames.length} titles finished overall`}
           />
-        </Card>
+        </div>
       </div>
     ),
 

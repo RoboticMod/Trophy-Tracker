@@ -106,9 +106,16 @@ export function reconcile(game: UserGame, incoming: PlatformProgress): Reconcili
     updates.completedAt = game.completedAt;
   }
 
-  // Newly finished, dated by the platform's own unlock time rather than by the
-  // moment this sync happened to run.
-  if (!wasPerfect && nowPerfect && incoming.lastUnlockedAt && !game.completedAt) {
+  /**
+   * A finished game gets the date it was actually finished.
+   *
+   * Not only on the transition: a game that was already at 100% before it was
+   * ever linked has no date at all, and the platform is the only thing that
+   * knows when the last one was earned. So any undated completion is dated,
+   * whenever the sync first sees it — and a date already there is left alone,
+   * because it may well have been typed in by hand.
+   */
+  if (nowPerfect && !game.completedAt && incoming.lastUnlockedAt) {
     updates.completedAt = incoming.lastUnlockedAt;
   }
 

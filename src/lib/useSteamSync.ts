@@ -76,6 +76,14 @@ export function useSteamSync() {
     [collections, createCollection],
   );
 
+  /**
+   * One game, one request.
+   *
+   * Used the moment a game is linked and by its own Sync button, so neither has
+   * to walk the whole library to answer a question about a single title. The
+   * function returns playtime alongside the achievements for exactly this
+   * reason.
+   */
   const syncOne = useCallback(
     async (game: UserGame): Promise<{ updated: boolean; grew: boolean; error?: SteamError }> => {
       if (!steamId || !game.steamAppId) return { updated: false, grew: false, error: 'not-linked' };
@@ -86,6 +94,8 @@ export function useSteamSync() {
       const { updates, changed, grewList } = reconcile(game, {
         unlocked: result.data.unlocked,
         total: result.data.total,
+        hoursPlayed: result.data.hoursPlayed ?? undefined,
+        lastPlayedAt: result.data.lastPlayedAt,
         lastUnlockedAt: result.data.lastUnlockedAt,
       });
 

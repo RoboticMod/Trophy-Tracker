@@ -6,6 +6,8 @@ import { UserGame, GameStatus } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { fromDateInput, toDateInput } from '../lib/format';
 import { syncSourceFor } from '../lib/sync';
+import { useSteamSync } from '../lib/useSteamSync';
+import { usePsnSync } from '../lib/usePsnSync';
 import { PlatformIcon } from './PlatformIcon';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog } from './ui';
@@ -34,6 +36,26 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
   onClose,
 }) => {
   const { updateGame, deleteGame, collections, profile } = useGame();
+  const steam = useSteamSync();
+  const psn = usePsnSync();
+
+  const linked = game.platform === 'ps5' ? psn.isLinked : steam.isLinked;
+
+  /**
+   * Fetches this game on its own.
+   *
+   * Steam answers per app, so one game costs one request. PlayStation returns
+   * the whole account's trophy list in a single call whatever you ask for, so
+   * there the per-game path and the all-games path are the same request — it
+   * runs the account sync and the other auto-fetch games come along for free.
+   */
+  const syncGame = async (target: UserGame) => {
+    if (target.platform === 'ps5') {
+      const report = await psn.syncAll();
+      return { updated: report.updated > 0, grew: report.grown.length > 0, error: report.error };
+    }
+    return steam.syncOne(target);
+  };
 
   const [values, setValues] = useState<GameDetailsValues>({
     title: game.title,
@@ -57,7 +79,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     e.preventDefault();
     if (!values.title.trim()) return;
 
-    updateGame(game.id, {
+    const patch = {
       title: values.title.trim(),
       platform: values.platform,
       status: values.status,
@@ -80,7 +102,22 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
         values.autoSync && (values.platform === 'ps5' || values.steamAppId)
           ? syncSourceFor(values.platform)
           : 'manual',
-    });
+    } satisfies Partial<UserGame>;
+
+    updateGame(game.id, patch);
+
+    /**
+     * Turning auto-fetch on fetches, there and then.
+     *
+     * Linking a game and then having to go to Settings and sync the whole
+     * library to see its figures arrive was a strange way to finish the job —
+     * the intent is obvious, so the game syncs itself on the way out. The
+     * merged copy is what gets synced, since the one in state is a render
+     * behind this save.
+     */
+    if (patch.autoSync && (patch.platform === 'ps5' || patch.steamAppId) && linked) {
+      void syncGame({ ...game, ...patch });
+    }
 
     onClose();
   };
@@ -145,6 +182,14 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
         statuses={STATUS_CHOICES}
         collections={collections}
         profile={profile}
+        onSync={() => syncGame(game)}
+        syncDisabledReason={
+          !linked
+            ? `Link your ${game.platform === 'ps5' ? 'PlayStation' : 'Steam'} account in Settings first`
+            : game.platform === 'steam' && !game.steamAppId
+              ? 'Save the Steam link first'
+              : undefined
+        }
       />
     </Dialog>
   );

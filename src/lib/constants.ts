@@ -71,6 +71,9 @@ export const normalizePlatform = (value: unknown): Platform | null => {
   return null;
 };
 
+/** The starter collection a game joins when every award is earned. */
+export const PERFECT_COLLECTION_ID = 'col-masterpieces';
+
 export const DEFAULT_COLLECTIONS: Collection[] = [
   {
     id: 'col-backlog',

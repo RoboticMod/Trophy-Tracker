@@ -111,6 +111,9 @@ export interface SteamAchievementState {
   visible: boolean;
   error: string | null;
   lastUnlockedAt: string | null;
+  /** Steam's own playtime for this app, to a tenth of an hour. */
+  hoursPlayed: number | null;
+  lastPlayedAt: string | null;
 }
 
 export interface SteamLibraryGame {

@@ -17,6 +17,8 @@ import { searchGames, detectPlatformFromRawg, CatalogError } from '../lib/rawg';
 import { snapRating } from '../lib/rating';
 import { fromDateInput } from '../lib/format';
 import { syncSourceFor } from '../lib/sync';
+import { useSteamSync } from '../lib/useSteamSync';
+import { usePsnSync } from '../lib/usePsnSync';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
@@ -42,6 +44,8 @@ const EMPTY_GAME: GameDetailsValues = {
 
 export const QuickAddModal: React.FC = () => {
   const { isQuickAddOpen, setIsQuickAddOpen, addGame, collections, profile } = useGame();
+  const steam = useSteamSync();
+  const psn = usePsnSync();
 
   const [tab, setTab] = useState<'search' | 'custom'>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,7 +129,7 @@ export const QuickAddModal: React.FC = () => {
     e.preventDefault();
     if (!values.title.trim()) return;
 
-    addGame({
+    const added = addGame({
       rawgId,
       title: values.title.trim(),
       platform: values.platform,
@@ -145,6 +149,13 @@ export const QuickAddModal: React.FC = () => {
       autoSync: values.autoSync,
       syncSource: values.autoSync ? syncSourceFor(values.platform) : 'manual',
     });
+
+    // A game added with auto-fetch on fetches immediately, rather than sitting
+    // on whatever was typed until the next time the app is opened.
+    if (added.autoSync) {
+      if (added.platform === 'ps5' && psn.isLinked) void psn.syncAll();
+      else if (added.steamAppId && steam.isLinked) void steam.syncOne(added);
+    }
 
     close();
   };

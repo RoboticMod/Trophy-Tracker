@@ -16,7 +16,7 @@ import { GameCard } from '../components/GameCard';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
-import { DEFAULT_COLLECTION_COLOR, PLATFORMS, describePlatformOrder } from '../lib/constants';
+import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import { aggregateCompletion, isPerfect } from '../lib/completion';
 import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
 import { statusLabel } from '../lib/status';
@@ -39,14 +39,18 @@ import { useSyncedPreference } from '../lib/useSyncedPreference';
 
 type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 
+/**
+ * Platform is not offered here: the grid already groups into a Steam section
+ * and a PlayStation one, so ordering by platform sorted the page into an order
+ * it was going to be shown in anyway.
+ */
 const SORT_OPTIONS = [
-  'platform',
+  'title-asc',
   'recent',
   'rating-desc',
   'achievement-rating-desc',
   'hours-desc',
   'completion-desc',
-  'title-asc',
 ] as const satisfies readonly GameSortOption[];
 
 const RATING_FILTER_OPTIONS = [
@@ -88,7 +92,7 @@ export const DashboardView: React.FC = () => {
   // out, and re-picking them after every reload was busywork.
   const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
     'library-sort',
-    'platform',
+    'title-asc',
     oneOf(SORT_OPTIONS),
   );
   const [ratingFilter, setRatingFilter] = useSyncedPreference<RatingFilterOption>(
@@ -113,15 +117,17 @@ export const DashboardView: React.FC = () => {
   const platformOrder = profile.platformOrder;
 
   /**
-   * The gauge measures the queue and the finished shelf, not the whole library.
+   * The gauge measures what you are actually working through: the queue, the
+   * games in progress, and the ones already finished.
    *
-   * A game you are part-way through is a figure in motion, and averaging it in
-   * made the arc a reading of "how far into everything am I" — a number that
-   * only ever drifts. Backlog plus finished is the ratio that actually means
-   * something: what is waiting against what has been seen through.
+   * What it leaves out is everything you have walked away from — a dropped
+   * game, or one filed as done at the story rather than the last unlock. Those
+   * are not progress waiting to be made, and averaging them in only ever drags
+   * the arc down.
    */
   const gaugeGames = useMemo(
-    () => games.filter((g) => g.status === 'backlog' || isPerfect(g)),
+    () =>
+      games.filter((g) => g.status === 'backlog' || g.status === 'playing' || isPerfect(g)),
     [games],
   );
   const { unlocked, unlockable, percent: completion } = aggregateCompletion(gaugeGames);
@@ -190,7 +196,7 @@ export const DashboardView: React.FC = () => {
             suffix="%"
             verdict={completionLabel(completion)}
             color={completionColor(completion)}
-            caption={`${formatCount(unlocked)} of ${formatCount(unlockable)} across backlog and finished games`}
+            caption={`${formatCount(unlocked)} of ${formatCount(unlockable)} across what you are playing, queued and finished`}
             size={88}
           />
         </Card>
@@ -372,10 +378,7 @@ export const DashboardView: React.FC = () => {
               onChange={setSortBy}
               options={SORT_OPTIONS.map((option) => ({
                 value: option,
-                label:
-                  option === 'platform'
-                    ? `Platform (${describePlatformOrder(platformOrder)})`
-                    : SORT_LABELS[option],
+                label: SORT_LABELS[option],
               }))}
             />
           </div>

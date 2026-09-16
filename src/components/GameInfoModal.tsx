@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import {
   ArrowUpRight,
   CalendarDays,
+  Check,
   Clock,
   ExternalLink,
   Loader2,
   Link2,
+  PlayCircle,
   RefreshCw,
   Search,
   Users,
@@ -117,9 +119,30 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
     oneOf(PLAYER_RANGES),
   );
 
-  const [shot, setShot] = useState<string | null>(null);
+  const [mediaIndex, setMediaIndex] = useState(0);
 
   const appId = game.steamAppId;
+
+  /**
+   * Trailers first, then screenshots, as one list the strip walks through.
+   *
+   * The store page this comes from puts the video at the front because it is
+   * the thing you actually want first, and everything after it is the same kind
+   * of tile — so they are one sequence here rather than a video above a grid.
+   */
+  const media = useMemo(
+    () => [
+      ...(info?.videos ?? []).map((video) => ({ kind: 'video' as const, ...video })),
+      ...(info?.screenshots ?? []).map((shot) => ({
+        kind: 'shot' as const,
+        ...shot,
+        name: '',
+      })),
+    ],
+    [info],
+  );
+
+  const active = media[mediaIndex] ?? media[0];
 
   /* -- Live data --------------------------------------------------------- */
 
@@ -161,14 +184,37 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
     [series],
   );
 
-  /** Fills in the catalog details a hand-entered game usually lacks. */
+  /**
+   * The catalog details a hand-entered game usually lacks.
+   *
+   * Worked out rather than assumed, because the button that applies them was
+   * offered even when there was nothing to apply — it wrote the same values
+   * back over themselves and looked, fairly, like it had done nothing at all.
+   * Now it is disabled when the game is already complete, and says what it
+   * filled in when it is not.
+   */
+  const missingDetails = useMemo(() => {
+    if (!info) return [] as string[];
+    const missing: string[] = [];
+    if (!game.coverImage && info.headerImage) missing.push('cover');
+    if (!game.releaseDate && info.releaseDate) missing.push('release date');
+    if (game.genres.length === 0 && info.genres.length > 0) missing.push('genres');
+    return missing;
+  }, [info, game.coverImage, game.releaseDate, game.genres]);
+
+  const [filled, setFilled] = useState<string | null>(null);
+
   const applyDetails = () => {
-    if (!info) return;
+    if (!info || missingDetails.length === 0) return;
+
     updateGame(game.id, {
       coverImage: game.coverImage || info.headerImage || undefined,
-      releaseDate: info.releaseDate ?? game.releaseDate,
+      releaseDate: game.releaseDate || info.releaseDate || undefined,
       genres: game.genres.length ? game.genres : info.genres,
     });
+
+    setFilled(`Filled in the ${missingDetails.join(', ')}`);
+    window.setTimeout(() => setFilled(null), 2500);
   };
 
   const progress = completionPercent(game);
@@ -191,10 +237,24 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
             </span>
           ) : null}
 
-          {info ? (
-            <Button buttonStyle="outline" onClick={applyDetails} title="Cover, release date, genres">
+          {filled ? (
+            <span className="flex items-center gap-1.5 text-75 font-semibold text-positive-900">
+              <Check size={14} />
+              {filled}
+            </span>
+          ) : info ? (
+            <Button
+              buttonStyle="outline"
+              onClick={applyDetails}
+              disabled={missingDetails.length === 0}
+              title={
+                missingDetails.length === 0
+                  ? 'Cover, release date and genres are already set'
+                  : `Takes the ${missingDetails.join(', ')} from Steam`
+              }
+            >
               <RefreshCw size={14} />
-              Fill in missing details
+              {missingDetails.length === 0 ? 'Details complete' : 'Fill in missing details'}
             </Button>
           ) : null}
 
@@ -393,71 +453,78 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
             ) : null}
 
             {/* Media ------------------------------------------------------ */}
-            {info.videos.length > 0 || info.screenshots.length > 0 ? (
+            {media.length > 0 ? (
               <section className="space-y-3">
-                <SectionTitle>Media</SectionTitle>
+                <SectionTitle
+                  action={
+                    <span className="eyebrow shrink-0 text-gray-600">
+                      {info.videos.length > 0
+                        ? `${info.videos.length} video${info.videos.length === 1 ? '' : 's'} · `
+                        : ''}
+                      {info.screenshots.length} screenshot
+                      {info.screenshots.length === 1 ? '' : 's'}
+                    </span>
+                  }
+                >
+                  Media
+                </SectionTitle>
 
-                {info.videos.length > 0 ? (
-                  <video
-                    key={info.videos[0].id}
-                    controls
-                    preload="none"
-                    poster={info.videos[0].thumbnail}
-                    className="w-full rounded-md border border-gray-300/70 bg-gray-25"
-                  >
-                    {info.videos[0].webm ? (
-                      <source src={info.videos[0].webm} type="video/webm" />
-                    ) : null}
-                    {info.videos[0].mp4 ? (
-                      <source src={info.videos[0].mp4} type="video/mp4" />
-                    ) : null}
-                  </video>
-                ) : null}
+                {/* One stage with a strip of thumbnails under it, the way the
+                    store page this data comes from does it: trailers first,
+                    then screenshots, and the strip scrolls sideways rather than
+                    growing a grid down the dialog. */}
+                <div className="overflow-hidden rounded-md border border-gray-300/70 bg-gray-25">
+                  {active?.kind === 'video' ? (
+                    <video
+                      key={active.id}
+                      controls
+                      autoPlay
+                      preload="metadata"
+                      poster={active.thumbnail}
+                      className="aspect-[16/9] w-full bg-gray-25"
+                    >
+                      {active.webm ? <source src={active.webm} type="video/webm" /> : null}
+                      {active.mp4 ? <source src={active.mp4} type="video/mp4" /> : null}
+                    </video>
+                  ) : active ? (
+                    <img
+                      src={active.full}
+                      alt=""
+                      className="aspect-[16/9] w-full bg-gray-25 object-contain"
+                    />
+                  ) : null}
+                </div>
 
-                {info.screenshots.length > 0 ? (
-                  <>
-                    {/* The enlarged shot takes the place of the grid rather than
-                        opening a second layer over a dialog that is already a
-                        layer over the page. */}
-                    {shot ? (
-                      <button
-                        type="button"
-                        onClick={() => setShot(null)}
-                        className="block w-full"
-                        title="Back to all screenshots"
-                      >
-                        <img
-                          src={shot}
-                          alt=""
-                          className="w-full rounded-md border border-gray-300/70"
-                        />
-                      </button>
-                    ) : null}
-
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      {info.screenshots.map((screenshot) => (
-                        <button
-                          key={screenshot.id}
-                          type="button"
-                          onClick={() => setShot(screenshot.full)}
-                          className={cn(
-                            'overflow-hidden rounded-sm border transition-all',
-                            shot === screenshot.full
-                              ? 'border-accent-700/60 opacity-60'
-                              : 'border-gray-300/70 hover:border-gray-400',
-                          )}
-                        >
-                          <img
-                            src={screenshot.thumbnail}
-                            alt=""
-                            loading="lazy"
-                            className="aspect-[16/9] w-full object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : null}
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                  {media.map((item, index) => (
+                    <button
+                      key={`${item.kind}-${item.id}`}
+                      type="button"
+                      onClick={() => setMediaIndex(index)}
+                      title={item.kind === 'video' ? item.name : 'Screenshot'}
+                      aria-current={index === mediaIndex}
+                      className={cn(
+                        'relative w-36 shrink-0 overflow-hidden rounded-sm border transition-all',
+                        index === mediaIndex
+                          ? 'border-accent-700/60 shadow-[0_0_14px_-5px_var(--color-accent-700)]'
+                          : 'border-gray-300/70 opacity-70 hover:opacity-100',
+                      )}
+                    >
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        loading="lazy"
+                        className="aspect-[16/9] w-full object-cover"
+                      />
+                      {item.kind === 'video' ? (
+                        <span className="overlay-scrim absolute bottom-1 left-1 flex h-5 items-center gap-1 rounded-sm px-1.5 text-50 font-bold text-gray-1000">
+                          <PlayCircle size={11} />
+                          Trailer
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
               </section>
             ) : null}
 

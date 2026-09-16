@@ -284,6 +284,46 @@ async function playerAchievements(steamId: string, appid: number) {
   };
 }
 
+/**
+ * Playtime and last-played for a single app.
+ *
+ * Asks for just this one game through `appids_filter`, which needs the
+ * input_json form. That filter is quietly unreliable on some profiles, so a
+ * miss falls back to the whole owned list once rather than reporting a game
+ * you have played for two hundred hours as having no playtime at all.
+ */
+async function playtimeFor(steamId: string, appid: number) {
+  const query = encodeURIComponent(
+    JSON.stringify({
+      steamid: steamId,
+      appids_filter: [appid],
+      include_appinfo: false,
+      include_played_free_games: true,
+    }),
+  );
+
+  const filtered = await getJson<{
+    response?: { games?: { appid: number; playtime_forever?: number; rtime_last_played?: number }[] };
+  }>(`${WEB_API}/IPlayerService/GetOwnedGames/v1/?key=${STEAM_API_KEY}&input_json=${query}`);
+
+  const match = filtered?.response?.games?.find((game) => game.appid === appid);
+  if (match) {
+    return {
+      hoursPlayed: Math.round(((match.playtime_forever ?? 0) / 60) * 10) / 10,
+      lastPlayedAt: match.rtime_last_played
+        ? new Date(match.rtime_last_played * 1000).toISOString()
+        : null,
+    };
+  }
+
+  const all = await ownedGames(steamId);
+  const found = all.find((game) => game.appid === appid);
+  return {
+    hoursPlayed: found?.hoursPlayed ?? null,
+    lastPlayedAt: found?.lastPlayedAt ?? null,
+  };
+}
+
 async function ownedGames(steamId: string) {
   const owned = await getJson<{
     response?: {
@@ -475,7 +515,15 @@ Deno.serve(async (request) => {
       if (segments[2] === 'achievements') {
         const appid = Number(url.searchParams.get('appid'));
         if (!Number.isFinite(appid) || appid <= 0) return fail(400, 'bad-appid');
-        return json(await playerAchievements(steamId, appid), 200, CACHE.me);
+
+        // Playtime comes back with the achievements rather than from a separate
+        // call, so syncing one game is one request from the app's side.
+        const [achievements, playtime] = await Promise.all([
+          playerAchievements(steamId, appid),
+          playtimeFor(steamId, appid),
+        ]);
+
+        return json({ ...achievements, ...playtime }, 200, CACHE.me);
       }
     }
 

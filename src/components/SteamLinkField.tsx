@@ -3,6 +3,7 @@ import { Check, Link2, Loader2, Search, Unlink } from 'lucide-react';
 import { SteamError, SteamSearchResult, searchSteam, steamStoreUrl } from '../lib/steam';
 import { formatCount } from '../lib/format';
 import { CoverArt } from './CoverArt';
+import { SyncNowButton, SyncOutcome } from './SyncNowButton';
 import { Button, Switch, TextInput } from './ui';
 import { cn } from '../lib/cn';
 
@@ -11,6 +12,10 @@ interface SteamLinkFieldProps {
   appId?: number;
   autoSync: boolean;
   onChange: (patch: { steamAppId?: number; autoSync?: boolean }) => void;
+  /** Fetches this one game now. Absent on a game that has not been saved yet. */
+  onSync?: () => Promise<SyncOutcome>;
+  /** Why syncing is not possible yet, shown on the disabled button. */
+  syncDisabledReason?: string;
 }
 
 /**
@@ -27,6 +32,8 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
   appId,
   autoSync,
   onChange,
+  onSync,
+  syncDisabledReason,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(title);
@@ -102,6 +109,8 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
               ? 'Achievements, playtime and last played are kept up to date from your Steam account. Your rating, notes, status and collections are never touched.'
               : 'Linked for game info only. Turn this on to let Steam keep the achievement counts and playtime current.'}
           </p>
+
+          {onSync ? <SyncNowButton onSync={onSync} disabledReason={syncDisabledReason} /> : null}
         </>
       ) : (
         <p className="text-50 text-gray-600">
