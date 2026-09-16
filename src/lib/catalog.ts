@@ -11,17 +11,26 @@ import { useSyncedPreference } from './useSyncedPreference';
  *
  * Steam is the default: the app already talks to it for linking and sync, so a
  * game picked from its store arrives already linked, with its achievement count
- * filled in, and starts syncing straight away. RAWG remains as an opt-in for
- * anyone who prefers its metadata and has a key of their own.
+ * filled in, and starts syncing straight away. RAWG is an opt-in for anyone who
+ * prefers its metadata and has a key of their own — and searching both at once
+ * finds the console games Steam does not sell, while a game both know about is
+ * shown once, with the choice of whose details to use.
  */
 
-export type CatalogSource = 'steam' | 'rawg';
-export const CATALOG_SOURCES: CatalogSource[] = ['steam', 'rawg'];
+export type CatalogSource = 'steam' | 'rawg' | 'both';
+export const CATALOG_SOURCES: CatalogSource[] = ['steam', 'rawg', 'both'];
+
+/** A catalog a single result can actually come from. */
+export type ResultSource = Exclude<CatalogSource, 'both'>;
 
 export const CATALOG_SOURCE_LABELS: Record<CatalogSource, string> = {
   steam: 'Steam',
   rawg: 'RAWG',
+  both: 'Steam + RAWG',
 };
+
+/** Whether a source needs a RAWG key to search. */
+export const usesRawg = (source: CatalogSource) => source !== 'steam';
 
 const isString = (value: unknown): value is string => typeof value === 'string';
 
@@ -40,7 +49,7 @@ export function useCatalogSettings() {
 /** One search result, the same shape whichever catalog it came from. */
 export interface CatalogResult {
   key: string;
-  source: CatalogSource;
+  source: ResultSource;
   title: string;
   image?: string;
   /** The platform a result suggests. Steam results are Steam games. */
@@ -53,6 +62,28 @@ export interface CatalogResult {
   rawgId?: number;
   /** Already on this app's 0-10 scale. */
   rating?: number;
+  /**
+   * The same game from the other catalog, when searching both found it twice.
+   * The pair is shown as one result, and adding it asks which version to use.
+   */
+  twin?: CatalogResult;
+}
+
+/**
+ * The version of a result to add.
+ *
+ * Choosing RAWG's details for a game Steam also sells keeps the Steam link, so
+ * the game still gets its store media and — on Steam — its synced progress.
+ */
+export function pickVersion(result: CatalogResult, source: ResultSource): CatalogResult {
+  if (result.source === source || !result.twin) return { ...result, twin: undefined };
+  const other = result.twin;
+  return {
+    ...other,
+    steamAppId: other.steamAppId ?? result.steamAppId,
+    rawgId: other.rawgId ?? result.rawgId,
+    twin: undefined,
+  };
 }
 
 export type CatalogError = 'missing-key' | 'request-failed' | 'not-signed-in';
@@ -60,6 +91,11 @@ export type CatalogError = 'missing-key' | 'request-failed' | 'not-signed-in';
 export interface CatalogResponse {
   results: CatalogResult[];
   error?: CatalogError;
+  /**
+   * Searching both catalogs, but RAWG could not be asked — only Steam's results
+   * are here.
+   */
+  rawgSkipped?: CatalogError;
   /**
    * The results are your own recently played Steam games rather than matches
    * for a query — what an empty Steam search shows, since Steam has no
@@ -146,10 +182,74 @@ async function searchRawgCatalog(query: string, key?: string): Promise<CatalogRe
   };
 }
 
+/** Letters and digits only, so "DOOM: The Dark Ages™" and "Doom The Dark Ages" meet. */
+const matchKey = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/[™®©]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+
+/**
+ * Both catalogs at once, with a game both know about shown once.
+ *
+ * Results are ordered by their best rank in either list, so a strong match on
+ * one side is not buried under the other's whole page. A game only RAWG has —
+ * a PlayStation exclusive, usually — takes its place in the same order.
+ */
+async function searchBothCatalogs(
+  query: string,
+  rawgKey?: string,
+  steamId?: string,
+): Promise<CatalogResponse> {
+  const rawgReady = canSearchRawg(rawgKey);
+
+  // An empty box has no query to match on: your recent Steam games if there
+  // are any, RAWG's popular list otherwise.
+  if (!query.trim()) {
+    if (steamId || !rawgReady) return searchSteamCatalog(query, steamId);
+    return searchRawgCatalog(query, rawgKey);
+  }
+
+  const [steam, rawg] = await Promise.all([
+    searchSteamCatalog(query, steamId),
+    rawgReady
+      ? searchRawgCatalog(query, rawgKey)
+      : Promise.resolve<CatalogResponse>({ results: [], error: 'missing-key' }),
+  ]);
+
+  if (steam.error && rawg.error) return { results: [], error: steam.error };
+
+  const ranked = new Map<string, { result: CatalogResult; rank: number }>();
+  steam.results.forEach((result, rank) => {
+    const key = matchKey(result.title);
+    if (!ranked.has(key)) ranked.set(key, { result, rank });
+  });
+  rawg.results.forEach((result, rank) => {
+    const key = matchKey(result.title);
+    const existing = ranked.get(key);
+    if (!existing) {
+      ranked.set(key, { result, rank });
+    } else if (existing.result.source === 'steam' && !existing.result.twin) {
+      existing.result = { ...existing.result, twin: result };
+      existing.rank = Math.min(existing.rank, rank);
+    }
+  });
+
+  return {
+    results: [...ranked.values()]
+      .sort((a, b) => a.rank - b.rank)
+      .map((entry) => entry.result),
+    rawgSkipped: rawg.error,
+  };
+}
+
 export function searchCatalog(
   query: string,
   options: { source: CatalogSource; rawgKey?: string; steamId?: string },
 ): Promise<CatalogResponse> {
+  if (options.source === 'both') {
+    return searchBothCatalogs(query, options.rawgKey, options.steamId);
+  }
   return options.source === 'rawg'
     ? searchRawgCatalog(query, options.rawgKey)
     : searchSteamCatalog(query, options.steamId);

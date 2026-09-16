@@ -28,6 +28,7 @@ import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
 import { Wordmark } from './Wordmark';
 import { cn } from '../lib/cn';
+import { EASE_OUT } from '../lib/motion';
 
 interface NavItem {
   name: string;
@@ -400,7 +401,7 @@ export const AppLayout: React.FC = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
+              transition={{ duration: 0.18, ease: EASE_OUT }}
               className="panel fixed inset-x-3 bottom-20 z-40 space-y-1 rounded-lg bg-gray-100/95 p-2 md:hidden"
             >
               {mobileOverflow.map((item) => {

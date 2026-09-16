@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/cn';
+import { EASE_OUT } from '../../lib/motion';
 
 interface GaugeProps {
   /** 0-1. How much of the arc is painted. */
@@ -140,7 +141,7 @@ export const Gauge: React.FC<GaugeProps> = ({
             transform={`rotate(${START} ${mid} ${mid})`}
             initial={{ strokeDashoffset: arc }}
             animate={{ strokeDashoffset: arc * (1 - clamped) }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
+            transition={{ duration: 0.8, ease: EASE_OUT }}
             style={{ filter: `drop-shadow(0 0 5px color-mix(in srgb, ${color} 35%, transparent))` }}
           />
         </svg>

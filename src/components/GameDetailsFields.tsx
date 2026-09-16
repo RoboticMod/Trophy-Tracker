@@ -5,7 +5,7 @@ import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
 import { statusLabel, STATUS_SELECTED_CLASS } from '../lib/status';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
-import { Button, Field, TextArea, TextInput } from './ui';
+import { Button, Field, MarqueeText, TextArea, TextInput } from './ui';
 import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 import { GuidedRating } from './GuidedRating';
@@ -211,7 +211,9 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                     : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
                 )}
               >
-                {statusLabel(s, profile)}
+                {/* One line that scrolls, rather than a long custom name
+                    wrapping to two and throwing the row out of line. */}
+                <MarqueeText className="w-full text-center">{statusLabel(s, profile)}</MarqueeText>
               </button>
             ))}
           </div>

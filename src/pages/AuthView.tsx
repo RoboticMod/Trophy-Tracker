@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Wordmark } from '../components/Wordmark';
 import { getRememberMe } from '../lib/supabase';
 import { Button, Field, TextInput } from '../components/ui';
+import { EASE_OUT } from '../lib/motion';
 
 type Mode = 'signin' | 'signup';
 
@@ -165,7 +166,7 @@ const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      transition={{ duration: 0.25, ease: EASE_OUT }}
       className="panel relative z-10 w-full max-w-sm rounded-lg p-7"
     >
       {children}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/cn';
+import { EASE_OUT } from '../../lib/motion';
 
 interface MeterProps {
   /** 0-100. */
@@ -49,7 +50,7 @@ export const Meter: React.FC<MeterProps> = ({
       <motion.div
         initial={{ width: 0 }}
         animate={{ width: `${clamped}%` }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.5, ease: EASE_OUT }}
         // A raw colour carries its own bloom inline, since there is no token
         // class to pair it with.
         style={

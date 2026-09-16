@@ -50,6 +50,7 @@ import {
   CATALOG_SOURCE_LABELS,
   CatalogSource,
   useCatalogSettings,
+  usesRawg,
 } from '../lib/catalog';
 import {
   DEFAULT_STATUS_NAMES,
@@ -78,6 +79,7 @@ import { cn } from '../lib/cn';
 const CATALOG_HINTS: Record<CatalogSource, string> = {
   steam: 'The Steam store. Picks arrive linked, with their achievement count, and sync on their own.',
   rawg: 'RAWG’s cross-platform database. Needs a free API key of your own.',
+  both: 'Both at once — finds PlayStation games Steam does not sell. A game on both asks which details to use.',
 };
 
 /**
@@ -112,7 +114,7 @@ const GameCatalogCard: React.FC = () => {
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {CATALOG_SOURCES.map((option) => {
           const selected = source === option;
           return (
@@ -142,7 +144,7 @@ const GameCatalogCard: React.FC = () => {
         })}
       </div>
 
-      {source === 'rawg' ? (
+      {usesRawg(source) ? (
         <Field
           label="RAWG API key"
           description={

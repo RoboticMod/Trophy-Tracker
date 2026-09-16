@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { EASE_OUT } from '../../lib/motion';
 
 export interface SelectOption<T extends string = string> {
   value: T;
@@ -248,7 +249,7 @@ export function Select<T extends string>({
               initial={{ opacity: 0, y: -4, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
+              transition={{ duration: 0.18, ease: EASE_OUT }}
               style={{
                 top: position.top,
                 left: position.left,

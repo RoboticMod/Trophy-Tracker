@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { EASE_OUT } from '../../lib/motion';
 
 interface DialogProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export const Dialog: React.FC<DialogProps> = ({
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            transition={{ duration: 0.18, ease: EASE_OUT }}
             className={cn(
               // Capped height with an internally scrolling body, so the footer
               // actions stay reachable no matter how long the form is.

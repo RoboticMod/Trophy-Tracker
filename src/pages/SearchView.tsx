@@ -19,6 +19,8 @@ import {
   CatalogError,
   CatalogResult,
   CatalogSource,
+  ResultSource,
+  pickVersion,
   searchCatalog,
   steamDetails,
   useCatalogSettings,
@@ -27,10 +29,13 @@ import { Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel } from '../lib/status';
 import { syncFieldsFor } from '../lib/sync';
+import { EASE_OUT } from '../lib/motion';
+import { cn } from '../lib/cn';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
 import { Button, EmptyState, FilterChip, OverlayBadge, TextInput } from '../components/ui';
+import { SourceBadge, VersionToggle } from '../components/CatalogVersions';
 
 export const SearchView: React.FC = () => {
   const { games, addGame, profile, platformAccounts } = useGame();
@@ -43,6 +48,9 @@ export const SearchView: React.FC = () => {
   const [results, setResults] = useState<CatalogResult[]>([]);
   const [error, setError] = useState<CatalogError | undefined>();
   const [recent, setRecent] = useState(false);
+  const [rawgSkipped, setRawgSkipped] = useState<CatalogError | undefined>();
+  /** Which version of a found-twice game each card will add. Steam by default. */
+  const [versions, setVersions] = useState<Record<string, ResultSource>>({});
   const [loading, setLoading] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
   const [addedKeys, setAddedKeys] = useState<Record<string, boolean>>({});
@@ -57,6 +65,7 @@ export const SearchView: React.FC = () => {
       setResults(res.results);
       setError(res.error);
       setRecent(Boolean(res.recent));
+      setRawgSkipped(res.rawgSkipped);
       setLoading(false);
     }, 250);
 
@@ -71,7 +80,8 @@ export const SearchView: React.FC = () => {
    *
    * A Steam result reads its store page first, so the game lands with its
    * achievement count, genres and release date, already linked — and then
-   * syncs, so your own progress follows a moment later.
+   * syncs, so your own progress follows a moment later. A game both catalogs
+   * found arrives as whichever version its card is set to.
    */
   const handleQuickAdd = async (game: CatalogResult, toBacklog: boolean) => {
     const platform = selectedPlatform !== 'all' ? selectedPlatform : game.platform;
@@ -112,7 +122,7 @@ export const SearchView: React.FC = () => {
     ? `${results.length} result${results.length === 1 ? '' : 's'} for “${query.trim()}”`
     : recent
       ? 'Recently played on Steam'
-      : source === 'rawg'
+      : source !== 'steam' && results.length > 0
         ? `${results.length} popular on RAWG now`
         : '';
 
@@ -185,12 +195,32 @@ export const SearchView: React.FC = () => {
         </div>
       ) : null}
 
+      {rawgSkipped && !loading ? (
+        <p className="flex items-center gap-1.5 text-75 text-gray-600">
+          <KeyRound size={13} />
+          {rawgSkipped === 'missing-key' ? (
+            <>
+              Showing Steam only —{' '}
+              <Link to="/settings" className="font-semibold text-accent-900 hover:text-accent-1000">
+                add a RAWG key
+              </Link>{' '}
+              to search both.
+            </>
+          ) : (
+            'Showing Steam only — RAWG could not be reached.'
+          )}
+        </p>
+      ) : null}
+
       {!loading && results.length === 0 && (
         <CatalogEmptyState error={error} query={query} source={source} linked={Boolean(steamId)} />
       )}
 
       <div className="grid-cards">
-        {results.map((game) => {
+        {results.map((found) => {
+          const version = versions[found.key] ?? found.source;
+          // The card previews the version it will add.
+          const game = found.twin ? { ...pickVersion(found, version), key: found.key } : found;
           const added = isAlreadyAdded(game) || addedKeys[game.key];
           const adding = addingKey === game.key;
           const platform = selectedPlatform !== 'all' ? selectedPlatform : game.platform;
@@ -200,6 +230,7 @@ export const SearchView: React.FC = () => {
             <motion.div
               key={game.key}
               whileHover={{ y: -3 }}
+              transition={{ duration: 0.2, ease: EASE_OUT }}
               className="panel group flex flex-col justify-between overflow-hidden rounded-lg transition-colors hover:border-gray-400"
             >
               <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-25">
@@ -228,11 +259,29 @@ export const SearchView: React.FC = () => {
 
                 <div className="absolute inset-x-3 bottom-2">
                   <h3 className="truncate text-100 font-bold text-gray-1000">{game.title}</h3>
-                  <p className="truncate text-50 text-gray-700">{game.subtitle}</p>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    {source === 'both' ? <SourceBadge result={found} /> : null}
+                    <p className="truncate text-50 text-gray-700">{game.subtitle}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 border-t border-gray-200 p-3">
+              {found.twin && !added ? (
+                <div className="border-t border-gray-200 px-3 pt-3">
+                  <VersionToggle
+                    value={version}
+                    onChange={(next) => setVersions((prev) => ({ ...prev, [found.key]: next }))}
+                  />
+                </div>
+              ) : null}
+
+              <div
+                className={cn(
+                  'flex items-center gap-2 p-3',
+                  // The version toggle above already draws the divider.
+                  !(found.twin && !added) && 'border-t border-gray-200',
+                )}
+              >
                 {added ? (
                   <div className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700/60 bg-positive-700/16 py-1.5 text-75 font-semibold text-positive-900">
                     <Check size={14} />

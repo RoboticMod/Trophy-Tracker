@@ -1,6 +1,14 @@
-import React from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import React, { useEffect } from 'react';
+import {
+  MotionValue,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react';
 import { cn } from '../../lib/cn';
+import { EASE_IN_OUT, EASE_OUT } from '../../lib/motion';
 
 export interface DonutSlice {
   key: string;
@@ -37,10 +45,55 @@ const GAP = 0.006;
  * Every segment used to animate at once, over its own full duration, so five
  * arcs inflated simultaneously from five different angles — motion with no
  * direction to it, which is what made the chart stick out on a page where
- * everything else moves one way. Each segment now draws in sequence at one
- * shared speed, so the ring is a single line travelling once around the circle.
+ * everything else moves one way. The ring now draws as one line travelling once
+ * around the circle: a single eased sweep, which each segment reads its own
+ * share of, so the line eases in and out as a whole rather than per arc.
  */
-const SWEEP_SECONDS = 0.8;
+const SWEEP_SECONDS = 1.1;
+
+/**
+ * One arc, drawn as the shared sweep passes over its stretch of the circle.
+ */
+const Segment: React.FC<{
+  sweep: MotionValue<number>;
+  start: number;
+  fraction: number;
+  length: number;
+  color: string;
+  mid: number;
+  radius: number;
+  angle: number;
+}> = ({ sweep, start, fraction, length, color, mid, radius, angle }) => {
+  // How far the sweep is through this segment, 0-1, turned into the dash
+  // offset that reveals that much of it.
+  const offset = useTransform(sweep, (p) => {
+    const through = fraction > 0 ? Math.min(1, Math.max(0, (p - start) / fraction)) : 1;
+    return length * (1 - through);
+  });
+
+  return (
+    <motion.circle
+      cx={mid}
+      cy={mid}
+      r={radius}
+      fill="none"
+      stroke={color}
+      strokeWidth={STROKE}
+      // pathLength 1 lets the dash pattern be written in fractions of the
+      // circle rather than in px of circumference.
+      pathLength={1}
+      // The gap is a whole circle long, so as the offset runs down to zero the
+      // arc grows out of its own start rather than sliding round into place.
+      strokeDasharray={`${length} 1`}
+      // -90 puts the first segment at twelve o'clock rather than at three.
+      transform={`rotate(${angle - 90} ${mid} ${mid})`}
+      style={{
+        strokeDashoffset: offset,
+        filter: `drop-shadow(0 0 5px color-mix(in srgb, ${color} 40%, transparent))`,
+      }}
+    />
+  );
+};
 
 /**
  * A ring split into proportional segments, with the total in the hole.
@@ -58,6 +111,18 @@ export const DonutChart: React.FC<DonutChartProps> = ({
   className,
 }) => {
   const reduceMotion = useReducedMotion();
+  const sweep = useMotionValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      sweep.set(1);
+      return;
+    }
+    sweep.set(0);
+    const controls = animate(sweep, 1, { duration: SWEEP_SECONDS, ease: EASE_IN_OUT });
+    return () => controls.stop();
+  }, [sweep, reduceMotion]);
+
   const radius = (size - STROKE) / 2;
   const box = size + BLEED * 2;
   const mid = box / 2;
@@ -110,41 +175,16 @@ export const DonutChart: React.FC<DonutChartProps> = ({
           />
 
           {segments.map((segment) => (
-            <motion.circle
+            <Segment
               key={segment.key}
-              cx={mid}
-              cy={mid}
-              r={radius}
-              fill="none"
-              stroke={segment.color}
-              strokeWidth={STROKE}
-              // pathLength 1 lets the dash pattern be written in fractions of
-              // the circle rather than in px of circumference.
-              pathLength={1}
-              // The gap is a whole circle long, so as the offset runs down to
-              // zero the arc grows out of its own start. A gap shorter than the
-              // circle let the dash wrap round and slide into place instead.
-              strokeDasharray={`${segment.length} 1`}
-              // -90 puts the first segment at twelve o'clock rather than at three.
-              transform={`rotate(${segment.startAngle - 90} ${mid} ${mid})`}
-              initial={{ strokeDashoffset: reduceMotion ? 0 : segment.length }}
-              animate={{ strokeDashoffset: 0 }}
-              // Linear, and timed by where this segment sits on the circle: it
-              // waits for the arcs before it and then draws at the same rate
-              // they did, so the whole ring reads as one continuous stroke
-              // rather than as five arcs growing at once.
-              transition={
-                reduceMotion
-                  ? { duration: 0 }
-                  : {
-                      duration: segment.fraction * SWEEP_SECONDS,
-                      delay: segment.startFraction * SWEEP_SECONDS,
-                      ease: 'linear',
-                    }
-              }
-              style={{
-                filter: `drop-shadow(0 0 5px color-mix(in srgb, ${segment.color} 40%, transparent))`,
-              }}
+              sweep={sweep}
+              start={segment.startFraction}
+              fraction={segment.fraction}
+              length={segment.length}
+              color={segment.color}
+              mid={mid}
+              radius={radius}
+              angle={segment.startAngle}
             />
           ))}
         </g>
@@ -203,7 +243,7 @@ export const DonutLegend: React.FC<{ slices: DonutSlice[]; className?: string }>
               <motion.div
                 initial={{ width: reduceMotion ? `${share}%` : 0 }}
                 animate={{ width: `${share}%` }}
-                transition={{ duration: reduceMotion ? 0 : SWEEP_SECONDS, ease: 'easeOut' }}
+                transition={{ duration: reduceMotion ? 0 : SWEEP_SECONDS, ease: EASE_OUT }}
                 className="h-full rounded-full"
                 style={{ backgroundColor: slice.color, boxShadow: `0 0 8px -3px ${slice.color}` }}
               />

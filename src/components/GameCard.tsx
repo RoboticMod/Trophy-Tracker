@@ -12,10 +12,11 @@ import { EditGameModal } from './EditGameModal';
 import { GameInfoModal } from './GameInfoModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
-import { Meter, OverlayBadge } from './ui';
+import { MarqueeText, Meter, OverlayBadge } from './ui';
 import { ratingColor } from '../lib/rating';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { cn } from '../lib/cn';
+import { EASE_OUT } from '../lib/motion';
 
 interface GameCardProps {
   game: UserGame;
@@ -113,8 +114,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      whileHover={{ y: -3, transition: { duration: 0.15 } }}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.2, ease: EASE_OUT } }}
+      // Entrances and re-flows share the app's easing; a re-sorted grid glides
+      // to its new places rather than springing there.
+      transition={{ duration: 0.45, ease: EASE_OUT, layout: { duration: 0.45, ease: EASE_OUT } }}
+      whileHover={{ y: -3, transition: { duration: 0.2, ease: EASE_OUT } }}
       // A playing card lights its own edge in the accent; every other state
       // leaves --glow unset and glow-ring goes unused.
       style={{ '--glow': 'var(--color-accent-700)' } as React.CSSProperties}
@@ -247,21 +251,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
         {/* Title ------------------------------------------------------------ */}
         {/* The completion emblem sits in the bottom-right corner, so on a
-            finished game the text keeps clear of it and wraps to a second line
-            rather than running underneath. */}
+            finished game the text keeps clear of it rather than running
+            underneath. */}
         <div
           className={cn(
             'pointer-events-none absolute inset-x-3.5 bottom-2.5 z-10',
             isMastered && 'pr-12',
           )}
         >
-          <h3
-            className={cn(
-              'text-200 font-bold tracking-tight text-gray-1000',
-              isMastered ? 'line-clamp-2' : 'truncate',
-            )}
-          >
-            {game.title}
+          {/* One line on every card, scrolling on hover to show the rest of a
+              long name — two lines on finished cards made them taller than
+              the rest of their row. */}
+          <h3 className="text-200 font-bold tracking-tight text-gray-1000">
+            <MarqueeText trigger="hover">{game.title}</MarqueeText>
           </h3>
           <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
             <span className="flex items-center gap-1">

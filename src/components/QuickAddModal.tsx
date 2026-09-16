@@ -25,10 +25,12 @@ import {
 import { fromDateInput } from '../lib/format';
 import { syncFieldsFor } from '../lib/sync';
 import { useSync } from '../context/SyncContext';
+import { SourceBadge, VersionChooser } from './CatalogVersions';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
 import { cn } from '../lib/cn';
+import { EASE_OUT } from '../lib/motion';
 
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
 
@@ -59,6 +61,9 @@ export const QuickAddModal: React.FC = () => {
   const [searchResults, setSearchResults] = useState<CatalogResult[]>([]);
   const [searchError, setSearchError] = useState<CatalogError | undefined>();
   const [showingRecent, setShowingRecent] = useState(false);
+  const [rawgSkipped, setRawgSkipped] = useState<CatalogError | undefined>();
+  /** A result both catalogs returned, waiting on which version to use. */
+  const [choosing, setChoosing] = useState<CatalogResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
 
@@ -79,6 +84,8 @@ export const QuickAddModal: React.FC = () => {
       setSearchResults(res.results);
       setSearchError(res.error);
       setShowingRecent(Boolean(res.recent));
+      setRawgSkipped(res.rawgSkipped);
+      setChoosing(null);
       setIsSearching(false);
     }, 250);
 
@@ -262,7 +269,25 @@ export const QuickAddModal: React.FC = () => {
             />
           </div>
 
-          {isSearching ? (
+          {rawgSkipped && !isSearching ? (
+            <p className="flex items-center gap-1.5 text-50 text-gray-600">
+              <KeyRound size={12} />
+              {rawgSkipped === 'missing-key'
+                ? 'Showing Steam only — add a RAWG key in Settings to search both.'
+                : 'Showing Steam only — RAWG could not be reached.'}
+            </p>
+          ) : null}
+
+          {choosing ? (
+            <VersionChooser
+              result={choosing}
+              onPick={(version) => {
+                setChoosing(null);
+                selectGameFromSearch(version);
+              }}
+              onCancel={() => setChoosing(null)}
+            />
+          ) : isSearching ? (
             <div className="flex flex-col items-center gap-2 py-12 text-gray-700">
               <Loader2 size={22} className="animate-spin" />
               <p className="text-75">Searching…</p>
@@ -281,7 +306,8 @@ export const QuickAddModal: React.FC = () => {
                     type="button"
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    onClick={() => selectGameFromSearch(game)}
+                    transition={{ duration: 0.2, ease: EASE_OUT }}
+                    onClick={() => (game.twin ? setChoosing(game) : selectGameFromSearch(game))}
                     className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
                   >
                     <CoverArt
@@ -293,7 +319,10 @@ export const QuickAddModal: React.FC = () => {
                       <h4 className="truncate text-100 font-semibold text-gray-900 group-hover:text-accent-900">
                         {game.title}
                       </h4>
-                      <p className="mt-0.5 truncate text-75 text-gray-700">{game.subtitle}</p>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                        {source === 'both' ? <SourceBadge result={game} /> : null}
+                        <p className="truncate text-75 text-gray-700">{game.subtitle}</p>
+                      </div>
                     </div>
                   </motion.button>
                 ))}

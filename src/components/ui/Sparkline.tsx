@@ -1,6 +1,7 @@
 import React, { useId, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../lib/cn';
+import { EASE_OUT } from '../../lib/motion';
 
 export interface SparkPoint {
   /** Unix seconds. */
@@ -130,7 +131,7 @@ export const Sparkline: React.FC<SparklineProps> = ({
           fill={`url(#${gradientId})`}
           initial={{ opacity: reduceMotion ? 1 : 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: reduceMotion ? 0 : 0.5, ease: 'easeOut' }}
+          transition={{ duration: reduceMotion ? 0 : 0.5, ease: EASE_OUT }}
         />
 
         {/* Drawn on rather than faded in: the line is a history, and watching
@@ -146,7 +147,7 @@ export const Sparkline: React.FC<SparklineProps> = ({
           style={{ filter: `drop-shadow(0 0 5px color-mix(in srgb, ${color} 45%, transparent))` }}
           initial={{ pathLength: reduceMotion ? 1 : 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: reduceMotion ? 0 : 0.8, ease: 'easeOut' }}
+          transition={{ duration: reduceMotion ? 0 : 0.8, ease: EASE_OUT }}
         />
 
         {active ? (
