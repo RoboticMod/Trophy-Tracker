@@ -1,5 +1,6 @@
 import { Collection, Platform, SyncSource, UserGame } from '../types';
 import { isPerfect } from './completion';
+import { roundHours } from './format';
 
 /**
  * Which service a platform's figures come from.
@@ -79,7 +80,7 @@ export function reconcile(game: UserGame, incoming: PlatformProgress): Reconcili
   // afternoon in 2009, time on another account. Taking the larger of the two
   // means a sync can never quietly erase hours you know you played.
   if (incoming.hoursPlayed !== undefined && incoming.hoursPlayed > (game.hoursPlayed || 0)) {
-    updates.hoursPlayed = incoming.hoursPlayed;
+    updates.hoursPlayed = roundHours(incoming.hoursPlayed);
   }
 
   if (incoming.lastPlayedAt && incoming.lastPlayedAt !== game.lastPlayedAt) {

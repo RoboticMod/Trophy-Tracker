@@ -93,8 +93,17 @@ interface GameContextType {
   isQuickAddOpen: boolean;
   setIsQuickAddOpen: (open: boolean) => void;
 
-  /** Returns the stored game, so a caller can sync the one it just added. */
-  addGame: (game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => UserGame;
+  /**
+   * Returns the stored game, so a caller can sync the one it just added.
+   *
+   * `follow` is how a caller says whether the app should go and look at the new
+   * game. The add dialog wants that; the search page does not, since adding
+   * there is a run of games and leaving would take the results with it.
+   */
+  addGame: (
+    game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>,
+    options?: { follow?: boolean },
+  ) => UserGame;
   updateGame: (id: string, updates: Partial<UserGame>) => void;
   deleteGame: (id: string) => void;
   /** Returns the created collection, so a caller can file a game into it. */
@@ -484,7 +493,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const addGame = useCallback(
-    (data: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>) => {
+    (
+      data: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>,
+      { follow: shouldFollow = true }: { follow?: boolean } = {},
+    ) => {
       const now = new Date().toISOString();
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
 
@@ -504,8 +516,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       void push({ kind: 'game', op: 'upsert', game });
 
       // Sorting and platform grouping decide where a new game lands, which is
-      // often out of sight.
-      followGame(game.id);
+      // often out of sight — and it may not even be on this page.
+      if (shouldFollow) followGame(game.id);
 
       // Requested now, played by the card once it has been scrolled to — which
       // is also what holds the burst back until the new card has landed and run

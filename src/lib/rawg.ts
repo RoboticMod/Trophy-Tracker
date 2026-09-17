@@ -2,8 +2,14 @@ import { RawgGameResult, Platform } from '../types';
 
 /** Matches every cache generation, so stale ones can be counted and cleared. */
 const CACHE_ROOT = 'gametracker_rawg_cache_';
-/** v2 — v1 could hold results from the removed built-in catalog. */
-const CACHE_PREFIX = `${CACHE_ROOT}v2_`;
+/**
+ * v3 — v1 could hold results from the removed built-in catalog, and v2 stored
+ * RAWG's replies whole: screenshots, tags, stores, rating breakdowns, tens of
+ * kilobytes per search. Reading a handful of those back cost more time than the
+ * request that filled them. This generation keeps only the fields the app
+ * reads, so an entry is about a kilobyte.
+ */
+const CACHE_PREFIX = `${CACHE_ROOT}v3_`;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** Cache key for the no-query listing of popular titles. */
@@ -98,32 +104,85 @@ export function rawgApiKey(apiKey?: string): string | undefined {
 
 export const hasRawgKey = (): boolean => Boolean(rawgApiKey());
 
+/**
+ * Only the fields this app reads.
+ *
+ * RAWG answers a search with everything it knows — screenshots, tags, stores,
+ * rating breakdowns — and a page of sixteen of those is the better part of a
+ * megabyte. Keeping the whole reply meant every cached search had to be
+ * stringified on the way in and parsed on the way out, which is work done on
+ * the main thread while someone is typing.
+ */
+const slim = (game: RawgGameResult): RawgGameResult => ({
+  id: game.id,
+  name: game.name,
+  background_image: game.background_image,
+  released: game.released,
+  rating: game.rating,
+  genres: game.genres?.map((genre) => ({ id: genre.id, name: genre.name })),
+  platforms: game.platforms
+    ?.filter((entry) => entry?.platform)
+    .map((entry) => ({
+      platform: {
+        id: entry.platform.id,
+        name: entry.platform.name,
+        slug: entry.platform.slug,
+      },
+    })),
+});
+
 async function fetchRawg(path: string): Promise<RawgGameResult[] | null> {
   try {
     const response = await fetch(`https://api.rawg.io/api/${path}`);
     if (!response.ok) return null;
     const data = await response.json();
-    return Array.isArray(data.results) ? (data.results as RawgGameResult[]) : null;
+    return Array.isArray(data.results) ? (data.results as RawgGameResult[]).map(slim) : null;
   } catch (err) {
     console.warn('RAWG request failed:', err);
     return null;
   }
 }
 
+/** What the cache already knows about a query, without asking RAWG. */
+export const cachedGames = (query: string): RawgGameResult[] | null =>
+  getFromCache(query.trim().toLowerCase() || POPULAR_CACHE_KEY);
+
+/**
+ * Searches already on their way out.
+ *
+ * Searching both catalogs asks RAWG for the same query twice — once for its own
+ * results and once for the artwork the Steam results borrow — and the recent
+ * list asks about a shelf of titles at once. Without this, each of those is a
+ * separate request for an answer already in flight.
+ */
+const inFlight = new Map<string, Promise<CatalogResponse>>();
+
 /**
  * Catalog lookup against RAWG. An empty query lists what RAWG currently ranks
  * as popular; everything comes from the API, so a missing key or a failed
  * request returns nothing rather than invented titles.
  */
-export async function searchGames(query: string, apiKey?: string): Promise<CatalogResponse> {
+export function searchGames(query: string, apiKey?: string): Promise<CatalogResponse> {
   const trimmed = query.trim().toLowerCase();
   const cacheKey = trimmed || POPULAR_CACHE_KEY;
 
   const cached = getFromCache(cacheKey);
-  if (cached && cached.length > 0) {
-    return { results: cached };
-  }
+  if (cached && cached.length > 0) return Promise.resolve({ results: cached });
 
+  const existing = inFlight.get(cacheKey);
+  if (existing) return existing;
+
+  const request = requestGames(trimmed, cacheKey, apiKey);
+  inFlight.set(cacheKey, request);
+  void request.finally(() => inFlight.delete(cacheKey));
+  return request;
+}
+
+async function requestGames(
+  trimmed: string,
+  cacheKey: string,
+  apiKey?: string,
+): Promise<CatalogResponse> {
   const key = rawgApiKey(apiKey);
   if (!key) {
     return { results: [], error: 'missing-key' };

@@ -11,7 +11,7 @@ import { useNumericField } from '../lib/useNumericField';
 import { GuidedRating } from './GuidedRating';
 import { SteamLinkField } from './SteamLinkField';
 import { isPerfect } from '../lib/completion';
-import { today } from '../lib/format';
+import { roundHours, today } from '../lib/format';
 import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/ratingQuestions';
 
 /** Everything both the add and edit dialogs collect about a game. */
@@ -131,7 +131,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   // Rounded to a tenth: hours accept decimals, but float arithmetic would
   // otherwise leave values like 12.300000000000001 in the record.
   const hoursField = useNumericField(hoursPlayed, (n) =>
-    onChange({ hoursPlayed: Math.max(0, Math.round(n * 10) / 10) }),
+    onChange({ hoursPlayed: Math.max(0, roundHours(n)) }),
   );
   const unlockedField = useNumericField(achievementsUnlocked, (n) =>
     onChange({ achievementsUnlocked: Math.max(0, n) }),
@@ -250,7 +250,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                   size="m"
                   variant="secondary"
                   className="h-9"
-                  onClick={() => onChange({ hoursPlayed: hoursPlayed + 1 })}
+                  onClick={() => onChange({ hoursPlayed: roundHours(hoursPlayed + 1) })}
                 >
                   +1h
                 </Button>
@@ -258,7 +258,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                   size="m"
                   variant="secondary"
                   className="h-9"
-                  onClick={() => onChange({ hoursPlayed: hoursPlayed + 5 })}
+                  onClick={() => onChange({ hoursPlayed: roundHours(hoursPlayed + 5) })}
                 >
                   +5h
                 </Button>

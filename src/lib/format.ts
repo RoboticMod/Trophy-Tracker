@@ -30,6 +30,33 @@ export function relativeTime(iso: string | undefined | null): string {
 /** "1,204" — thousands separators for counts large enough to need scanning. */
 export const formatCount = (value: number): string => value.toLocaleString();
 
+/* -------------------------------------------------------------------------- */
+/* Playtime                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Hours, to a tenth — the precision playtime is actually kept in.
+ *
+ * A tenth is not a number binary floating point can hold exactly, so adding
+ * them up drifts: 12.4 + 6.4 comes to 18.799999999999997, and a total that
+ * went straight into a template string rendered every one of those digits.
+ * Every sum and every nudge of the hours field comes back through here.
+ */
+export const roundHours = (hours: number): number => Math.round(hours * 10) / 10;
+
+/** Total playtime across a set of games, without the arithmetic showing. */
+export const sumHours = (games: { hoursPlayed?: number }[]): number =>
+  roundHours(games.reduce((total, game) => total + (game.hoursPlayed || 0), 0));
+
+/**
+ * "18.8", "1,204" — a figure in hours, ready to have an "h" put after it.
+ *
+ * Rounded rather than truncated, separated once it is long enough to need it,
+ * and with no trailing ".0", which reads as precision that is not there.
+ */
+export const formatHours = (hours: number): string =>
+  roundHours(hours).toLocaleString(undefined, { maximumFractionDigits: 1 });
+
 /**
  * A date input speaks yyyy-mm-dd in local time, while the app stores instants.
  *

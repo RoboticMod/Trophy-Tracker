@@ -15,6 +15,7 @@ import { RatingValue } from './Rating';
 import { MarqueeText, Meter, OverlayBadge } from './ui';
 import { ratingColor } from '../lib/rating';
 import { completionPercent, isPerfect } from '../lib/completion';
+import { formatHours } from '../lib/format';
 import { playAwardSound } from '../lib/sound';
 import { useInView } from '../lib/useInView';
 import { cn } from '../lib/cn';
@@ -342,7 +343,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
             <span className="flex items-center gap-1">
               <Clock size={12} />
-              {game.hoursPlayed}h played
+              {formatHours(game.hoursPlayed)}h played
             </span>
           </div>
         </div>

@@ -20,7 +20,7 @@ import { useGame } from '../context/GameContext';
 import { useSync } from '../context/SyncContext';
 import { syncFieldsFor } from '../lib/sync';
 import { completionPercent, isPerfect } from '../lib/completion';
-import { formatCount, relativeTime } from '../lib/format';
+import { formatCount, formatHours, relativeTime } from '../lib/format';
 import { statusLabel, STATUS_TONE } from '../lib/status';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
@@ -294,7 +294,7 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-75 text-gray-700">
               <span className="flex items-center gap-1.5">
                 <Clock size={13} />
-                {game.hoursPlayed}h played
+                {formatHours(game.hoursPlayed)}h played
               </span>
               <span className="flex items-center gap-1.5">
                 <TrophyBadge platform={game.platform} size={14} muted={!perfect} />

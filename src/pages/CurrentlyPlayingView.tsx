@@ -5,6 +5,7 @@ import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
 import { statusLabel } from '../lib/status';
+import { formatHours, sumHours } from '../lib/format';
 import { Badge, EmptyState, MetricCard } from '../components/ui';
 
 export const CurrentlyPlayingView: React.FC = () => {
@@ -22,7 +23,7 @@ export const CurrentlyPlayingView: React.FC = () => {
     [games, platformOrder],
   );
 
-  const totalHours = playingGames.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0);
+  const totalHours = sumHours(playingGames);
   const unlocked = playingGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
   const possible = playingGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
 
@@ -55,7 +56,7 @@ export const CurrentlyPlayingView: React.FC = () => {
         <MetricCard
           icon={<Clock size={18} />}
           tone="bg-gray-200 text-gray-800"
-          value={`${totalHours}h`}
+          value={`${formatHours(totalHours)}h`}
           label="Logged in active games"
         />
         <MetricCard

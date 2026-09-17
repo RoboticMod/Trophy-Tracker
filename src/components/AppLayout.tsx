@@ -32,22 +32,16 @@ import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
 
 /**
- * How long a followed game is given to appear on the current page before the
- * app decides this page is not where it went. One frame plus a little: React
- * has already re-rendered by then, so the card is either in the document or it
- * was never going to be.
- */
-const FOLLOW_LOOKUP_MS = 80;
-
-/**
- * Pages a followed game can move you away from.
+ * How long a followed game is given to turn up on the current page before the
+ * app decides this page is not where it went.
  *
- * Only the ones that show game cards, so following a game is always a move
- * between shelves. Search is deliberately not one of them: adding games there
- * is a run of them, and jumping to the library after the first would throw the
- * results — and the query that found them — away.
+ * Past the card exit animation, and this is the whole reason for the wait: a
+ * game that has just been re-filed is still in the document for the 200ms its
+ * old card spends fading out. Looking any sooner found that departing card,
+ * concluded the game was already here, and stayed put — which is exactly the
+ * case this is for.
  */
-const SHELF_PATHS = ['/', '/playing', '/achievements', '/backlog', '/collections'];
+const FOLLOW_LOOKUP_MS = 300;
 
 /**
  * The page a game can actually be seen on.
@@ -213,7 +207,6 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(() => {
       const { games: library, navItems: nav, pathname, navigate: go } = followContext.current;
-      if (!SHELF_PATHS.includes(pathname)) return;
       if (document.querySelector(`[data-game-id="${CSS.escape(follow.gameId)}"]`)) return;
 
       const game = library.find((g) => g.id === follow.gameId);
@@ -433,7 +426,10 @@ export const AppLayout: React.FC = () => {
       {/* min-h-0, not h-full: the top bar is a flex sibling now, so a main
           claiming the full viewport height would push its own scroll past the
           bottom of the window by exactly the height of the bar. */}
-      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-32 sm:px-6 md:py-8 2xl:px-10">
+      {/* pt-20 below md is the fixed phone header's own height plus a little
+          air. It used to be pt-32, which cleared the header twice over and
+          started every page a third of a screen down. */}
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-20 sm:px-6 md:py-8 2xl:px-10">
         {error ? (
           <div
             role="alert"

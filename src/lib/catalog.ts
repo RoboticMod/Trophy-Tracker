@@ -1,8 +1,8 @@
 import { Platform, PLATFORM_IDS } from '../types';
-import { detectPlatformFromRawg, rawgApiKey, searchGames } from './rawg';
+import { cachedGames, detectPlatformFromRawg, rawgApiKey, searchGames } from './rawg';
 import { getSteamApp, getSteamLibrary, searchSteam, SteamError } from './steam';
 import { snapRating } from './rating';
-import { formatCount } from './format';
+import { formatCount, formatHours } from './format';
 import { oneOf } from './usePersistentState';
 import { useSyncedPreference } from './useSyncedPreference';
 
@@ -70,12 +70,6 @@ export interface CatalogResult {
 }
 
 /**
- * The version of a result to add.
- *
- * Choosing RAWG's details for a game Steam also sells keeps the Steam link, so
- * the game still gets its store media and — on Steam — its synced progress.
- */
-/**
  * The platforms a result says the game is on.
  *
  * Which database answered is not what anyone wants to know from a result — it
@@ -89,6 +83,12 @@ export const resultPlatforms = (result: CatalogResult): Platform[] => {
   return PLATFORM_IDS.filter((platform) => found.includes(platform));
 };
 
+/**
+ * The version of a result to add.
+ *
+ * Choosing RAWG's details for a game Steam also sells keeps the Steam link, so
+ * the game still gets its store media and — on Steam — its synced progress.
+ */
 export function pickVersion(result: CatalogResult, source: ResultSource): CatalogResult {
   if (result.source === source || !result.twin) return { ...result, twin: undefined };
   const other = result.twin;
@@ -140,22 +140,23 @@ async function searchSteamCatalog(
       .sort((a, b) => new Date(b.lastPlayedAt!).getTime() - new Date(a.lastPlayedAt!).getTime())
       .slice(0, 16);
 
-    // No query to look these up under, so each is asked for by name — and
-    // every one of them is cached for a day afterwards.
-    const art = await rawgCovers(
-      recent.map((game) => game.name),
-      rawgKey,
-    );
+    // There is no query to look these up under, so it is one lookup per title.
+    // The list is not made to wait on sixteen of them: whatever the cache
+    // already has is used now, and the rest are fetched in the background so
+    // the next look has them. A dialog that opens at once matters more than a
+    // thumbnail that is there the first time.
+    const names = recent.map((game) => game.name);
+    void rawgCovers(names, rawgKey);
 
     return {
-      results: recent.map<CatalogResult>((game, index) => ({
+      results: recent.map<CatalogResult>((game) => ({
         key: `steam-${game.appid}`,
         source: 'steam',
         title: game.name,
-        image: art[index],
+        image: cachedCover(game.name),
         platform: 'steam',
         genres: [],
-        subtitle: `${game.hoursPlayed}h played`,
+        subtitle: `${formatHours(game.hoursPlayed)}h played`,
         steamAppId: game.appid,
       })),
       recent: true,
@@ -259,6 +260,12 @@ export async function rawgCover(title: string, key?: string): Promise<string | u
   const art = await rawgArtwork(title, key);
   return art.get(matchKey(title));
 }
+
+/** The same lookup against what has already been fetched, with no request. */
+const cachedCover = (title: string): string | undefined => {
+  const wanted = matchKey(title);
+  return cachedGames(title)?.find((game) => matchKey(game.name) === wanted)?.background_image;
+};
 
 /** How many titles are asked about at once when there is no query to share. */
 const COVER_BATCH = 4;

@@ -212,10 +212,17 @@
    the ambient layer is doing underneath, a hairline edge, and a lit top edge so
    it reads as a pane of glass catching the light from above.
 --------------------------------------------------------------------------- */
+/* No backdrop-filter, deliberately.
+   A panel only ever sits on the fixed ambient layer — nothing scrolls behind
+   one, and dialogs are opaque — so blurring the backdrop changed nothing about
+   how a panel looked. What it did do was leak: a 10px Gaussian reaches about
+   30px, and the icon well of the card to the left sits 28px away, so a metric
+   card two cards along the row came up with a blue glow spilling in from its
+   left edge. Dropping the filter removes that outright, and takes a compositing
+   layer per panel off the page with it. */
 @utility panel {
   background-color: rgb(255 255 255 / 0.03);
   border: 1px solid rgb(255 255 255 / 0.08);
-  backdrop-filter: blur(10px);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.06),
     var(--shadow-lg);

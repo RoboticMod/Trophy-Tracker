@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import { useSync } from '../context/SyncContext';
 import { PsnError, PsnTitle, matchByTitle, normalizeTitle } from '../lib/psn';
 import { syncFieldsFor } from '../lib/sync';
-import { formatCount, relativeTime } from '../lib/format';
+import { formatHours, relativeTime } from '../lib/format';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { SyncFact, SyncStatusFacts, SyncStatusHeader, SyncTone, syncDate } from './SyncStatus';
@@ -83,7 +83,7 @@ export const PsnSyncStatus: React.FC<{ game: UserGame; className?: string }> = (
       value:
         outcome?.hasPlaytime === false
           ? 'Not reported by PSN'
-          : `${formatCount(game.hoursPlayed)}h`,
+          : `${formatHours(game.hoursPlayed)}h`,
     });
     facts.push({
       label: 'Last trophy',

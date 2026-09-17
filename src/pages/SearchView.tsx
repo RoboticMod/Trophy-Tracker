@@ -95,22 +95,28 @@ export const SearchView: React.FC = () => {
       game.image ? game.image : rawgCover(game.title, rawgKey),
     ]);
 
-    const added = addGame({
-      rawgId: game.rawgId,
-      steamAppId: game.steamAppId,
-      title: game.title,
-      platform,
-      status: toBacklog ? 'backlog' : 'playing',
-      coverImage: cover,
-      releaseDate: game.releaseDate ?? details?.releaseDate,
-      genres: game.genres.length ? game.genres : (details?.genres ?? []),
-      hoursPlayed: 0,
-      achievementsUnlocked: 0,
-      achievementsTotal: details?.achievementsTotal ?? 0,
-      rating: game.rating,
-      collections: toBacklog ? ['col-backlog'] : [],
-      ...syncFieldsFor({ platform, steamAppId: game.steamAppId }),
-    });
+    const added = addGame(
+      {
+        rawgId: game.rawgId,
+        steamAppId: game.steamAppId,
+        title: game.title,
+        platform,
+        status: toBacklog ? 'backlog' : 'playing',
+        coverImage: cover,
+        releaseDate: game.releaseDate ?? details?.releaseDate,
+        genres: game.genres.length ? game.genres : (details?.genres ?? []),
+        hoursPlayed: 0,
+        achievementsUnlocked: 0,
+        achievementsTotal: details?.achievementsTotal ?? 0,
+        rating: game.rating,
+        collections: toBacklog ? ['col-backlog'] : [],
+        ...syncFieldsFor({ platform, steamAppId: game.steamAppId }),
+      },
+      // Adding from here is a run of games — the card says "in your library"
+      // and you carry on down the list. Being taken to the library after each
+      // one would take the search, and the query behind it, with it.
+      { follow: false },
+    );
 
     setAddingKey(null);
     setAddedKeys((prev) => ({ ...prev, [game.key]: true }));

@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Search,
   Sparkles,
@@ -31,7 +30,6 @@ import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
 import { cn } from '../lib/cn';
-import { EASE_OUT } from '../lib/motion';
 
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
 
@@ -135,7 +133,7 @@ export const QuickAddModal: React.FC = () => {
    * in for the details search does not carry — above all the achievement
    * count, so the form does not open at 0 / 0.
    */
-  const selectGameFromSearch = (game: CatalogResult) => {
+  const selectGameFromSearch = useCallback((game: CatalogResult) => {
     setReleaseDate(game.releaseDate);
     setGenres(game.genres);
     setRawgId(game.rawgId);
@@ -173,7 +171,17 @@ export const QuickAddModal: React.FC = () => {
       setReleaseDate((d) => d ?? details.releaseDate);
       setGenres((g) => (g.length ? g : details.genres));
     });
-  };
+  }, [rawgKey]);
+
+  /**
+   * Clicking a result: either the version choice, or straight into the form.
+   * Stable, so the rows below it can skip a render while the query changes.
+   */
+  const pickResult = useCallback(
+    (game: CatalogResult) =>
+      game.twin ? setChoosing(game) : selectGameFromSearch(game),
+    [selectGameFromSearch],
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,30 +319,12 @@ export const QuickAddModal: React.FC = () => {
               ) : null}
               <div className="grid max-h-[380px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                 {searchResults.map((game) => (
-                  <motion.button
+                  <ResultRow
                     key={game.key}
-                    type="button"
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    transition={{ duration: 0.2, ease: EASE_OUT }}
-                    onClick={() => (game.twin ? setChoosing(game) : selectGameFromSearch(game))}
-                    className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
-                  >
-                    <CoverArt
-                      src={game.image}
-                      title={game.title}
-                      className="h-12 w-[5.5rem] shrink-0 rounded-sm object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-100 font-semibold text-gray-900 group-hover:text-accent-900">
-                        {game.title}
-                      </h4>
-                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                        {source === 'both' ? <ResultPlatforms result={game} /> : null}
-                        <p className="truncate text-75 text-gray-700">{game.subtitle}</p>
-                      </div>
-                    </div>
-                  </motion.button>
+                    game={game}
+                    showPlatforms={source === 'both'}
+                    onPick={pickResult}
+                  />
                 ))}
               </div>
             </div>
@@ -365,6 +355,46 @@ export const QuickAddModal: React.FC = () => {
     </Dialog>
   );
 };
+
+/**
+ * One row of the result list.
+ *
+ * Memoized, and plain rather than animated. Every keystroke re-renders the
+ * dialog, and sixteen motion components — each with its own hover and tap
+ * springs — were re-rendered with it, which is what made typing in the search
+ * box feel like wading. Given stable props these rows now sit still while the
+ * query changes, and the hover treatment they had is a border and a background
+ * the CSS was already transitioning.
+ */
+const ResultRow = React.memo<{
+  game: CatalogResult;
+  /** The platform marks, which only mean anything when both catalogs ran. */
+  showPlatforms: boolean;
+  onPick: (game: CatalogResult) => void;
+}>(({ game, showPlatforms, onPick }) => (
+  <button
+    type="button"
+    onClick={() => onPick(game)}
+    className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
+  >
+    <CoverArt
+      src={game.image}
+      title={game.title}
+      className="h-12 w-[5.5rem] shrink-0 rounded-sm object-cover"
+    />
+    <div className="min-w-0 flex-1">
+      <h4 className="truncate text-100 font-semibold text-gray-900 group-hover:text-accent-900">
+        {game.title}
+      </h4>
+      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+        {showPlatforms ? <ResultPlatforms result={game} /> : null}
+        <p className="truncate text-75 text-gray-700">{game.subtitle}</p>
+      </div>
+    </div>
+  </button>
+));
+
+ResultRow.displayName = 'ResultRow';
 
 /** Compact in-dialog explanation for an empty catalog result set. */
 const SearchEmptyState: React.FC<{

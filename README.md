@@ -145,6 +145,12 @@ Components compose those tokens through Tailwind utilities (`bg-gray-100`, `text
 `rounded-md`). **No component should introduce a raw hex value or an arbitrary-value class such as
 `text-[11px]`.** Anything reusable belongs in `src/components/ui/`.
 
+`panel` — the one card treatment — deliberately has **no `backdrop-filter`**. Nothing ever scrolls
+behind a panel (they sit on the fixed ambient layer, and dialogs are opaque), so the blur changed
+nothing about how one looked, while a 10px Gaussian reaches far enough sideways to pull a
+neighbouring card's icon well in as a glow along the panel's own edge. Keep bright elements at
+least three times any blur radius away from the edge of anything that filters its backdrop.
+
 The gaming character lives in cover art, the gold "mastered" treatment, the platform trophy
 artwork and the motion — not in inventing new tokens.
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { UserGame } from '../types';
 import { useSync } from '../context/SyncContext';
 import { SteamError, steamStoreUrl } from '../lib/steam';
-import { formatCount, relativeTime } from '../lib/format';
+import { formatHours, relativeTime } from '../lib/format';
 import { SyncFact, SyncStatusFacts, SyncStatusHeader, SyncTone, syncDate } from './SyncStatus';
 import { cn } from '../lib/cn';
 
@@ -79,7 +79,7 @@ export const SteamSyncStatus: React.FC<{ game: UserGame; className?: string }> =
       value:
         outcome?.hasPlaytime === false && game.hoursPlayed === 0
           ? 'Not reported by Steam'
-          : `${formatCount(game.hoursPlayed)}h`,
+          : `${formatHours(game.hoursPlayed)}h`,
     });
     facts.push({
       label: 'Last achievement',

@@ -14,7 +14,7 @@ import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
 import { statusLabel, STATUS_COLOR, STATUS_TONE } from '../lib/status';
 import { aggregateCompletion, completionPercent, isPerfect } from '../lib/completion';
 import { backlogLabel, completionColor } from '../lib/rating';
-import { formatCount, relativeTime } from '../lib/format';
+import { formatCount, formatHours, relativeTime, sumHours } from '../lib/format';
 import { GameStatus, PLATFORM_IDS } from '../types';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
@@ -86,7 +86,7 @@ export const StatsView: React.FC = () => {
   };
 
   const totalGames = games.length;
-  const totalHours = games.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0);
+  const totalHours = sumHours(games);
   const {
     unlocked: totalAchievements,
     unlockable: totalMaxAchievements,
@@ -121,7 +121,7 @@ export const StatsView: React.FC = () => {
           platform: p,
           config: PLATFORMS[p],
           count: pGames.length,
-          hours: pGames.reduce((acc, g) => acc + (g.hoursPlayed || 0), 0),
+          hours: sumHours(pGames),
           achievements: unlocked,
           maxAchievements: unlockable,
           completionRate: percent,
@@ -234,7 +234,7 @@ export const StatsView: React.FC = () => {
           <StatTile
             surface="panel"
             label="Playtime logged"
-            value={`${formatCount(totalHours)}h`}
+            value={`${formatHours(totalHours)}h`}
             caption={`~${(totalHours / 24).toFixed(1)} days · most: ${
               longestPlayed ? longestPlayed.title : 'nothing yet'
             }`}
@@ -275,7 +275,7 @@ export const StatsView: React.FC = () => {
                   <div>
                     <span className="font-bold text-gray-1000">{stat.config.name}</span>
                     <span className="ml-2 text-gray-600">
-                      {stat.count} game{stat.count === 1 ? '' : 's'} • {stat.hours}h
+                      {stat.count} game{stat.count === 1 ? '' : 's'} • {formatHours(stat.hours)}h
                     </span>
                   </div>
                 </div>
@@ -416,7 +416,7 @@ export const StatsView: React.FC = () => {
                       <h3 className="truncate text-75 font-bold text-gray-1000">{g.title}</h3>
                     </div>
                     <p className="mt-0.5 truncate text-50 tabular-nums text-gray-600">
-                      {g.hoursPlayed}h • {g.achievementsUnlocked}/{g.achievementsTotal}{' '}
+                      {formatHours(g.hoursPlayed)}h • {g.achievementsUnlocked}/{g.achievementsTotal}{' '}
                       {awardNoun(g.platform).toLowerCase()} ({progress}%)
                     </p>
                   </div>
