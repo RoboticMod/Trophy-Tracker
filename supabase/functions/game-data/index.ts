@@ -420,6 +420,14 @@ async function psnAccessToken(
   }
 }
 
+/**
+ * The trophy group a base game's own list lives in.
+ *
+ * PSN numbers add-on groups "001", "002" and so on, and answers "all" with the
+ * lot rolled together. Everything this app counts is the base list.
+ */
+const BASE_TROPHY_GROUP = 'default';
+
 /** Trophy counts across all four tiers, which is what this app tracks. */
 const countTrophies = (trophies?: {
   bronze?: number;
@@ -662,16 +670,26 @@ Deno.serve(async (request) => {
       /**
        * One title in detail, including when each trophy was earned — which is
        * what dates a platinum, rather than the moment a sync noticed it.
+       *
+       * The base game only. PSN files add-on trophies in groups of their own
+       * beside the "default" group, and asking for "all" rolls them into one
+       * count — so a game whose platinum you have earned reads as 45 of 76
+       * because someone shipped three DLC packs you never bought. A platinum is
+       * the base list, and that is what this tracks.
        */
       if (segments[2] === 'title' && segments[3]) {
         const npCommunicationId = segments[3];
         const npServiceName = url.searchParams.get('service') === 'trophy' ? 'trophy' : 'trophy2';
 
         const [defined, earned] = await Promise.all([
-          getTitleTrophies(psnAuth, npCommunicationId, 'all', { npServiceName }),
-          getUserTrophiesEarnedForTitle(psnAuth, session.accountId, npCommunicationId, 'all', {
-            npServiceName,
-          }),
+          getTitleTrophies(psnAuth, npCommunicationId, BASE_TROPHY_GROUP, { npServiceName }),
+          getUserTrophiesEarnedForTitle(
+            psnAuth,
+            session.accountId,
+            npCommunicationId,
+            BASE_TROPHY_GROUP,
+            { npServiceName },
+          ),
         ]);
 
         const earnedList = (earned.trophies ?? []).filter((trophy) => trophy.earned);

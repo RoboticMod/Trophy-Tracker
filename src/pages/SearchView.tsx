@@ -36,7 +36,7 @@ import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
 import { Button, EmptyState, FilterChip, OverlayBadge, TextInput } from '../components/ui';
-import { SourceBadge, VersionToggle } from '../components/CatalogVersions';
+import { ResultPlatforms, VersionToggle } from '../components/CatalogVersions';
 
 export const SearchView: React.FC = () => {
   const { games, addGame, profile, platformAccounts } = useGame();
@@ -266,7 +266,7 @@ export const SearchView: React.FC = () => {
                 <div className="absolute inset-x-3 bottom-2">
                   <h3 className="truncate text-100 font-bold text-gray-1000">{game.title}</h3>
                   <div className="flex min-w-0 items-center gap-1.5">
-                    {source === 'both' ? <SourceBadge result={found} /> : null}
+                    {source === 'both' ? <ResultPlatforms result={found} /> : null}
                     <p className="truncate text-50 text-gray-700">{game.subtitle}</p>
                   </div>
                 </div>
@@ -275,6 +275,7 @@ export const SearchView: React.FC = () => {
               {found.twin && !added ? (
                 <div className="border-t border-gray-200 px-3 pt-3">
                   <VersionToggle
+                    result={found}
                     value={version}
                     onChange={(next) => setVersions((prev) => ({ ...prev, [found.key]: next }))}
                   />

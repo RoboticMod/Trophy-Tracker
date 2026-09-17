@@ -183,6 +183,13 @@ const TrophyListPicker: React.FC<{ game: UserGame; onDone: () => void }> = ({ ga
         />
       </div>
 
+      {/* The counts on each row are PlayStation's own account summary, which
+          adds up every trophy group including the add-ons. What the game then
+          tracks is the base list alone, so the two rarely read the same. */}
+      <p className="text-50 text-gray-600">
+        Counts below include add-on trophies; a game tracks its base list only.
+      </p>
+
       {loading ? (
         <div className="flex items-center gap-2 py-3 text-75 text-gray-600">
           <Loader2 size={15} className="animate-spin" />

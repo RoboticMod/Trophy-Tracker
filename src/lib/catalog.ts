@@ -1,4 +1,4 @@
-import { Platform } from '../types';
+import { Platform, PLATFORM_IDS } from '../types';
 import { detectPlatformFromRawg, rawgApiKey, searchGames } from './rawg';
 import { getSteamApp, getSteamLibrary, searchSteam, SteamError } from './steam';
 import { snapRating } from './rating';
@@ -75,6 +75,20 @@ export interface CatalogResult {
  * Choosing RAWG's details for a game Steam also sells keeps the Steam link, so
  * the game still gets its store media and — on Steam — its synced progress.
  */
+/**
+ * The platforms a result says the game is on.
+ *
+ * Which database answered is not what anyone wants to know from a result — it
+ * is which machines the game runs on. A game Steam sells is on Steam; a game
+ * RAWG lists against a PlayStation is on PS5; a game found in both is usually
+ * both, and shows both marks. It is the same fact the card will carry once the
+ * game is added, since the platform a result is added on is this one.
+ */
+export const resultPlatforms = (result: CatalogResult): Platform[] => {
+  const found = [result.platform, result.twin?.platform];
+  return PLATFORM_IDS.filter((platform) => found.includes(platform));
+};
+
 export function pickVersion(result: CatalogResult, source: ResultSource): CatalogResult {
   if (result.source === source || !result.twin) return { ...result, twin: undefined };
   const other = result.twin;

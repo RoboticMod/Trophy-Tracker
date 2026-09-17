@@ -26,7 +26,7 @@ import {
 import { fromDateInput } from '../lib/format';
 import { syncFieldsFor } from '../lib/sync';
 import { useSync } from '../context/SyncContext';
-import { SourceBadge, VersionChooser } from './CatalogVersions';
+import { ResultPlatforms, VersionChooser } from './CatalogVersions';
 import { CoverArt } from './CoverArt';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
@@ -210,7 +210,7 @@ export const QuickAddModal: React.FC = () => {
     <Dialog
       isOpen={isQuickAddOpen}
       title="Add a game"
-      description={`Search ${CATALOG_SOURCE_LABELS[source]}, or enter the details yourself`}
+      description="Search for a game, or enter the details yourself"
       icon={<Sparkles size={18} />}
       onClose={minimize}
       initialFocusRef={tab === 'search' ? searchRef : undefined}
@@ -247,9 +247,13 @@ export const QuickAddModal: React.FC = () => {
       }
     >
       <div className="mb-5 flex gap-1 rounded-sm bg-black/25 p-1">
+        {/* "Search games", not the catalogs it happens to be searching: which
+            database a title comes out of is a setting, not a choice being made
+            here, and naming both of them made the tab the longest label in the
+            dialog. The catalog in use is still named in the line above. */}
         <TabButton active={tab === 'search'} onClick={() => setTab('search')}>
           <Search size={15} />
-          Search {CATALOG_SOURCE_LABELS[source]}
+          Search games
         </TabButton>
         <TabButton active={tab === 'custom'} onClick={() => setTab('custom')}>
           <Plus size={15} />
@@ -267,7 +271,7 @@ export const QuickAddModal: React.FC = () => {
             <TextInput
               ref={searchRef}
               type="search"
-              aria-label={`Search ${CATALOG_SOURCE_LABELS[source]}`}
+              aria-label="Search games"
               placeholder="Elden Ring, Hollow Knight, Balatro…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -326,7 +330,7 @@ export const QuickAddModal: React.FC = () => {
                         {game.title}
                       </h4>
                       <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                        {source === 'both' ? <SourceBadge result={game} /> : null}
+                        {source === 'both' ? <ResultPlatforms result={game} /> : null}
                         <p className="truncate text-75 text-gray-700">{game.subtitle}</p>
                       </div>
                     </div>

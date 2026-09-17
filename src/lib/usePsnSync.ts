@@ -205,9 +205,13 @@ export function usePsnSync() {
           const game = getGames().find((g) => g.id === candidate.id) ?? candidate;
 
           const { updates, changed, grewList } = reconcile(game, {
-            // A game with playtime but no trophy list keeps its own counts.
-            unlocked: detail?.data?.earned ?? match?.earned ?? game.achievementsUnlocked,
-            total: detail?.data?.total ?? match?.total ?? game.achievementsTotal,
+            // Only the counts the trophy list itself gives, which are the base
+            // game's. The account summary beside it counts add-on trophies too,
+            // so falling back to it would have a game's total jump by twenty
+            // every time one detail request happened to fail. A game with
+            // playtime but no trophy list keeps its own counts.
+            unlocked: detail?.data?.earned ?? game.achievementsUnlocked,
+            total: detail?.data?.total ?? game.achievementsTotal,
             hoursPlayed: playedGame?.hoursPlayed,
             lastPlayedAt: playedGame?.lastPlayedAt ?? match?.lastUpdatedAt,
             // Only a real trophy date: the list's own "last updated" also moves

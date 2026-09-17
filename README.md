@@ -89,6 +89,13 @@ the refresh token lasts about two months, after which the app asks for a new NPS
 Every PS5 game is matched to your trophy lists and played games by title, which brings its
 trophies and playtime with it.
 
+Only the **base game's** trophies are counted. PSN files add-on trophies in groups of their own
+alongside the base `default` group, and asking for them all rolls the lot into one figure — so a
+game whose platinum you earned years ago reads as 45 of 76 because someone shipped three DLC packs
+you never bought. A platinum is the base list, and that is what a PS5 game tracks. The account
+summary in the trophy-list picker still shows PlayStation's own DLC-inclusive counts, since that
+is what identifies a list.
+
 Syncing is automatic: when the app opens, every 15 minutes while it is on screen, when the tab
 comes back into view or the connection returns, and as soon as a game is added or linked. Each
 pass only asks about games the platform says have been played since the last one. The sync
