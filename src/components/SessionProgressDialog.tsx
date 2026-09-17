@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { completionPercent } from '../lib/completion';
-
 import { playAwardSound } from '../lib/sound';
 import { SessionProgress, useSessionProgress } from '../lib/useSessionProgress';
 import { CELEBRATION_DELAY_MS, CELEBRATION_MS, Celebration } from './Celebration';
@@ -155,17 +154,19 @@ export const SessionProgressDialog: React.FC = () => {
           ? `${total} earned across ${progress.length} game${progress.length === 1 ? '' : 's'} — ${completedCount} finished`
           : `${total} earned across ${progress.length} game${progress.length === 1 ? '' : 's'}`
       }
-      icon={<Sparkles size={18} />}
+      icon={<FileText size={18} />}
       footer={
         <Button variant="accent" onClick={dismiss}>
           OK
         </Button>
       }
     >
-      {/* The burst plays over the list rather than over one row: a row is too
-          short for sparks that climb two hundred pixels, and the gold on the
-          finished rows already says which game earned it. */}
-      <div className="relative overflow-hidden rounded-lg">
+      {/* Nothing clips here. This list used to hide its overflow so the burst
+          had a box to play in, and the box was exactly as wide as the rows —
+          so the gold a finished row gives off was sliced flat down both sides.
+          The burst brings its own clip, on a box that reaches the dialog's own
+          edges rather than the rows'. */}
+      <div className="relative">
         <div className="space-y-2">
           {progress.map((entry) => (
             <ProgressRow
@@ -179,8 +180,15 @@ export const SessionProgressDialog: React.FC = () => {
           ))}
         </div>
 
+        {/* The burst plays over the whole list rather than over one row: a row
+            is too short for sparks that climb two hundred pixels, and the gold
+            on the finished rows already says which game earned it. The negative
+            inset is the dialog body's own padding, so the glow ends where the
+            panel does and there is no edge of its own to see. */}
         {burst !== null && finished && (
-          <Celebration key={burst} platform={finished.game.platform} />
+          <div aria-hidden className="pointer-events-none absolute -inset-5">
+            <Celebration key={burst} platform={finished.game.platform} />
+          </div>
         )}
       </div>
     </Dialog>
