@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/cn';
 import { EASE_OUT } from '../../lib/motion';
+import { useInView } from '../../lib/useInView';
 
 interface MeterProps {
   /** 0-100. */
@@ -34,8 +35,16 @@ export const Meter: React.FC<MeterProps> = ({
   color,
 }) => {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
+
+  // The sweep up to the figure is the point of a meter, and one that ran while
+  // the meter was below the fold is a sweep nobody saw — a game added to a
+  // section further down the page used to arrive already full. It waits until
+  // it is on screen, and from then on tracks the value as it changes.
+  const [ref, seen] = useInView<HTMLDivElement>(0.6);
+
   return (
     <div
+      ref={ref}
       role="meter"
       aria-valuenow={clamped}
       aria-valuemin={0}
@@ -49,7 +58,7 @@ export const Meter: React.FC<MeterProps> = ({
     >
       <motion.div
         initial={{ width: 0 }}
-        animate={{ width: `${clamped}%` }}
+        animate={{ width: seen ? `${clamped}%` : 0 }}
         transition={{ duration: 0.5, ease: EASE_OUT }}
         // A raw colour carries its own bloom inline, since there is no token
         // class to pair it with.

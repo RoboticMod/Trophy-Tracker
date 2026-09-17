@@ -566,41 +566,90 @@
 }
 
 /* Scrolling text for a name too long for its box.
-   It rests at the start, moves at a steady pace to show the end, rests, and
+   It rests at the start, moves at a steady pace to show the rest, rests, and
    moves back, so the whole name can be read without the box growing. Linear,
    not eased: text that speeds up and slows down is harder to read while it
-   moves. --marquee-shift is how far the text overflows, measured by the
-   component. The edges fade only while there is hidden text to fade into. */
+   moves.
+
+   One keyframe set covers both directions: the component measures the overflow
+   and sets --marquee-x for a single line scrolling sideways, or --marquee-y for
+   a wrapped block scrolling up. The edges fade only while there is hidden text
+   to fade into, and only sideways — a vertical fade would wash the top of the
+   first line out while the text is sitting still. */
 @keyframes marquee-bounce {
   0%,
   18% {
-    transform: translateX(0);
+    transform: translate(0, 0);
   }
   50%,
   68% {
-    transform: translateX(var(--marquee-shift, 0));
+    transform: translate(var(--marquee-x, 0), var(--marquee-y, 0));
   }
   100% {
-    transform: translateX(0);
+    transform: translate(0, 0);
+  }
+}
+
+/* The hover variant, which starts moving on the same frame the pointer arrives.
+   The resting beat the loop above opens with is there so an always-on marquee
+   can be read at a glance before it drifts; on hover it is just a delay between
+   asking to see the rest of a name and being shown it. */
+@keyframes marquee-bounce-instant {
+  0% {
+    transform: translate(0, 0);
+  }
+  38%,
+  56% {
+    transform: translate(var(--marquee-x, 0), var(--marquee-y, 0));
+  }
+  100% {
+    transform: translate(0, 0);
   }
 }
 
 @utility marquee {
   overflow: hidden;
-  white-space: nowrap;
 
   & > span {
-    display: inline-block;
     will-change: transform;
   }
 
-  &[data-overflowing='true'] {
-    mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
+  /* One line that never wraps, scrolling sideways. */
+  &[data-axis='x'] {
+    white-space: nowrap;
+
+    & > span {
+      display: inline-block;
+    }
+
+    &[data-overflowing='true'] {
+      mask-image: linear-gradient(
+        90deg,
+        transparent 0,
+        #000 6px,
+        #000 calc(100% - 6px),
+        transparent 100%
+      );
+    }
   }
 
-  &[data-overflowing='true'][data-trigger='always'] > span,
-  .group:hover &[data-overflowing='true'][data-trigger='hover'] > span {
+  /* A wrapped block clamped to --marquee-lines, scrolling up once the name
+     needs more lines than that. */
+  &[data-axis='y'] {
+    display: block;
+    max-height: calc(var(--marquee-lines, 2) * 1lh);
+
+    & > span {
+      display: block;
+    }
+  }
+
+  &[data-overflowing='true'][data-trigger='always'] > span {
     animation: marquee-bounce var(--marquee-duration, 6s) linear infinite;
+  }
+
+  .group:hover &[data-overflowing='true'][data-trigger='hover'] > span {
+    animation: marquee-bounce-instant var(--marquee-duration, 6s) linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -608,8 +657,11 @@
     mask-image: none !important;
 
     & > span {
-      display: inline;
       animation: none !important;
+    }
+
+    &[data-axis='x'] > span {
+      display: inline;
     }
   }
 }

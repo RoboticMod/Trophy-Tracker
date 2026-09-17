@@ -43,10 +43,11 @@ interface GameDetailsFieldsProps {
   collections: Collection[];
   profile: UserProfile;
   /**
-   * Shown in the PlayStation panel — the saved game's sync status. Only the edit
-   * dialog has one; a game being added has not been synced yet.
+   * Shown in the platform panel — the saved game's sync status, whichever
+   * platform it is on. Only the edit dialog has one; a game being added has not
+   * been synced yet.
    */
-  psnStatus?: React.ReactNode;
+  syncStatus?: React.ReactNode;
   /** Appended below the fields, e.g. a note about syncing. */
   children?: React.ReactNode;
 }
@@ -98,7 +99,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   statuses,
   collections,
   profile,
-  psnStatus,
+  syncStatus,
   children,
 }) => {
   const {
@@ -424,7 +425,9 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           comes from the account link in Settings, since PSN has no per-title
           catalog to search. */}
       {platform === 'steam' ? (
-        <SteamLinkField title={title} appId={values.steamAppId} onChange={onChange} />
+        <SteamLinkField title={title} appId={values.steamAppId} onChange={onChange}>
+          {syncStatus}
+        </SteamLinkField>
       ) : (
         <div className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
           <div className="flex items-start gap-3">
@@ -439,7 +442,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
               below.
             </p>
           </div>
-          {psnStatus ? <div className="border-t border-gray-200 pt-3">{psnStatus}</div> : null}
+          {syncStatus ? <div className="border-t border-gray-200 pt-3">{syncStatus}</div> : null}
         </div>
       )}
 

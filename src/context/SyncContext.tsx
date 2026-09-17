@@ -5,6 +5,7 @@ import { SYNC_INTERVAL_MS, SyncReport, SyncState, useSteamSync } from '../lib/us
 import { PsnSyncReport, PsnSyncState, usePsnSync } from '../lib/usePsnSync';
 import { PsnError, PsnTitle } from '../lib/psn';
 import { isSyncLinked } from '../lib/sync';
+import { useCoverArt } from '../lib/useCoverArt';
 
 interface SyncContextType {
   steam: { isLinked: boolean; state: SyncState };
@@ -41,6 +42,11 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { loading, refresh, isOnline } = useGame();
   const steam = useSteamSync();
   const psn = usePsnSync();
+
+  // Cover art is kept current here too: it comes from RAWG rather than from
+  // either platform, so it has no account to hang off — but it is the same
+  // "keep the library current on its own" job.
+  useCoverArt();
 
   const [reloading, setReloading] = useState(false);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);

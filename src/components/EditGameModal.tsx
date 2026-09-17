@@ -10,6 +10,7 @@ import { useSync } from '../context/SyncContext';
 import { PlatformIcon } from './PlatformIcon';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { PsnSyncStatus } from './PsnSyncStatus';
+import { SteamSyncStatus } from './SteamSyncStatus';
 import { Button, Dialog } from './ui';
 
 const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered', 'dropped'];
@@ -154,7 +155,16 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
         statuses={STATUS_CHOICES}
         collections={collections}
         profile={profile}
-        psnStatus={game.platform === 'ps5' ? <PsnSyncStatus game={game} /> : undefined}
+        // Keyed on the platform being edited rather than the saved one, so
+        // switching a game across in this dialog shows the panel that belongs
+        // to the platform the Save is about to put it on.
+        syncStatus={
+          values.platform === 'steam' ? (
+            <SteamSyncStatus game={game} />
+          ) : (
+            <PsnSyncStatus game={game} />
+          )
+        }
       />
     </Dialog>
   );

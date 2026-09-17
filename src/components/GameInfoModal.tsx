@@ -199,11 +199,12 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
   const missingDetails = useMemo(() => {
     if (!info) return [] as string[];
     const missing: string[] = [];
-    if (!game.coverImage && info.headerImage) missing.push('cover');
+    // Not the cover: Steam's is a store banner, and every cover in this app
+    // comes from RAWG. A game without one is filled in by the cover pass.
     if (!game.releaseDate && info.releaseDate) missing.push('release date');
     if (game.genres.length === 0 && info.genres.length > 0) missing.push('genres');
     return missing;
-  }, [info, game.coverImage, game.releaseDate, game.genres]);
+  }, [info, game.releaseDate, game.genres]);
 
   const [filled, setFilled] = useState<string | null>(null);
 
@@ -211,12 +212,11 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
     if (!info || missingDetails.length === 0) return;
 
     updateGame(game.id, {
-      coverImage: game.coverImage || info.headerImage || undefined,
       releaseDate: game.releaseDate || info.releaseDate || undefined,
       genres: game.genres.length ? game.genres : info.genres,
     });
 
-    setFilled(`Filled in the ${missingDetails.join(', ')}`);
+    setFilled(`Filled in the ${missingDetails.join(' and ')}`);
     window.setTimeout(() => setFilled(null), 2500);
   };
 
@@ -252,8 +252,8 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
               disabled={missingDetails.length === 0}
               title={
                 missingDetails.length === 0
-                  ? 'Cover, release date and genres are already set'
-                  : `Takes the ${missingDetails.join(', ')} from Steam`
+                  ? 'Release date and genres are already set'
+                  : `Takes the ${missingDetails.join(' and ')} from Steam`
               }
             >
               <RefreshCw size={14} />
@@ -271,7 +271,7 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
         {/* Hero ------------------------------------------------------------ */}
         <div className="flex flex-col gap-4 sm:flex-row">
           <CoverArt
-            src={info?.headerImage || game.coverImage}
+            src={game.coverImage}
             title={game.title}
             className="h-28 w-full shrink-0 rounded-md object-cover sm:w-52"
           />

@@ -21,6 +21,7 @@ import {
   CatalogSource,
   ResultSource,
   pickVersion,
+  rawgCover,
   searchCatalog,
   steamDetails,
   useCatalogSettings,
@@ -87,7 +88,12 @@ export const SearchView: React.FC = () => {
     const platform = selectedPlatform !== 'all' ? selectedPlatform : game.platform;
     setAddingKey(game.key);
 
-    const details = game.steamAppId ? await steamDetails(game.steamAppId) : null;
+    // The cover always comes from RAWG. A Steam result the search already
+    // matched carries it; anything else is asked for by name on the way in.
+    const [details, cover] = await Promise.all([
+      game.steamAppId ? steamDetails(game.steamAppId) : null,
+      game.image ? game.image : rawgCover(game.title, rawgKey),
+    ]);
 
     const added = addGame({
       rawgId: game.rawgId,
@@ -95,7 +101,7 @@ export const SearchView: React.FC = () => {
       title: game.title,
       platform,
       status: toBacklog ? 'backlog' : 'playing',
-      coverImage: details?.image || game.image,
+      coverImage: cover,
       releaseDate: game.releaseDate ?? details?.releaseDate,
       genres: game.genres.length ? game.genres : (details?.genres ?? []),
       hoursPlayed: 0,

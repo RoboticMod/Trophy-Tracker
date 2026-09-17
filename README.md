@@ -35,8 +35,10 @@ VITE_RAWG_API_KEY=""   # optional
 
 Without Supabase credentials the app renders a setup screen instead of booting.
 Game search uses the Steam store by default, through the edge function below. [RAWG](https://rawg.io/apidocs)
-is optional: pick it under Settings → Game catalog and paste a key there, or set
-`VITE_RAWG_API_KEY` to give every user a default one.
+is what searches alongside it, and — whichever catalog a game is found in — the only place cover
+art comes from: pick it under Settings → Game catalog and paste a key there, or set
+`VITE_RAWG_API_KEY` to give every user a default one. Without a key, games are still added and
+synced, but they wear the plain lettered tile rather than a cover.
 
 ### 3. Run
 
@@ -97,6 +99,20 @@ status, notes and collections are yours and are never overwritten — with one e
 game whose award list has grown (a DLC, usually) comes off the 100% shelf and is filed into a
 **New Achievements** collection, created on demand.
 
+A game's own sync status — matched or not, checked when, or why the last pass failed — is in its
+edit dialog, inside the platform panel, for both Steam and PlayStation.
+
+### Cover art
+
+Every cover comes from RAWG, whichever catalog found the game. Steam's own image is a 460×215
+store banner with the logo burned into it; RAWG's is key art, and a grid mixing the two reads as
+two applications stuck together. A Steam search borrows RAWG's artwork by matching titles against
+one extra RAWG search per query, and a game RAWG has never heard of keeps the lettered tile rather
+than wearing another game's art.
+
+`src/lib/useCoverArt.ts` walks the library once per session, one title at a time, filling in games
+that have no cover or still carry a Steam banner from an older version.
+
 ---
 
 ## Architecture
@@ -110,6 +126,7 @@ game whose award list has grown (a DLC, usually) comes off the 100% shelf and is
 | Supabase queries | `src/lib/db.ts` |
 | PostgreSQL schema | `src/lib/schema.ts` |
 | Per-user cache | `src/lib/localCache.ts` |
+| Platform + cover syncing | `src/context/SyncContext.tsx` |
 
 ### Design system
 
@@ -151,6 +168,19 @@ completion marks. They are 256×256 with their own padding baked in, so `TrophyB
 contained in a square box at their natural proportions. Optical differences between the two are
 corrected by a single `OPTICAL_SCALE` constant per asset in `src/components/TrophyBadge.tsx` —
 never by scaling at a call site.
+
+### Landing a new game
+
+A game that is added, or re-filed by a status change, is "followed": the app looks for its card in
+the document, opens the shelf the game actually went to when the card is not on the current one
+(finishing a game while reading the playing shelf moves it to the 100% one), and the card then
+scrolls itself into view. Search is the one page a follow never moves you off, because adding
+games there is a run of them.
+
+The celebration is a request, not an event. `GameContext` records that a game has a completion to
+celebrate; the card plays it — the burst, and the sound with it — only once it is genuinely on
+screen, and the meter underneath waits for the same thing before sweeping up to full. A completion
+that lands two screens down is still waiting when you scroll to it.
 
 ### Responsive layout
 

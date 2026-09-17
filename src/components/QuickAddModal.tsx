@@ -18,6 +18,7 @@ import {
   CatalogError,
   CatalogResult,
   CatalogSource,
+  rawgCover,
   searchCatalog,
   steamDetails,
   useCatalogSettings,
@@ -148,6 +149,15 @@ export const QuickAddModal: React.FC = () => {
     }));
     setTab('custom');
 
+    // A result the search could not find art for — a Steam game whose name RAWG
+    // spells differently — gets one more look, by name.
+    if (!game.image) {
+      void rawgCover(game.title, rawgKey).then((cover) => {
+        if (!cover) return;
+        setValues((v) => (v.title === game.title && !v.coverImage ? { ...v, coverImage: cover } : v));
+      });
+    }
+
     const appid = game.steamAppId;
     if (!appid) return;
     setFetchingDetails(true);
@@ -158,11 +168,7 @@ export const QuickAddModal: React.FC = () => {
       setValues((v) =>
         v.steamAppId !== appid
           ? v
-          : {
-              ...v,
-              coverImage: details.image || v.coverImage,
-              achievementsTotal: v.achievementsTotal || details.achievementsTotal,
-            },
+          : { ...v, achievementsTotal: v.achievementsTotal || details.achievementsTotal },
       );
       setReleaseDate((d) => d ?? details.releaseDate);
       setGenres((g) => (g.length ? g : details.genres));

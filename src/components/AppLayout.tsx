@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { QuickAddModal } from './QuickAddModal';
+import { UserGame } from '../types';
 import { DEFAULT_START_PATH } from '../lib/constants';
 import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
@@ -29,6 +30,38 @@ import { TrophyPair } from './TrophyBadge';
 import { Wordmark } from './Wordmark';
 import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
+
+/**
+ * How long a followed game is given to appear on the current page before the
+ * app decides this page is not where it went. One frame plus a little: React
+ * has already re-rendered by then, so the card is either in the document or it
+ * was never going to be.
+ */
+const FOLLOW_LOOKUP_MS = 80;
+
+/**
+ * Pages a followed game can move you away from.
+ *
+ * Only the ones that show game cards, so following a game is always a move
+ * between shelves. Search is deliberately not one of them: adding games there
+ * is a run of them, and jumping to the library after the first would throw the
+ * results — and the query that found them — away.
+ */
+const SHELF_PATHS = ['/', '/playing', '/achievements', '/backlog', '/collections'];
+
+/**
+ * The page a game can actually be seen on.
+ *
+ * A finished, in-progress or queued game has a shelf of its own and that is
+ * where the eye should be sent; everything else falls back to the library,
+ * which shows the lot.
+ */
+const shelfFor = (game: UserGame): string => {
+  if (isPerfect(game)) return '/achievements';
+  if (game.status === 'playing') return '/playing';
+  if (game.status === 'backlog') return '/backlog';
+  return '/';
+};
 
 interface NavItem {
   name: string;
@@ -56,6 +89,7 @@ export const AppLayout: React.FC = () => {
     error,
     dismissError,
     loading,
+    follow,
   } = useGame();
 
   const playingCount = games.filter((g) => g.status === 'playing').length;
@@ -155,6 +189,45 @@ export const AppLayout: React.FC = () => {
 
     navigate(start, { replace: true });
   });
+
+  /**
+   * Following a game onto the shelf it actually landed on.
+   *
+   * A game that is added — or re-filed by a status change — often belongs
+   * somewhere other than the page you are reading: finish one while looking at
+   * the playing shelf and its card is now on the 100% shelf instead. Rather
+   * than restating every page's filters here to work that out, the app asks the
+   * document whether the card turned up; if it did not, this is not where the
+   * game went, and the page it did go to is opened. The card's own scroll then
+   * brings it into view, and its celebration waits until it is.
+   *
+   * Read through a ref so the lookup sees the current library and route without
+   * the effect re-running — and cancelling its own timer — on every render in
+   * between.
+   */
+  const followContext = useRef({ games, navItems, pathname: location.pathname, navigate });
+  followContext.current = { games, navItems, pathname: location.pathname, navigate };
+
+  useEffect(() => {
+    if (!follow) return;
+
+    const timer = window.setTimeout(() => {
+      const { games: library, navItems: nav, pathname, navigate: go } = followContext.current;
+      if (!SHELF_PATHS.includes(pathname)) return;
+      if (document.querySelector(`[data-game-id="${CSS.escape(follow.gameId)}"]`)) return;
+
+      const game = library.find((g) => g.id === follow.gameId);
+      if (!game) return;
+
+      // A shelf hidden in Settings is not somewhere to send anyone. The library
+      // shows every game and is always there.
+      const shelf = shelfFor(game);
+      const destination = nav.some((item) => item.path === shelf) ? shelf : '/';
+      if (destination !== pathname) go(destination);
+    }, FOLLOW_LOOKUP_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [follow]);
 
   /**
    * The completion-sound level saved on the profile, for a device that has none

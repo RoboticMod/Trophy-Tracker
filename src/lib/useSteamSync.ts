@@ -29,10 +29,24 @@ export interface SyncReport {
   error?: SteamError;
 }
 
+/**
+ * What the last sync made of one game, for the status shown on its page.
+ * Absent until a sync has looked at the game in this session.
+ */
+export interface SteamGameOutcome {
+  state: 'synced' | 'unchanged' | 'failed';
+  at: string;
+  /** Whether Steam reported playtime for it. */
+  hasPlaytime?: boolean;
+  error?: SteamError;
+}
+
 export interface SyncState {
   running: boolean;
   lastReport: SyncReport | null;
   lastRunAt: string | null;
+  /** Per game, keyed by game id. */
+  outcomes: Record<string, SteamGameOutcome>;
 }
 
 /**
@@ -69,7 +83,13 @@ export function useSteamSync() {
     running: false,
     lastReport: null,
     lastRunAt: null,
+    outcomes: {},
   });
+
+  /** Files what a pass made of one game, for that game's own status panel. */
+  const recordOutcome = useCallback((gameId: string, outcome: SteamGameOutcome) => {
+    setState((prev) => ({ ...prev, outcomes: { ...prev.outcomes, [gameId]: outcome } }));
+  }, []);
 
   // A guard rather than state: a timed run and a button press can land
   // together, and syncing the same game twice would have the second run
@@ -113,8 +133,12 @@ export function useSteamSync() {
     async (game: UserGame): Promise<{ updated: boolean; grew: boolean; error?: SteamError }> => {
       if (!steamId || !game.steamAppId) return { updated: false, grew: false, error: 'not-linked' };
 
+      const now = () => new Date().toISOString();
       const result = await getSteamAchievements(steamId, game.steamAppId);
-      if (!result.data) return { updated: false, grew: false, error: result.error };
+      if (!result.data) {
+        recordOutcome(game.id, { state: 'failed', at: now(), error: result.error });
+        return { updated: false, grew: false, error: result.error };
+      }
 
       // Reconciled against the stored copy, which may have moved on since the
       // caller took its snapshot.
@@ -132,14 +156,19 @@ export function useSteamSync() {
       const patch: Partial<UserGame> = {
         ...updates,
         ...syncFieldsFor(current),
-        lastSyncedAt: new Date().toISOString(),
+        lastSyncedAt: now(),
       };
       if (grewList) patch.collections = fileAsGrown(current);
 
       updateGame(game.id, patch);
+      recordOutcome(game.id, {
+        state: changed ? 'synced' : 'unchanged',
+        at: now(),
+        hasPlaytime: (result.data.hoursPlayed ?? 0) > 0,
+      });
       return { updated: changed, grew: grewList };
     },
-    [steamId, getGames, updateGame, fileAsGrown],
+    [steamId, getGames, updateGame, fileAsGrown, recordOutcome],
   );
 
   /**
@@ -163,6 +192,8 @@ export function useSteamSync() {
       setState((prev) => ({ ...prev, running: true }));
 
       const report: SyncReport = { checked: 0, updated: 0, grown: [] };
+      const outcomes: Record<string, SteamGameOutcome> = {};
+      const now = () => new Date().toISOString();
 
       try {
         const library = await getSteamLibrary(steamId);
@@ -176,6 +207,13 @@ export function useSteamSync() {
             options.force ||
             hasNewActivity(candidate, owned?.lastPlayedAt) ||
             isDueForSync(candidate, SYNC_SAFETY_NET_MS);
+
+          const outcome: SteamGameOutcome = {
+            state: 'unchanged',
+            at: now(),
+            hasPlaytime: (owned?.hoursPlayed ?? 0) > 0,
+          };
+          outcomes[candidate.id] = outcome;
           if (!due) continue;
 
           report.checked += 1;
@@ -183,6 +221,8 @@ export function useSteamSync() {
 
           if (!achievements.data) {
             report.error = achievements.error ?? report.error;
+            outcome.state = 'failed';
+            outcome.error = achievements.error;
             continue;
           }
 
@@ -198,7 +238,7 @@ export function useSteamSync() {
           const patch: Partial<UserGame> = {
             ...updates,
             ...syncFieldsFor(game),
-            lastSyncedAt: new Date().toISOString(),
+            lastSyncedAt: now(),
           };
           if (grewList) {
             patch.collections = fileAsGrown(game);
@@ -207,14 +247,16 @@ export function useSteamSync() {
 
           updateGame(game.id, patch);
           if (changed) report.updated += 1;
+          outcome.state = changed ? 'synced' : 'unchanged';
         }
       } finally {
         running.current = false;
-        setState({
+        setState((prev) => ({
           running: false,
           lastReport: report,
-          lastRunAt: new Date().toISOString(),
-        });
+          lastRunAt: now(),
+          outcomes: { ...prev.outcomes, ...outcomes },
+        }));
       }
 
       return report;

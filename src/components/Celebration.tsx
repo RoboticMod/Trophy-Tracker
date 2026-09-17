@@ -4,8 +4,27 @@ import { PLATFORMS } from '../lib/constants';
 
 const SPARK_COUNT = 18;
 
-/** How long the celebration runs. GameContext clears it to match. */
+/** How long the celebration runs. The card clears it to match. */
 export const CELEBRATION_MS = 2000;
+
+/**
+ * How long a celebration waits for its card to be looked at.
+ *
+ * A completion can land on a page you are not on, or below where you are
+ * reading, and the burst belongs on screen rather than wherever the scroll
+ * position happens to be. It waits, and if nothing ever brings the card into
+ * view it is given up on rather than fired at nobody.
+ */
+export const CELEBRATION_WINDOW_MS = 15000;
+
+/**
+ * The beat between a card coming into view and its burst.
+ *
+ * Long enough for the meter underneath to finish sweeping up to full, so the
+ * burst reads as the answer to the bar filling rather than as something
+ * happening beside it.
+ */
+export const CELEBRATION_DELAY_MS = 650;
 
 interface CelebrationProps {
   platform: Platform;

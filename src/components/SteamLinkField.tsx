@@ -10,6 +10,8 @@ interface SteamLinkFieldProps {
   title: string;
   appId?: number;
   onChange: (patch: { steamAppId?: number }) => void;
+  /** The saved game's sync status, when there is a saved game to report on. */
+  children?: React.ReactNode;
 }
 
 /**
@@ -19,7 +21,12 @@ interface SteamLinkFieldProps {
  * reviews in its info dialog, and your Steam account keeps its achievements and
  * playtime current from then on. A game left unlinked stays exactly as typed.
  */
-export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({ title, appId, onChange }) => {
+export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
+  title,
+  appId,
+  onChange,
+  children,
+}) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(title);
   const [results, setResults] = useState<SteamSearchResult[]>([]);
@@ -162,6 +169,10 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({ title, appId, on
           )}
         </div>
       ) : null}
+
+      {/* The saved game's own sync status, below the link it depends on — the
+          same place the PlayStation panel keeps its one. */}
+      {children ? <div className="border-t border-gray-200 pt-3">{children}</div> : null}
     </fieldset>
   );
 };

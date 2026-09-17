@@ -9,33 +9,15 @@ import { syncFieldsFor } from '../lib/sync';
 import { formatCount, relativeTime } from '../lib/format';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
+import { SyncFact, SyncStatusFacts, SyncStatusHeader, SyncTone, syncDate } from './SyncStatus';
 import { Button, TextInput } from './ui';
 import { cn } from '../lib/cn';
-
-type Tone = 'good' | 'busy' | 'warn' | 'bad';
-
-const TONE_DOT: Record<Tone, string> = {
-  good: 'bg-positive-700 shadow-[0_0_8px_var(--color-positive-700)]',
-  busy: 'bg-accent-800 shadow-[0_0_8px_var(--color-accent-700)] animate-pulse',
-  warn: 'bg-notice-700 shadow-[0_0_8px_var(--color-notice-700)]',
-  bad: 'bg-negative-700 shadow-[0_0_8px_var(--color-negative-700)]',
-};
-
-const TONE_TEXT: Record<Tone, string> = {
-  good: 'text-positive-900',
-  busy: 'text-accent-900',
-  warn: 'text-notice-900',
-  bad: 'text-negative-900',
-};
 
 const ERROR_TEXT: Partial<Record<PsnError, string>> = {
   'psn-not-linked': 'Your PlayStation sign-in has expired. Link the account again in Settings.',
   'not-signed-in': 'Your session expired. Sign in again to sync.',
   'not-configured': 'Supabase is not configured, so PlayStation cannot be reached.',
 };
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 /**
  * Whether a PS5 game is actually being kept current, and if not, why.
@@ -58,7 +40,7 @@ export const PsnSyncStatus: React.FC<{ game: UserGame; className?: string }> = (
     outcome?.trophyList ??
     psn.state.titles.find((title) => title.npCommunicationId === game.psnCommunicationId)?.name;
 
-  let tone: Tone;
+  let tone: SyncTone;
   let heading: string;
   let detail: React.ReactNode = null;
 
@@ -93,7 +75,7 @@ export const PsnSyncStatus: React.FC<{ game: UserGame; className?: string }> = (
     detail = game.lastSyncedAt ? `Checked ${relativeTime(game.lastSyncedAt)}` : null;
   }
 
-  const facts: { label: string; value: string }[] = [];
+  const facts: SyncFact[] = [];
   if (matchedList) facts.push({ label: 'Trophy list', value: matchedList });
   if (game.psnCommunicationId || game.lastSyncedAt) {
     facts.push({
@@ -105,43 +87,27 @@ export const PsnSyncStatus: React.FC<{ game: UserGame; className?: string }> = (
     });
     facts.push({
       label: 'Last trophy',
-      value: game.lastUnlockedAt ? formatDate(game.lastUnlockedAt) : '—',
+      value: game.lastUnlockedAt ? syncDate(game.lastUnlockedAt) : '—',
     });
   }
 
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="flex items-start gap-3">
-        <span aria-hidden className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', TONE_DOT[tone])} />
-        <div className="min-w-0 flex-1" role="status" aria-live="polite">
-          <div className={cn('flex items-center gap-1.5 text-75 font-bold', TONE_TEXT[tone])}>
-            {tone === 'busy' ? <Loader2 size={13} className="animate-spin" /> : null}
-            {tone === 'good' ? <Check size={13} /> : null}
-            {heading}
-          </div>
-          {detail ? <p className="mt-0.5 text-50 text-gray-600">{detail}</p> : null}
-        </div>
+      <SyncStatusHeader
+        tone={tone}
+        heading={heading}
+        detail={detail}
+        action={
+          psn.isLinked ? (
+            <Button buttonStyle="subtle" size="s" onClick={() => setPicking((open) => !open)}>
+              {picking ? <X size={13} /> : <ListChecks size={13} />}
+              {picking ? 'Cancel' : game.psnCommunicationId ? 'Change list' : 'Choose list'}
+            </Button>
+          ) : null
+        }
+      />
 
-        {psn.isLinked ? (
-          <Button buttonStyle="subtle" size="s" onClick={() => setPicking((open) => !open)}>
-            {picking ? <X size={13} /> : <ListChecks size={13} />}
-            {picking ? 'Cancel' : game.psnCommunicationId ? 'Change list' : 'Choose list'}
-          </Button>
-        ) : null}
-      </div>
-
-      {facts.length > 0 ? (
-        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {facts.map((fact) => (
-            <div key={fact.label} className="min-w-0 rounded-sm bg-black/25 px-3 py-2">
-              <dt className="eyebrow text-gray-600">{fact.label}</dt>
-              <dd className="mt-1 truncate text-75 font-semibold text-gray-1000" title={fact.value}>
-                {fact.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
+      <SyncStatusFacts facts={facts} />
 
       {picking ? <TrophyListPicker game={game} onDone={() => setPicking(false)} /> : null}
     </div>

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Clock, MoreVertical } from 'lucide-react';
+import { Clock, Pencil } from 'lucide-react';
 import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel, STATUS_OVERLAY_CLASS } from '../lib/status';
@@ -10,13 +10,43 @@ import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
 import { GameInfoModal } from './GameInfoModal';
-import { Celebration } from './Celebration';
+import { CELEBRATION_DELAY_MS, CELEBRATION_MS, Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { MarqueeText, Meter, OverlayBadge } from './ui';
 import { ratingColor } from '../lib/rating';
 import { completionPercent, isPerfect } from '../lib/completion';
+import { playAwardSound } from '../lib/sound';
+import { useInView } from '../lib/useInView';
 import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
+
+/**
+ * How long a followed card waits before measuring where it ended up.
+ *
+ * Past layout, and past the exit animation of any copy leaving the page — the
+ * spotlight tile of a game that just stopped being played. Measure any earlier
+ * and that departing copy still counts as visible, so the scroll to the copy
+ * that actually remains never happens.
+ */
+const FOLLOW_SETTLE_MS = 400;
+
+/** How long a smooth scroll is given to start before it is written off. */
+const SMOOTH_SCROLL_GRACE_MS = 250;
+
+/**
+ * The element a card actually scrolls within.
+ *
+ * The app puts its scroll on `<main>` rather than on the document, so the
+ * window's own scroll position never moves and measuring against it reports
+ * every card as being in exactly the same place.
+ */
+const scrollerOf = (node: HTMLElement): HTMLElement | null => {
+  for (let element = node.parentElement; element; element = element.parentElement) {
+    const { overflowY } = window.getComputedStyle(element);
+    if (overflowY === 'auto' || overflowY === 'scroll') return element;
+  }
+  return null;
+};
 
 interface GameCardProps {
   game: UserGame;
@@ -27,12 +57,47 @@ interface GameCardProps {
 }
 
 export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
-  const { profile, celebration, follow } = useGame();
+  const { profile, celebration, celebrationPlayed, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const celebrating = celebration?.gameId === game.id;
+
+  // The burst this card is currently playing, keyed so a repeat restarts it.
+  const [burst, setBurst] = useState<number | null>(null);
+  const burstTimer = useRef<number | null>(null);
+  const [cardRef, onScreen] = useInView<HTMLDivElement>(0.5);
 
   const followToken = follow?.gameId === game.id ? follow.token : null;
+
+  /**
+   * A completion waiting on this card, once the card is actually being looked
+   * at. Until then it is held: the card may be two screens down, or on a page
+   * that is only now being switched to.
+   */
+  const pendingCelebration =
+    celebration?.gameId === game.id && onScreen ? celebration.token : null;
+
+  useEffect(
+    () => () => {
+      if (burstTimer.current !== null) window.clearTimeout(burstTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (pendingCelebration === null) return;
+
+    const start = window.setTimeout(() => {
+      // The sound starts on the same tick the burst does, so the two read as
+      // one event — and neither happens until there is someone to see it.
+      playAwardSound(game.platform);
+      setBurst(pendingCelebration);
+      celebrationPlayed(pendingCelebration);
+
+      burstTimer.current = window.setTimeout(() => setBurst(null), CELEBRATION_MS);
+    }, CELEBRATION_DELAY_MS);
+
+    return () => window.clearTimeout(start);
+  }, [pendingCelebration, game.platform, celebrationPlayed]);
 
   /**
    * Sorting and grouping can drop a new game well down the page, so bring it
@@ -47,33 +112,36 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
     if (followToken === null) return;
     let fallback: number | undefined;
 
-    // Deferred past layout and past the exit animation of any copy leaving the
-    // page — the spotlight tile of a game that just stopped being played. Read
-    // too early and that departing copy still counts as visible, so the scroll
-    // to the copy that actually remains never happens.
     const timer = window.setTimeout(() => {
       const copies = [
         ...document.querySelectorAll<HTMLElement>(`[data-game-id="${CSS.escape(game.id)}"]`),
       ];
       if (copies.length === 0) return;
 
-      const onScreen = copies.some((node) => {
+      // Everything is measured against the scrolling panel, not the window.
+      const scroller = scrollerOf(copies[0]);
+      const view = scroller
+        ? scroller.getBoundingClientRect()
+        : { top: 0, bottom: window.innerHeight };
+      const scrollTop = () => (scroller ? scroller.scrollTop : window.scrollY);
+
+      const visible = copies.some((node) => {
         const { top, bottom } = node.getBoundingClientRect();
-        return top >= 0 && bottom <= window.innerHeight;
+        return top >= view.top && bottom <= view.bottom;
       });
-      if (onScreen) return;
+      if (visible) return;
 
       const target = copies[0];
-      const startedAt = window.scrollY;
+      const startedAt = scrollTop();
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       // Smooth scrolling is silently ignored in some engines, which would leave
       // the new game exactly as unfindable as before. If nothing has moved by
       // the time a smooth scroll would have started, jump there instead.
       fallback = window.setTimeout(() => {
-        if (window.scrollY === startedAt) target.scrollIntoView({ block: 'center' });
-      }, 250);
-    }, 400);
+        if (scrollTop() === startedAt) target.scrollIntoView({ block: 'center' });
+      }, SMOOTH_SCROLL_GRACE_MS);
+    }, FOLLOW_SETTLE_MS);
 
     return () => {
       window.clearTimeout(timer);
@@ -110,6 +178,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
   return (
     <motion.div
+      ref={cardRef}
       data-game-id={game.id}
       layout
       initial={{ opacity: 0, y: 12 }}
@@ -245,7 +314,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             title="Edit game details"
             className="overlay-scrim flex h-7 w-7 items-center justify-center rounded-sm text-gray-900 transition-colors hover:text-gray-1000"
           >
-            <MoreVertical size={15} />
+            <Pencil size={14} />
           </button>
         </div>
 
@@ -259,11 +328,16 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             isMastered && 'pr-12',
           )}
         >
-          {/* One line on every card, scrolling on hover to show the rest of a
-              long name — two lines on finished cards made them taller than
-              the rest of their row. */}
+          {/* A long name gets a second line before it gets any movement:
+              reading a wrapped title takes no time at all, where reading a
+              scrolling one takes as long as the scroll. Only a name too long
+              for even two lines scrolls, on hover, to show the rest. The block
+              is anchored to the bottom of the artwork, so the extra line grows
+              up into the scrim rather than changing the card's height. */}
           <h3 className="text-200 font-bold tracking-tight text-gray-1000">
-            <MarqueeText trigger="hover">{game.title}</MarqueeText>
+            <MarqueeText trigger="hover" lines={2}>
+              {game.title}
+            </MarqueeText>
           </h3>
           <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
             <span className="flex items-center gap-1">
@@ -320,7 +394,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         <div className="relative z-30 border-t border-gray-200 p-3">{action}</div>
       ) : null}
 
-      {celebrating && <Celebration key={celebration.token} platform={game.platform} />}
+      {burst !== null && <Celebration key={burst} platform={game.platform} />}
 
       <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
       <GameInfoModal game={game} isOpen={isInfoOpen} onClose={() => setIsInfoOpen(false)} />

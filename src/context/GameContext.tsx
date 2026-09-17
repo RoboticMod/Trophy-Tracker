@@ -7,13 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { CELEBRATION_MS } from '../components/Celebration';
-
-/**
- * Long enough for a freshly added card to settle and for its progress bar to
- * finish sweeping up to full before the burst answers it.
- */
-const ADD_CELEBRATION_DELAY_MS = 750;
+import { CELEBRATION_WINDOW_MS } from '../components/Celebration';
 
 import {
   Collection,
@@ -34,7 +28,7 @@ import {
 } from '../lib/constants';
 import { isPerfect } from '../lib/completion';
 import { normalizeRating } from '../lib/rating';
-import { playAwardSound, preloadAwardSounds } from '../lib/sound';
+import { preloadAwardSounds } from '../lib/sound';
 import { oneOf, usePersistentState } from '../lib/usePersistentState';
 import { useAuth } from './AuthContext';
 import * as db from '../lib/db';
@@ -121,9 +115,19 @@ interface GameContextType {
     profile?: UserProfile;
   }) => Promise<void>;
 
-  /** The game currently celebrating. The token restarts the burst on repeats. */
+  /**
+   * A game with a completion still to be celebrated. The token restarts the
+   * burst on repeats.
+   *
+   * It is a request rather than the burst itself: the card plays it — its
+   * sound with it — once it is actually on screen, and says so by calling
+   * `celebrationPlayed`, so a completion that lands on another page or below
+   * the fold is waiting when you get there instead of already over.
+   */
   celebration: { gameId: string; token: number } | null;
-  triggerCelebration: (gameId: string, delayMs?: number) => void;
+  triggerCelebration: (gameId: string) => void;
+  /** Called by the card that has just played this celebration. */
+  celebrationPlayed: (token: number) => void;
   /**
    * A game to bring on screen: just added, or just re-filed by a status change.
    * The token makes flagging the same game twice a fresh event — without it, a
@@ -222,27 +226,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     celebrationTimers.current = [];
   };
 
-  const triggerCelebration = useCallback((gameId: string, delayMs = 0) => {
+  const triggerCelebration = useCallback((gameId: string) => {
     clearCelebrationTimers();
+    setCelebration({ gameId, token: Date.now() });
 
-    const play = () => {
-      setCelebration({ gameId, token: Date.now() });
+    // Only an expiry. A celebration normally ends because the card played it
+    // and said so; this is for the one that never gets looked at.
+    celebrationTimers.current.push(
+      window.setTimeout(() => setCelebration(null), CELEBRATION_WINDOW_MS),
+    );
+  }, []);
 
-      // The sound is started here rather than from the Celebration component, so
-      // it begins on the same tick the burst does and inherits the same delay —
-      // including the wait that lets a newly added game's meter sweep to full
-      // first. Read from the ref because an added game may not be in the state
-      // this callback closed over yet.
-      const game = latest.current.games.find((g) => g.id === gameId);
-      if (game) playAwardSound(game.platform);
-
-      celebrationTimers.current.push(
-        window.setTimeout(() => setCelebration(null), CELEBRATION_MS),
-      );
-    };
-
-    if (delayMs > 0) celebrationTimers.current.push(window.setTimeout(play, delayMs));
-    else play();
+  const celebrationPlayed = useCallback((token: number) => {
+    setCelebration((current) => (current?.token === token ? null : current));
   }, []);
 
   // Fetched and decoded up front, so the first completion is not the one that
@@ -511,11 +507,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // often out of sight.
       followGame(game.id);
 
-      // Held back so the new card can land and run its progress bar up to full
-      // first — firing on mount put the burst behind the dialog that was still
-      // closing, and it was over before the card was even looked at.
+      // Requested now, played by the card once it has been scrolled to — which
+      // is also what holds the burst back until the new card has landed and run
+      // its progress bar up to full.
       if (game.status === 'mastered' || isPerfect(game)) {
-        triggerCelebration(game.id, ADD_CELEBRATION_DELAY_MS);
+        triggerCelebration(game.id);
       }
 
       return game;
@@ -804,6 +800,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replaceAll,
       celebration,
       triggerCelebration,
+      celebrationPlayed,
       follow,
     }),
     [
@@ -839,6 +836,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replaceAll,
       celebration,
       triggerCelebration,
+      celebrationPlayed,
       follow,
     ],
   );
