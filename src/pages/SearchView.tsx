@@ -117,9 +117,9 @@ export const SearchView: React.FC = () => {
         ...syncFieldsFor({ platform, steamAppId: game.steamAppId }),
       },
       // Adding from here is a run of games — the card says "in your library"
-      // and you carry on down the list. Being taken to the library after each
-      // one would take the search, and the query behind it, with it.
-      { follow: false },
+      // and you carry on down the list. A dialog to dismiss after each one
+      // would be two clicks apiece for something the card has already said.
+      { announce: false },
     );
 
     setAddingKey(null);

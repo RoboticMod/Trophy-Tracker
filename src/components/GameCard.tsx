@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock, Pencil } from 'lucide-react';
 import { UserGame } from '../types';
@@ -10,13 +10,13 @@ import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
 import { GameInfoModal } from './GameInfoModal';
-import { CELEBRATION_DELAY_MS, CELEBRATION_MS, Celebration } from './Celebration';
+import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { MarqueeText, Meter, OverlayBadge } from './ui';
 import { ratingColor } from '../lib/rating';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { formatHours } from '../lib/format';
-import { playAwardSound } from '../lib/sound';
+import { useCelebration } from '../lib/useCelebration';
 import { useInView } from '../lib/useInView';
 import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
@@ -58,47 +58,20 @@ interface GameCardProps {
 }
 
 export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
-  const { profile, celebration, celebrationPlayed, follow } = useGame();
+  const { profile, added, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
 
-  // The burst this card is currently playing, keyed so a repeat restarts it.
-  const [burst, setBurst] = useState<number | null>(null);
-  const burstTimer = useRef<number | null>(null);
   const [cardRef, onScreen] = useInView<HTMLDivElement>(0.5);
 
   const followToken = follow?.gameId === game.id ? follow.token : null;
 
   /**
-   * A completion waiting on this card, once the card is actually being looked
-   * at. Until then it is held: the card may be two screens down, or on a page
-   * that is only now being switched to.
+   * This card plays a waiting celebration once it is actually being looked at —
+   * unless the dialog announcing this very game is open over it, which is the
+   * surface in front of someone and plays it instead.
    */
-  const pendingCelebration =
-    celebration?.gameId === game.id && onScreen ? celebration.token : null;
-
-  useEffect(
-    () => () => {
-      if (burstTimer.current !== null) window.clearTimeout(burstTimer.current);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (pendingCelebration === null) return;
-
-    const start = window.setTimeout(() => {
-      // The sound starts on the same tick the burst does, so the two read as
-      // one event — and neither happens until there is someone to see it.
-      playAwardSound(game.platform);
-      setBurst(pendingCelebration);
-      celebrationPlayed(pendingCelebration);
-
-      burstTimer.current = window.setTimeout(() => setBurst(null), CELEBRATION_MS);
-    }, CELEBRATION_DELAY_MS);
-
-    return () => window.clearTimeout(start);
-  }, [pendingCelebration, game.platform, celebrationPlayed]);
+  const burst = useCelebration(game, onScreen && added?.gameId !== game.id);
 
   /**
    * Sorting and grouping can drop a new game well down the page, so bring it

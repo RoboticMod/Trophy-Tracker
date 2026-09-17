@@ -195,16 +195,23 @@ never by scaling at a call site.
 
 ### Landing a new game
 
-A game that is added, or re-filed by a status change, is "followed": the app looks for its card in
-the document, opens the shelf the game actually went to when the card is not on the current one
-(finishing a game while reading the playing shelf moves it to the 100% one), and the card then
-scrolls itself into view. Search is the one page a follow never moves you off, because adding
-games there is a run of them.
+Adding a game says so rather than going there. `GameAddedDialog` shows what landed — the game as
+its own card, where it was filed, and whether the platform has picked it up yet, which is worth
+watching because a game added a second ago is usually mid-sync. **OK** leaves you where you were;
+**Go to game** takes the trip. Adding used to take it for you: another shelf opened, the grid
+scrolled, and the game went past on its way to wherever the sort put it.
+
+The trip itself is still there under the button. A game is "followed" — by `goToGame`, or by a
+status change that re-files it — and the app looks for its card in the document, opens the shelf
+the game actually went to when the card is not on the current one, and lets the card scroll itself
+into view. The search page announces nothing, because adding there is a run of games and a dialog
+apiece would be two clicks each.
 
 The celebration is a request, not an event. `GameContext` records that a game has a completion to
-celebrate; the card plays it — the burst, and the sound with it — only once it is genuinely on
-screen, and the meter underneath waits for the same thing before sweeping up to full. A completion
-that lands two screens down is still waiting when you scroll to it.
+celebrate, and `useCelebration` lets whichever surface is actually in front of someone play it —
+the announcement while it is open, the card once it has been scrolled to. The burst and its sound
+go together, the meter underneath waits for the same moment before sweeping up to full, and a
+completion that lands two screens down is still waiting when you get there.
 
 ### Responsive layout
 

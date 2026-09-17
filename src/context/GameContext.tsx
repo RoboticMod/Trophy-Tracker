@@ -96,13 +96,14 @@ interface GameContextType {
   /**
    * Returns the stored game, so a caller can sync the one it just added.
    *
-   * `follow` is how a caller says whether the app should go and look at the new
-   * game. The add dialog wants that; the search page does not, since adding
-   * there is a run of games and leaving would take the results with it.
+   * `announce` is how a caller says whether the game deserves saying out loud —
+   * the dialog that shows what landed, where it went and whether it is syncing.
+   * The add dialog wants that; the search page does not, since adding there is
+   * a run of games and a dialog after each would be two clicks apiece.
    */
   addGame: (
     game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>,
-    options?: { follow?: boolean },
+    options?: { announce?: boolean },
   ) => UserGame;
   updateGame: (id: string, updates: Partial<UserGame>) => void;
   deleteGame: (id: string) => void;
@@ -135,12 +136,28 @@ interface GameContextType {
    */
   celebration: { gameId: string; token: number } | null;
   triggerCelebration: (gameId: string) => void;
-  /** Called by the card that has just played this celebration. */
+  /** Called by whichever surface has just played this celebration. */
   celebrationPlayed: (token: number) => void;
+
   /**
-   * A game to bring on screen: just added, or just re-filed by a status change.
-   * The token makes flagging the same game twice a fresh event — without it, a
-   * game added and then moved moments later would only ever be followed once.
+   * A game just added, waiting to be announced.
+   *
+   * Adding used to throw the page at the new game: opening another shelf,
+   * scrolling, and landing somewhere you had not asked to be. Now the app says
+   * what it did — the game, where it went, whether it is syncing — and going
+   * there is a button rather than a surprise.
+   */
+  added: { gameId: string; token: number } | null;
+  dismissAdded: () => void;
+  /**
+   * Take me to this game: opens the page it is on, if it is not this one, and
+   * scrolls its card into view.
+   */
+  goToGame: (gameId: string) => void;
+  /**
+   * A game to bring on screen: asked for by name, or re-filed by a status
+   * change. The token makes flagging the same game twice a fresh event —
+   * without it, a game moved twice over would only ever be followed once.
    */
   follow: { gameId: string; token: number } | null;
 }
@@ -209,6 +226,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [celebration, setCelebration] = useState<{ gameId: string; token: number } | null>(null);
   const celebrationTimers = useRef<number[]>([]);
+  const [added, setAdded] = useState<{ gameId: string; token: number } | null>(null);
   const [follow, setFollow] = useState<{ gameId: string; token: number } | null>(null);
   const followTimer = useRef<number | null>(null);
 
@@ -220,15 +238,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   /**
-   * Marks a game for its card to bring itself on screen. Used whenever a change
-   * moves a game somewhere the eye was not already looking — added to the
-   * library, or promoted out of the backlog into another section entirely.
+   * Marks a game for its card to bring itself on screen. Used when a change
+   * moves a game somewhere the eye was not already looking — promoted out of
+   * the backlog into another section entirely — and when it is asked for by
+   * name, from the dialog that announces a game just added.
    */
   const followGame = useCallback((gameId: string) => {
     setFollow({ gameId, token: Date.now() });
     if (followTimer.current !== null) window.clearTimeout(followTimer.current);
     followTimer.current = window.setTimeout(() => setFollow(null), FOLLOW_GAME_MS);
   }, []);
+
+  const dismissAdded = useCallback(() => setAdded(null), []);
+
+  /** The "go to game" the announcement offers: put the dialog away, then go. */
+  const goToGame = useCallback(
+    (gameId: string) => {
+      setAdded(null);
+      followGame(gameId);
+    },
+    [followGame],
+  );
 
   const clearCelebrationTimers = () => {
     celebrationTimers.current.forEach(window.clearTimeout);
@@ -495,7 +525,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addGame = useCallback(
     (
       data: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>,
-      { follow: shouldFollow = true }: { follow?: boolean } = {},
+      { announce = true }: { announce?: boolean } = {},
     ) => {
       const now = new Date().toISOString();
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
@@ -516,19 +546,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       void push({ kind: 'game', op: 'upsert', game });
 
       // Sorting and platform grouping decide where a new game lands, which is
-      // often out of sight — and it may not even be on this page.
-      if (shouldFollow) followGame(game.id);
+      // often out of sight and may not even be on this page. Rather than going
+      // there uninvited, the app says what it did and offers the trip.
+      if (announce) setAdded({ gameId: game.id, token: Date.now() });
 
-      // Requested now, played by the card once it has been scrolled to — which
-      // is also what holds the burst back until the new card has landed and run
-      // its progress bar up to full.
+      // Requested now, played by whichever surface is in front of someone — the
+      // announcement while it is open, the card once it has been scrolled to.
       if (game.status === 'mastered' || isPerfect(game)) {
         triggerCelebration(game.id);
       }
 
       return game;
     },
-    [push, triggerCelebration, followGame],
+    [push, triggerCelebration],
   );
 
   const updateGame = useCallback(
@@ -813,6 +843,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       celebration,
       triggerCelebration,
       celebrationPlayed,
+      added,
+      dismissAdded,
+      goToGame,
       follow,
     }),
     [
@@ -849,6 +882,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       celebration,
       triggerCelebration,
       celebrationPlayed,
+      added,
+      dismissAdded,
+      goToGame,
       follow,
     ],
   );

@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { GameAddedDialog } from './GameAddedDialog';
 import { QuickAddModal } from './QuickAddModal';
 import { UserGame } from '../types';
 import { DEFAULT_START_PATH } from '../lib/constants';
@@ -553,6 +554,12 @@ export const AppLayout: React.FC = () => {
       </nav>
 
       <QuickAddModal />
+
+      {/* What the app says once a game has landed, and the offer to go and see
+          it. Mounted here rather than in the add dialog, because a game can be
+          added from more than one place and the announcement outlives the form
+          that produced it. */}
+      <GameAddedDialog />
     </div>
   );
 };
