@@ -11,6 +11,7 @@ const NS = 'trophytracker';
 
 const cacheKey = (userId: string) => `${NS}:cache:${userId}`;
 const queueKey = (userId: string) => `${NS}:queue:${userId}`;
+const progressKey = (userId: string) => `${NS}:progress:${userId}`;
 
 export interface CachedSnapshot {
   games: UserGame[];
@@ -106,11 +107,28 @@ export function collapseQueue(queue: PendingWrite[]): PendingWrite[] {
 export const enqueue = (userId: string, entry: PendingWrite): void =>
   writeQueue(userId, collapseQueue([...readQueue(userId), entry]));
 
+/**
+ * Award counts as of the last time this device showed you what was new.
+ *
+ * The marker for "since you were last here", and deliberately per device: what
+ * is new to the phone is whatever has happened since the phone last looked,
+ * whatever the desktop was told in the meantime. Counts alone — a few bytes per
+ * game — because the only question asked of it is how far each game had got.
+ */
+export type ProgressMarks = Record<string, number>;
+
+export const readProgressMarks = (userId: string): ProgressMarks | null =>
+  read<ProgressMarks>(progressKey(userId));
+
+export const writeProgressMarks = (userId: string, marks: ProgressMarks): void =>
+  write(progressKey(userId), marks);
+
 /** Clears everything held for a user. Called on sign-out. */
 export function clearUserCache(userId: string): void {
   try {
     localStorage.removeItem(cacheKey(userId));
     localStorage.removeItem(queueKey(userId));
+    localStorage.removeItem(progressKey(userId));
   } catch {
     // ignore
   }

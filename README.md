@@ -207,11 +207,32 @@ the game actually went to when the card is not on the current one, and lets the 
 into view. The search page announces nothing, because adding there is a run of games and a dialog
 apiece would be two clicks each.
 
+Wherever a follow lands, the card is ringed in the accent for a couple of seconds and then left
+alone — a scroll that arrives still leaves the game somewhere in the middle of a grid that looks
+exactly as it did.
+
 The celebration is a request, not an event. `GameContext` records that a game has a completion to
 celebrate, and `useCelebration` lets whichever surface is actually in front of someone play it —
 the announcement while it is open, the card once it has been scrolled to. The burst and its sound
 go together, the meter underneath waits for the same moment before sweeping up to full, and a
 completion that lands two screens down is still waiting when you get there.
+
+### While you were away
+
+The app syncs on open, so the first thing it learns each session is every trophy earned on the
+console since you last looked — and it used to say nothing about any of it. The counts were simply
+already higher by the time the library drew, and a platinum won yesterday looked like one won years
+ago.
+
+`useSessionProgress` keeps each game's award count on the device, and once the opening sync has
+settled it hands back what has moved. `SessionProgressDialog` shows those games with their before
+and after, the game that finished takes the gold row and the burst, and any row is the way to that
+game. A game added since the last visit is left out — it is new rather than further along — and so
+is one whose count went backwards, which is a correction.
+
+The marker lives in `localStorage` under `trophytracker:progress:<user id>`, deliberately per
+device: what is new to the phone is whatever has happened since the phone last looked. Lowering a
+number in there is also how to see the screen without waiting for real news.
 
 ### Responsive layout
 

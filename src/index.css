@@ -572,6 +572,50 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   The card you were sent to
+
+   A scroll that lands is still only a scroll: the grid looks the same
+   afterwards, and the game it went to is somewhere in the middle of it. This
+   rings that card for a couple of seconds so the eye has somewhere to go, then
+   takes the ring away again — a marker, not a state.
+
+   Drawn as its own child of the card, like the gold ring, because a card paints
+   its own background before any child and because the card's own box-shadow is
+   already carrying its status.
+--------------------------------------------------------------------------- */
+@keyframes found-ring {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@utility found-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--color-accent-700) 75%, transparent),
+    0 0 28px -4px color-mix(in srgb, var(--color-accent-700) 65%, transparent);
+  animation: found-ring 2200ms ease-out forwards;
+
+  /* Still marked, just not faded in and out — finding the card is the point,
+     and the component takes the ring away on a timer either way. */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 /* Scrolling text for a name too long for its box.
    It rests at the start, moves at a steady pace to show the rest, rests, and
    moves back, so the whole name can be read without the box growing. Linear,

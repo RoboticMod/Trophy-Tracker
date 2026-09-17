@@ -35,6 +35,15 @@ const FOLLOW_SETTLE_MS = 400;
 const SMOOTH_SCROLL_GRACE_MS = 250;
 
 /**
+ * How long a card stays ringed after being scrolled to.
+ *
+ * Long enough to still be lit when the scroll lands — the ring goes up as the
+ * page starts moving — and short enough that it reads as the app pointing
+ * rather than as something the card now is.
+ */
+const FOUND_HIGHLIGHT_MS = 2200;
+
+/**
  * The element a card actually scrolls within.
  *
  * The app puts its scroll on `<main>` rather than on the document, so the
@@ -64,6 +73,9 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
   const [cardRef, onScreen] = useInView<HTMLDivElement>(0.5);
 
+  /** The follow this card is currently ringed for, so a repeat re-lights it. */
+  const [found, setFound] = useState<number | null>(null);
+
   const followToken = follow?.gameId === game.id ? follow.token : null;
 
   /**
@@ -85,12 +97,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   useEffect(() => {
     if (followToken === null) return;
     let fallback: number | undefined;
+    let clearFound: number | undefined;
 
     const timer = window.setTimeout(() => {
       const copies = [
         ...document.querySelectorAll<HTMLElement>(`[data-game-id="${CSS.escape(game.id)}"]`),
       ];
       if (copies.length === 0) return;
+
+      // Ringed whether or not the page has to move: being sent to a card that
+      // was already on screen is exactly the case where nothing else changes
+      // and there is nothing to tell you which one you were sent to.
+      setFound(followToken);
+      clearFound = window.setTimeout(() => setFound(null), FOUND_HIGHLIGHT_MS);
 
       // Everything is measured against the scrolling panel, not the window.
       const scroller = scrollerOf(copies[0]);
@@ -120,6 +139,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
     return () => {
       window.clearTimeout(timer);
       if (fallback !== undefined) window.clearTimeout(fallback);
+      if (clearFound !== undefined) window.clearTimeout(clearFound);
     };
   }, [followToken, game.id]);
 
@@ -194,6 +214,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           <span aria-hidden className="trophy-spot z-0 rounded-lg" />
           <span aria-hidden className="gold-ring z-30 rounded-lg" />
         </>
+      )}
+
+      {/* Keyed on the follow, so being sent here twice lights it twice rather
+          than leaving a ring that is already part-way through fading. */}
+      {found !== null && (
+        <span key={found} aria-hidden className="found-ring z-30 rounded-lg" />
       )}
 
       {/* Cover ------------------------------------------------------------- */}

@@ -19,6 +19,7 @@ import {
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
 import { QuickAddModal } from './QuickAddModal';
+import { SessionProgressDialog } from './SessionProgressDialog';
 import { UserGame } from '../types';
 import { DEFAULT_START_PATH } from '../lib/constants';
 import { isPerfect } from '../lib/completion';
@@ -560,6 +561,10 @@ export const AppLayout: React.FC = () => {
           added from more than one place and the announcement outlives the form
           that produced it. */}
       <GameAddedDialog />
+
+      {/* What the opening sync brought back that this device had not seen. Shows
+          itself once a session, and only when there is something to say. */}
+      <SessionProgressDialog />
     </div>
   );
 };
