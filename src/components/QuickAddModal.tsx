@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Check,
   Search,
   Sparkles,
   Plus,
@@ -11,12 +12,13 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { GameStatus } from '../types';
+import { GameStatus, UserGame } from '../types';
 import {
   CATALOG_SOURCE_LABELS,
   CatalogError,
   CatalogResult,
   CatalogSource,
+  findInLibrary,
   rawgCover,
   searchCatalog,
   steamDetails,
@@ -27,6 +29,7 @@ import { syncFieldsFor } from '../lib/sync';
 import { useSync } from '../context/SyncContext';
 import { ResultPlatforms, VersionChooser } from './CatalogVersions';
 import { CoverArt } from './CoverArt';
+import { EditGameModal } from './EditGameModal';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
 import { cn } from '../lib/cn';
@@ -49,8 +52,15 @@ const EMPTY_GAME: GameDetailsValues = {
 };
 
 export const QuickAddModal: React.FC = () => {
-  const { isQuickAddOpen, setIsQuickAddOpen, addGame, collections, profile, platformAccounts } =
-    useGame();
+  const {
+    isQuickAddOpen,
+    setIsQuickAddOpen,
+    addGame,
+    games,
+    collections,
+    profile,
+    platformAccounts,
+  } = useGame();
   const { syncGame } = useSync();
   const { source, rawgKey } = useCatalogSettings();
   const steamId = platformAccounts?.steamId;
@@ -174,18 +184,67 @@ export const QuickAddModal: React.FC = () => {
   }, [rawgKey]);
 
   /**
-   * Clicking a result: either the version choice, or straight into the form.
-   * Stable, so the rows below it can skip a render while the query changes.
+   * The game this result already is, if the library has it.
+   *
+   * Held in a ref so the click handler can consult the current library without
+   * the memoized rows below having to re-render every time it changes.
+   */
+  const library = useRef(games);
+  library.current = games;
+
+  /** Open on an existing game rather than adding a second copy of it. */
+  const [editing, setEditing] = useState<UserGame | null>(null);
+
+  /** Which results the library already has, so the rows can say so. */
+  const ownedKeys = useMemo(() => {
+    const keys = new Set<string>();
+    searchResults.forEach((result) => {
+      if (findInLibrary(games, result)) keys.add(result.key);
+    });
+    return keys;
+  }, [searchResults, games]);
+
+  /**
+   * Clicking a result: the game you already have, the version choice, or
+   * straight into the form. Stable, so the rows below it can skip a render
+   * while the query changes.
    */
   const pickResult = useCallback(
-    (game: CatalogResult) =>
-      game.twin ? setChoosing(game) : selectGameFromSearch(game),
-    [selectGameFromSearch],
+    (game: CatalogResult) => {
+      // A game already tracked is not added twice. Its own dialog opens
+      // instead, which is what you wanted from it anyway — the counts, the
+      // status, the notes — and the add dialog steps out of the way.
+      const owned = findInLibrary(library.current, game);
+      if (owned) {
+        setIsQuickAddOpen(false);
+        setEditing(owned);
+        return;
+      }
+
+      if (game.twin) setChoosing(game);
+      else selectGameFromSearch(game);
+    },
+    [selectGameFromSearch, setIsQuickAddOpen],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!values.title.trim()) return;
+
+    // The same check the result rows make, for a title typed rather than
+    // picked — and for the pick that was already in the library before the
+    // details were adjusted.
+    const owned = findInLibrary(games, {
+      platform: values.platform,
+      title: values.title.trim(),
+      steamAppId: values.steamAppId,
+      rawgId,
+    });
+    if (owned) {
+      close();
+      setEditing(owned);
+      return;
+    }
 
     const added = addGame({
       rawgId,
@@ -215,6 +274,7 @@ export const QuickAddModal: React.FC = () => {
   };
 
   return (
+    <>
     <Dialog
       isOpen={isQuickAddOpen}
       title="Add a game"
@@ -323,6 +383,7 @@ export const QuickAddModal: React.FC = () => {
                     key={game.key}
                     game={game}
                     showPlatforms={source === 'both'}
+                    owned={ownedKeys.has(game.key)}
                     onPick={pickResult}
                   />
                 ))}
@@ -353,6 +414,16 @@ export const QuickAddModal: React.FC = () => {
         </GameDetailsFields>
       )}
     </Dialog>
+
+    {/* A game you already have opens here rather than being added again. It
+        lives beside the dialog rather than inside it, so it survives the add
+        dialog closing on the way. */}
+    <EditGameModal
+      game={editing}
+      isOpen={editing !== null}
+      onClose={() => setEditing(null)}
+    />
+    </>
   );
 };
 
@@ -370,11 +441,14 @@ const ResultRow = React.memo<{
   game: CatalogResult;
   /** The platform marks, which only mean anything when both catalogs ran. */
   showPlatforms: boolean;
+  /** Already tracked: the row opens that game rather than adding another. */
+  owned: boolean;
   onPick: (game: CatalogResult) => void;
-}>(({ game, showPlatforms, onPick }) => (
+}>(({ game, showPlatforms, owned, onPick }) => (
   <button
     type="button"
     onClick={() => onPick(game)}
+    title={owned ? `${game.title} is already in your library — open it` : undefined}
     className="group flex items-center gap-3 rounded-sm border border-gray-200 bg-black/25 p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-200"
   >
     <CoverArt
@@ -387,7 +461,14 @@ const ResultRow = React.memo<{
         {game.title}
       </h4>
       <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-        {showPlatforms ? <ResultPlatforms result={game} /> : null}
+        {owned ? (
+          <span className="eyebrow inline-flex shrink-0 items-center gap-1 rounded-sm border border-positive-700/50 px-1.5 py-1 text-positive-900">
+            <Check size={11} />
+            In library
+          </span>
+        ) : showPlatforms ? (
+          <ResultPlatforms result={game} />
+        ) : null}
         <p className="truncate text-75 text-gray-700">{game.subtitle}</p>
       </div>
     </div>

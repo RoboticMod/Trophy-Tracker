@@ -20,19 +20,21 @@ import {
   CatalogResult,
   CatalogSource,
   ResultSource,
+  findInLibrary,
   pickVersion,
   rawgCover,
   searchCatalog,
   steamDetails,
   useCatalogSettings,
 } from '../lib/catalog';
-import { Platform, PLATFORM_IDS } from '../types';
+import { Platform, PLATFORM_IDS, UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { statusLabel } from '../lib/status';
 import { syncFieldsFor } from '../lib/sync';
 import { EASE_OUT } from '../lib/motion';
 import { cn } from '../lib/cn';
 import { CoverArt } from '../components/CoverArt';
+import { EditGameModal } from '../components/EditGameModal';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
 import { Button, EmptyState, FilterChip, OverlayBadge, TextInput } from '../components/ui';
@@ -55,6 +57,8 @@ export const SearchView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
   const [addedKeys, setAddedKeys] = useState<Record<string, boolean>>({});
+  /** A game you already have, opened from its result rather than re-added. */
+  const [editing, setEditing] = useState<UserGame | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -123,12 +127,16 @@ export const SearchView: React.FC = () => {
     void syncGame(added);
   };
 
-  const isAlreadyAdded = (game: CatalogResult) =>
-    games.some(
-      (g) =>
-        (game.steamAppId !== undefined && g.steamAppId === game.steamAppId) ||
-        g.title.toLowerCase() === game.title.toLowerCase(),
-    );
+  /**
+   * The library entry a result already is, on the platform it would be added
+   * on. Matching the platform too is what lets a game owned on Steam still be
+   * added for the PlayStation, which is two entries here by design.
+   */
+  const alreadyAdded = (game: CatalogResult) =>
+    findInLibrary(games, {
+      ...game,
+      platform: selectedPlatform !== 'all' ? selectedPlatform : game.platform,
+    });
 
   const heading = query.trim()
     ? `${results.length} result${results.length === 1 ? '' : 's'} for “${query.trim()}”`
@@ -233,7 +241,8 @@ export const SearchView: React.FC = () => {
           const version = versions[found.key] ?? found.source;
           // The card previews the version it will add.
           const game = found.twin ? { ...pickVersion(found, version), key: found.key } : found;
-          const added = isAlreadyAdded(game) || addedKeys[game.key];
+          const owned = alreadyAdded(game);
+          const added = Boolean(owned) || addedKeys[game.key];
           const adding = addingKey === game.key;
           const platform = selectedPlatform !== 'all' ? selectedPlatform : game.platform;
           const cfg = PLATFORMS[platform];
@@ -296,10 +305,18 @@ export const SearchView: React.FC = () => {
                 )}
               >
                 {added ? (
-                  <div className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700/60 bg-positive-700/16 py-1.5 text-75 font-semibold text-positive-900">
+                  // Not a dead end: the game is already tracked, so this opens the
+                  // one you have rather than offering to add it twice.
+                  <button
+                    type="button"
+                    disabled={!owned}
+                    onClick={() => owned && setEditing(owned)}
+                    title={owned ? `Edit ${owned.title}` : undefined}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-positive-700/60 bg-positive-700/16 py-1.5 text-75 font-semibold text-positive-900 transition-colors enabled:hover:bg-positive-700/24"
+                  >
                     <Check size={14} />
                     In your library
-                  </div>
+                  </button>
                 ) : (
                   <>
                     <Button
@@ -329,6 +346,13 @@ export const SearchView: React.FC = () => {
           );
         })}
       </div>
+
+      {/* The game a result turned out to be, opened from its own card. */}
+      <EditGameModal
+        game={editing}
+        isOpen={editing !== null}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 };

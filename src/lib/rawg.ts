@@ -1,4 +1,5 @@
 import { RawgGameResult, Platform } from '../types';
+import { coverUrl } from './image';
 
 /** Matches every cache generation, so stale ones can be counted and cleared. */
 const CACHE_ROOT = 'gametracker_rawg_cache_';
@@ -116,7 +117,9 @@ export const hasRawgKey = (): boolean => Boolean(rawgApiKey());
 const slim = (game: RawgGameResult): RawgGameResult => ({
   id: game.id,
   name: game.name,
-  background_image: game.background_image,
+  // Stored at the size it will be shown at, so the cache is what everything
+  // downstream — search rows, cards, the cover a game keeps — reads from.
+  background_image: coverUrl(game.background_image),
   released: game.released,
   rating: game.rating,
   genres: game.genres?.map((genre) => ({ id: genre.id, name: genre.name })),
@@ -205,10 +208,48 @@ async function requestGames(
   return { results };
 }
 
+/** RAWG's slugs for the desktop platforms, which this app calls Steam. */
+const PC_SLUGS = new Set(['pc', 'macos', 'linux']);
+
+/**
+ * PlayStation generations this app can actually track.
+ *
+ * Trophies begin with the PS3, so those are the consoles a game here can have a
+ * trophy list on. Matching anything starting "playstation" instead put a PS5
+ * mark on Spider-Man (2000) — a PlayStation 1 game with no trophies to sync and
+ * no shelf in this app to sit on.
+ */
+const PLAYSTATION_SLUGS = new Set([
+  'playstation5',
+  'playstation4',
+  'playstation3',
+  'ps-vita',
+  'playstation-vita',
+]);
+
+/**
+ * Every platform this app tracks that RAWG lists for a game.
+ *
+ * RAWG knows a game is on the PC *and* the PlayStation; collapsing that to one
+ * answer was what left a result showing a single mark when it belongs on both
+ * shelves.
+ */
+export function platformsFromRawg(result: RawgGameResult): Platform[] {
+  const slugs = (result.platforms || []).map((entry) => entry.platform.slug.toLowerCase());
+  const platforms: Platform[] = [];
+
+  if (slugs.some((slug) => PC_SLUGS.has(slug))) platforms.push('steam');
+  if (slugs.some((slug) => PLAYSTATION_SLUGS.has(slug))) platforms.push('ps5');
+  return platforms;
+}
+
+/**
+ * The one platform a RAWG result is added on.
+ *
+ * PlayStation wins where a game is on both: Steam's own catalog is the other
+ * half of this search, so a game that turns up here and is on a console is
+ * nearly always the console copy you came looking for.
+ */
 export function detectPlatformFromRawg(result: RawgGameResult): Platform {
-  const slugs = (result.platforms || []).map((p) => p.platform.slug.toLowerCase());
-  if (slugs.some((s) => s.includes('playstation') || s.startsWith('ps'))) {
-    return 'ps5';
-  }
-  return 'steam';
+  return platformsFromRawg(result).includes('ps5') ? 'ps5' : 'steam';
 }

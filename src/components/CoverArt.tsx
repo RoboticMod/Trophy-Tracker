@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Gamepad2 } from 'lucide-react';
+import { coverUrl } from '../lib/image';
 import { cn } from '../lib/cn';
 
 interface CoverArtProps {
@@ -45,7 +46,10 @@ export const CoverArt: React.FC<CoverArtProps> = ({ src, title, className, image
 
   return (
     <img
-      src={src}
+      // Asked for at the size it is drawn at. A library saved before that was
+      // true still holds RAWG's full 2560px key art, and this is where those
+      // come back down without anything having to rewrite the records.
+      src={coverUrl(src)}
       alt=""
       loading="lazy"
       decoding="async"

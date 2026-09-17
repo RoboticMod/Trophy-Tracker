@@ -120,6 +120,17 @@ than wearing another game's art.
 `src/lib/useCoverArt.ts` walks the library once per session, one title at a time, filling in games
 that have no cover or still carry a Steam banner from an older version.
 
+Artwork is always requested through `coverUrl` in `src/lib/image.ts`, which rewrites a RAWG media
+URL to its 640px variant. `background_image` is the full key art and RAWG means it — one
+Spider-Man result is **9990 × 7940** — so a page of sixteen search results was ninety megapixels
+of decoding on the main thread, which is what made a search for a word with blockbusters behind it
+stutter. The resized copies come to three.
+
+A result shows the marks of every platform its catalog lists, not the one it would be added on:
+RAWG knows a game is on the PC *and* the PlayStation, and collapsing that to a single answer was
+what left a Steam+PlayStation game wearing one logo. Only PlayStation generations that have
+trophies count — a PS1 game is not something this app has anything to track.
+
 ---
 
 ## Architecture
