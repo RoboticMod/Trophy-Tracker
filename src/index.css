@@ -615,6 +615,56 @@
   }
 }
 
+/* The rating slider, given a thumb of a size this app actually knows.
+
+   Without one the browser picks, and the fill underneath — which is painted as
+   a flat percentage of the track — ran ahead of the thumb at the top of the
+   range and lagged behind it at the bottom, because the thumb centre only ever
+   travels between half a thumb in from each end. Declaring the width is what
+   makes that inset computable, which Rating.tsx then subtracts. */
+/* Number fields carry their own increment buttons in this app — the plus and
+   minus beside the hours and unlock counts — so the browser's tiny spinner is
+   a second, worse copy of a control that is already there, and on a phone it is
+   an accidental tap waiting to happen. */
+@utility no-spinner {
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+@utility rating-slider {
+  --rating-thumb: 14px;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: var(--rating-thumb);
+    height: var(--rating-thumb);
+    border-radius: 9999px;
+    background: currentColor;
+    border: 2px solid var(--color-gray-25);
+    box-shadow: 0 0 6px -2px currentColor;
+    cursor: pointer;
+  }
+
+  &::-moz-range-thumb {
+    width: var(--rating-thumb);
+    height: var(--rating-thumb);
+    border-radius: 9999px;
+    background: currentColor;
+    border: 2px solid var(--color-gray-25);
+    cursor: pointer;
+  }
+
+  &::-moz-range-track {
+    background: transparent;
+  }
+}
+
 @utility found-ring {
   position: absolute;
   inset: -1px;

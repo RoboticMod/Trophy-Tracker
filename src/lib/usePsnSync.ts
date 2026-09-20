@@ -27,7 +27,7 @@ import {
   syncFieldsFor,
 } from './sync';
 import { SYNC_SAFETY_NET_MS, SyncOptions } from './useSteamSync';
-import { usePsnTrophyScope } from './psnTrophyScope';
+import { usePsnTrophyScope, usePsnTrophyScopeApplied } from './psnTrophyScope';
 
 export interface PsnSyncReport {
   checked: number;
@@ -107,7 +107,12 @@ export function usePsnSync() {
   // Read here rather than passed in: this hook is the only thing that asks PSN
   // for counts, so the preference belongs where the request is made.
   const [trophyScope] = usePsnTrophyScope();
+  const [appliedScope, setAppliedScope] = usePsnTrophyScopeApplied();
   const includeDlc = trophyScope === 'all';
+
+  // Every stored count was read under a scope that is no longer the chosen one,
+  // so none of them can be trusted until they have been read again.
+  const scopeChanged = trophyScope !== appliedScope;
 
   const fileAsGrown = useCallback(
     (game: UserGame) => {
@@ -197,6 +202,9 @@ export function usePsnSync() {
           const touchedAt = later(match?.lastUpdatedAt, playedGame?.lastPlayedAt);
           const due =
             options.force ||
+            // The setting changed under them, so every count is stale whatever
+            // PSN says about activity.
+            scopeChanged ||
             !candidate.psnCommunicationId ||
             // A game with trophies but no date for the latest one yet — every
             // game synced before that date was recorded.
@@ -262,12 +270,14 @@ export function usePsnSync() {
 
 
           // silently behind you.
-
-
           updateGame(game.id, patch, { automatic: true });
           if (changed) report.updated += 1;
           outcome.state = changed ? 'synced' : 'unchanged';
         }
+
+        // Every game has now been read under the chosen scope, so the next
+        // pass can go back to only asking about what PSN says has moved.
+        if (scopeChanged) setAppliedScope(trophyScope);
       } catch {
         report.error = 'request-failed';
       } finally {
@@ -287,7 +297,7 @@ export function usePsnSync() {
 
       return report;
     },
-    [getGames, isLinked, updateGame, fileAsGrown, includeDlc],
+    [getGames, isLinked, updateGame, fileAsGrown, includeDlc, scopeChanged, setAppliedScope, trophyScope],
   );
 
   self.current = syncAll;

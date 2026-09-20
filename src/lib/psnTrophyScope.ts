@@ -24,6 +24,22 @@ const isScope = (value: unknown): value is PsnTrophyScope =>
 export const usePsnTrophyScope = () =>
   useSyncedPreference<PsnTrophyScope>(PSN_TROPHY_SCOPE_KEY, 'base', isScope);
 
+/**
+ * The scope the stored counts were actually fetched under.
+ *
+ * A sync only re-reads a game PSN says has changed, so switching this setting
+ * otherwise did nothing at all: every game was skipped as up to date, and the
+ * counts kept whatever scope they were first read with until the safety net
+ * expired days later. Comparing the two makes a change force one full pass.
+ *
+ * Kept in the synced store rather than in a ref so it survives a reload — the
+ * obvious thing to do after changing a setting that appears not to work.
+ */
+export const PSN_TROPHY_SCOPE_APPLIED_KEY = 'psn-trophy-scope-applied';
+
+export const usePsnTrophyScopeApplied = () =>
+  useSyncedPreference<PsnTrophyScope>(PSN_TROPHY_SCOPE_APPLIED_KEY, 'base', isScope);
+
 export const PSN_TROPHY_SCOPE_LABELS: Record<PsnTrophyScope, string> = {
   base: 'Base game only',
   all: 'Base game and add-ons',

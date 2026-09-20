@@ -85,12 +85,22 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
   const fillPercent = (clamped / MAX_RATING) * 100;
 
   /**
-   * A tick at every whole point, so the track is a scale rather than a smear.
+   * Both layers are drawn across the thumb's travel, not the whole track.
    *
-   * Layered into the input's own background rather than added as elements: a
-   * range input's track cannot hold children, and a sibling overlay would have
-   * to be kept in step with the thumb's inset by hand.
+   * The thumb's centre only ever reaches from half a thumb in from the left to
+   * half a thumb in from the right. A fill painted as a flat percentage of the
+   * full track therefore ran ahead of the thumb near 10 and lagged behind it
+   * near 0. Taking the thumb's width out of the span — and pushing both layers
+   * in by half of it — puts the end of the fill exactly under the thumb's
+   * centre at every value, and lands the ticks on the values they mark.
    */
+  const TRAVEL = `calc(100% - var(--rating-thumb))`;
+
+  const fill =
+    `linear-gradient(90deg, ${color} 0, ${color} ${fillPercent}%, ` +
+    `var(--color-gray-300) ${fillPercent}%)`;
+
+  /** A tick at every whole point, so the track is a scale rather than a smear. */
   const tickSpacing = 100 / MAX_RATING;
   const ticks =
     `repeating-linear-gradient(90deg, transparent 0, transparent calc(${tickSpacing}% - 1px), ` +
@@ -109,10 +119,13 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
         onChange={(e) => onChange(snapRating(Number(e.target.value)))}
         aria-label={`Rating out of ${MAX_RATING}`}
         {...rest}
-        className="h-1.5 min-w-24 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300 accent-current"
+        className="rating-slider h-1.5 min-w-24 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300"
         style={{
           color,
-          background: `${ticks}, linear-gradient(90deg, ${color} ${fillPercent}%, var(--color-gray-300) ${fillPercent}%)`,
+          backgroundImage: `${ticks}, ${fill}`,
+          backgroundSize: `${TRAVEL} 100%, ${TRAVEL} 100%`,
+          backgroundPosition: `calc(var(--rating-thumb) / 2) center, calc(var(--rating-thumb) / 2) center`,
+          backgroundRepeat: 'no-repeat, no-repeat',
         }}
       />
 
@@ -127,7 +140,7 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
         aria-label="Rating value"
         style={{ color, borderColor: isRated ? color : undefined }}
         className={cn(
-          'h-9 w-16 shrink-0 rounded-sm border bg-black/25 px-2 text-center text-100 font-bold tabular-nums',
+          'no-spinner h-9 w-16 shrink-0 rounded-sm border bg-black/25 px-2 text-center text-100 font-bold tabular-nums',
           'focus:outline-none',
           isRated ? '' : 'border-gray-300 text-gray-700',
         )}

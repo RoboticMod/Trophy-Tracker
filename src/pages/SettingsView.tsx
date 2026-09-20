@@ -33,6 +33,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { useSync } from '../context/SyncContext';
 import { useAuth } from '../context/AuthContext';
 import { clearUserCache } from '../lib/localCache';
 import { SidebarConfig, HighlightStyle, Platform } from '../types';
@@ -266,6 +267,7 @@ export const SettingsView: React.FC = () => {
   const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [trophyScope, setTrophyScope] = usePsnTrophyScope();
+  const { syncEverything } = useSync();
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -648,7 +650,14 @@ export const SettingsView: React.FC = () => {
               <button
                 key={option}
                 type="button"
-                onClick={() => setTrophyScope(option)}
+                onClick={() => {
+                  if (option === trophyScope) return;
+                  setTrophyScope(option);
+                  // Straight away, rather than waiting for the next timed
+                  // pass: a setting that appears to do nothing for ten minutes
+                  // reads as a setting that does not work.
+                  void syncEverything();
+                }}
                 aria-pressed={selected}
                 className={cn(
                   'rounded-md border p-3 text-left transition-colors',

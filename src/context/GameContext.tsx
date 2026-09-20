@@ -654,14 +654,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       /**
        * Completion follows the counts, and only the counts.
        *
-       * An explicit shelf in this same edit wins: the app withdraws only what
-       * the app itself decided. So moving a game by hand is never argued with,
-       * while unlocking the last award — or taking one back — re-files it.
+       * Skipped only when the caller is *moving* the game in this same edit:
+       * the app withdraws what the app decided, never what you did. The test
+       * is whether the shelf actually differs, not whether `collections` was
+       * sent — the edit dialog always sends the whole array, so testing for
+       * the field meant typing 20/20 into it never filed the game anywhere and
+       * you had to press Sync to make it move.
        */
+      const shelfRequested =
+        updates.collections === undefined ? undefined : permanentOf(updates.collections);
+      const movedByCaller = shelfRequested !== undefined && shelfRequested !== shelfBefore;
+
       // Whether this particular move was the app's doing, which is the only
       // kind worth announcing.
       let refiled = options.automatic === true;
-      if (updates.collections === undefined && nowPerfect !== wasPerfect) {
+      if (!movedByCaller && nowPerfect !== wasPerfect) {
         merged.collections = shelfForCompletion(merged.collections, wasPerfect, nowPerfect);
         refiled = true;
       }

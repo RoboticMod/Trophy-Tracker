@@ -48,6 +48,10 @@ export const Field: React.FC<FieldProps> = ({
  */
 export const inputClass = cn(
   'w-full rounded-sm border px-3 text-100 text-gray-900',
+  // Applied to every field rather than to the number ones: it is inert on a
+  // text input, and one class here is one fewer thing to remember at each
+  // call site.
+  'no-spinner',
   'bg-black/25 border-gray-300 placeholder:text-gray-600',
   'shadow-[inset_0_1px_2px_rgb(0_0_0/0.4)]',
   'transition-colors hover:border-gray-400',
