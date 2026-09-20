@@ -24,15 +24,15 @@ export const CurrentlyPlayingView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      {/* One figure: how many games are on the go. The hours and the unlock
-          tally that used to sit beside it are on every card below, and a
-          running total of either is not what this page is opened for. */}
+      {/* One figure, in the pill beside the name: how many games are on the go.
+          It used to be said twice — once here and again in a strip underneath,
+          which is where the hours and the unlock tally were too. Neither is
+          what this page is opened for, and both are on every card below. */}
       <PageHeader
         icon={<Play size={18} />}
         iconClassName="bg-accent-700/16 text-accent-900"
         title={collectionName(PLAYING_COLLECTION_ID, collections)}
         badge={<Badge tone="accent">{playingGames.length} active</Badge>}
-        stats={[{ key: 'titles', label: 'active titles', value: String(playingGames.length) }]}
       />
 
       <IntroNotice id="playing">

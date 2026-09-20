@@ -11,7 +11,7 @@ import { isPerfect } from '../lib/completion';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { Platform, PLATFORM_IDS } from '../types';
-import { EmptyState, FilterChip, PageHeader, Select } from '../components/ui';
+import { Badge, EmptyState, FilterChip, PageHeader, Select } from '../components/ui';
 
 /**
  * Completion is not offered here: every game on this page is at 100%, so
@@ -54,38 +54,28 @@ export const AchievementsView: React.FC = () => {
     [completedGames, selectedPlatform, sortBy],
   );
 
-  const totalUnlocked = completedGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
-
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       <PageHeader
         icon={<TrophyPair size={17} />}
         iconClassName="bg-trophy-700/16"
         title="100% Achievements & Platinum Trophies"
-        stats={[
-          {
-            key: 'finished',
-            label: 'finished',
-            value: String(completedGames.length),
-            breakdown: (
-              <span className="ml-1 flex items-baseline gap-2.5">
-                {PLATFORM_IDS.map((p) => (
-                  <span
-                    key={p}
-                    className="flex items-center gap-1"
-                    title={PLATFORMS[p].name}
-                  >
-                    <TrophyBadge platform={p} size={16} />
-                    <span className="text-75 font-bold tabular-nums text-gray-700">
-                      {completedGames.filter((g) => g.platform === p).length}
-                    </span>
-                  </span>
-                ))}
-              </span>
-            ),
-          },
-          { key: 'unlocked', label: 'unlocked', value: String(totalUnlocked) },
-        ]}
+        // The total, then the same total split by platform — each in a pill of
+        // the one height and radius, so the marks sit on a line with the words
+        // rather than each figure setting its own. The running count of every
+        // unlock earned went with the strip these replace: it is a tally that
+        // only grows, and nothing is done with it.
+        badge={
+          <>
+            <Badge tone="trophy">{completedGames.length} finished</Badge>
+            {PLATFORM_IDS.map((p) => (
+              <Badge key={p} tone="trophy" title={PLATFORMS[p].name}>
+                <TrophyBadge platform={p} size={13} />
+                {completedGames.filter((g) => g.platform === p).length}
+              </Badge>
+            ))}
+          </>
+        }
       />
 
       <IntroNotice id="achievements">
@@ -93,8 +83,11 @@ export const AchievementsView: React.FC = () => {
         platinums.
       </IntroNotice>
 
-      {/* Filter and sort ---------------------------------------------------- */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+      {/* Filter and sort ----------------------------------------------------
+          No rule of its own: the header block above already ends in one, and
+          with the intro notice dismissed the two sat a bare gap apart and read
+          as a mistake. The gap is the separation. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="eyebrow text-gray-600">
           {displayedGames.length} game{displayedGames.length === 1 ? '' : 's'} at 100%
         </p>

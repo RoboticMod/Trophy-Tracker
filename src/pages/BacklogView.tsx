@@ -12,7 +12,7 @@ import {
   fileInPermanent,
 } from '../lib/collections';
 import { IntroNotice } from '../components/IntroNotice';
-import { Button, EmptyState, FilterChip, PageHeader } from '../components/ui';
+import { Badge, Button, EmptyState, FilterChip, PageHeader } from '../components/ui';
 
 export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
@@ -41,11 +41,14 @@ export const BacklogView: React.FC = () => {
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       {/* How many are queued, and nothing else. A count of the awards waiting
           inside them measured the size of the job rather than the queue, and it
-          only ever grew. */}
+          only ever grew.
+
+          Neutral, not gold: gold is what a finished game earns, and a queue of
+          games you have not started has earned nothing. */}
       <PageHeader
         icon={<Hourglass size={18} />}
         title={collectionName(BACKLOG_COLLECTION_ID, collections)}
-        stats={[{ key: 'queued', label: 'in queue', value: String(backlogGames.length) }]}
+        badge={<Badge tone="neutral">{backlogGames.length} queued</Badge>}
       />
 
       <IntroNotice id="backlog">

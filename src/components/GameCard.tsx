@@ -422,18 +422,27 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         </div>
 
         {/* Progress, on a phone ---------------------------------------------- */}
-        {/* Half a phone screen is not enough room to say much, so the card says
-            only the two things a library is scanned for: how far through the
-            list this game is, and what it scored. Both sit straight on the
-            artwork's own scrim — the panel that used to carry them was a second
-            surface for one line of text. */}
+        {/* The name, then what is being counted and how much of it, then the
+            meter — all on the artwork's own scrim, with no panel behind them.
+
+            The count needs the word beside it: on its own, `23 / 44` in the
+            corner of a picture does not say what was counted, and the two
+            platforms do not count the same thing. The percentage that used to
+            follow it is gone from a phone — the mark, the word and the figure
+            fill this line at 166px, and the meter directly below draws the same
+            number. */}
         {phone ? (
-          <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1.5">
-            <div className="flex items-baseline gap-1 text-75 font-bold tabular-nums text-gray-1000">
-              <span>
+          <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1">
+            <h3 className="truncate text-75 font-bold tracking-tight text-gray-1000">
+              {game.title}
+            </h3>
+
+            <div className="flex items-center gap-1.5 text-50 font-semibold text-gray-800">
+              <TrophyBadge platform={game.platform} size={12} muted={!isMastered} />
+              <span className="min-w-0 truncate">{awardNoun(game.platform)}:</span>
+              <span className="ml-auto shrink-0 font-bold tabular-nums text-gray-1000">
                 {game.achievementsUnlocked} / {game.achievementsTotal}
               </span>
-              <span className="font-normal text-gray-800">({progress}%)</span>
             </div>
 
             <Meter

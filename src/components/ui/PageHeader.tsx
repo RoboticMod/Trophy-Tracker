@@ -11,37 +11,27 @@ import { useIsPhone } from '../../lib/useMediaQuery';
  * now lives in a dismissable `IntroNotice` instead, so it can be read once and
  * then be gone for good.
  */
-/** One figure in the strip under a page title. */
-export interface PageHeaderStat {
-  key: string;
-  /** What the figure is, set small and muted after the number itself. */
-  label: string;
-  value: string;
-  /** A per-platform split or similar, drawn inline after the label. */
-  breakdown?: React.ReactNode;
-}
-
 export const PageHeader: React.FC<{
   /** The tinted square to the left of the title. */
   icon: React.ReactNode;
   /** Token classes for that square — its background, and its ink. */
   iconClassName?: string;
   title: React.ReactNode;
-  /** A count or a state, sitting beside the title rather than under it. */
+  /**
+   * The page's headline figures, as `Badge` pills beside the title.
+   *
+   * One pill or several — they are laid out in a wrapping row either way, so a
+   * page with three cannot drift into a different shape from a page with one.
+   *
+   * These were a strip of large figures under the title, and before that a band
+   * of cards below the header. Both restated the title: a page called Playing,
+   * with a pill reading "6 active" next to it, then said "6 ACTIVE TITLES" on a
+   * line of its own underneath. The pill was always the better of the two, and
+   * it is the one that fits beside the name.
+   */
   badge?: React.ReactNode;
   /** Controls pushed to the trailing edge, above the fold on a wide screen. */
   action?: React.ReactNode;
-  /**
-   * The page's headline figures, as a strip under the title.
-   *
-   * These used to be a band of cards below the header, and on a wide screen
-   * they were mostly void: a label and a number floating beside an emblem
-   * pinned to the far right. Worse, the band stretched to fill the row, so a
-   * page with two figures drew wider boxes than one with three, and one page
-   * had reached for a different component entirely. A strip cannot drift that
-   * way — every page gets the same one.
-   */
-  stats?: PageHeaderStat[];
   className?: string;
 }> = ({
   icon,
@@ -49,7 +39,6 @@ export const PageHeader: React.FC<{
   title,
   badge,
   action,
-  stats,
   className,
 }) => {
   /**
@@ -62,14 +51,20 @@ export const PageHeader: React.FC<{
    * anywhere else.
    */
   const phone = useIsPhone();
-  if (phone && !stats?.length && !action) return null;
+  if (phone && !badge && !action) return null;
+
+  /** One wrapping row, whether a page passes a single pill or three. */
+  const pills = badge ? (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">{badge}</div>
+  ) : null;
 
   return (
-    <div className={cn('space-y-3 border-b border-gray-200 pb-5', className)}>
+    <div className={cn('border-b border-gray-200 pb-5', className)}>
       {phone ? (
-        action ? (
-          <div className="flex justify-end">{action}</div>
-        ) : null
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {pills}
+          {action}
+        </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -82,26 +77,12 @@ export const PageHeader: React.FC<{
               {icon}
             </div>
             <h1 className="min-w-0 text-600 font-bold tracking-tight text-gray-1000">{title}</h1>
-            {badge}
+            {pills}
           </div>
 
           {action}
         </div>
       )}
-
-      {/* Number first, then what it counts. A row of these scans as figures with
-          captions rather than as sentences with numbers buried in them. */}
-      {stats?.length ? (
-        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-          {stats.map((stat) => (
-            <div key={stat.key} className="flex items-baseline gap-1.5">
-              <dd className="text-300 font-bold tabular-nums text-gray-1000">{stat.value}</dd>
-              <dt className="eyebrow text-gray-600">{stat.label}</dt>
-              {stat.breakdown}
-            </div>
-          ))}
-        </dl>
-      ) : null}
     </div>
   );
 };

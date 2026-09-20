@@ -286,21 +286,38 @@ export const AppLayout: React.FC = () => {
   };
 
   /**
-   * The name of the page being looked at, for the phone header.
+   * The page being looked at, as its own mark and name, for the phone header.
    *
    * Read from the full named list rather than from `navItems`, which has had
    * the three shelves folded out of it on a phone — they are still reachable
    * through Collections, and a page you can open is a page whose name the
    * header has to be able to say. A custom label from Settings comes with it,
    * since `named` has already been applied.
+   *
+   * The mark is the destination's own, the same one drawn in the bar along the
+   * bottom and in the desktop tabs, so the two never identify a page with two
+   * different pictures. Settings and setup are not destinations in that list
+   * and carry their own.
    */
+  const currentNavItem = rawNavItems.map(named).find((item) => item.path === location.pathname);
+
   const pageTitle =
-    rawNavItems.map(named).find((item) => item.path === location.pathname)?.name ??
+    currentNavItem?.name ??
     (location.pathname === '/settings'
       ? 'Settings'
       : location.pathname === '/setup'
         ? 'Set up your library'
         : APP_NAME);
+
+  const PageIcon = currentNavItem
+    ? currentNavItem.icon
+    : location.pathname === '/settings'
+      ? Settings
+      : location.pathname === '/setup'
+        ? Gamepad2
+        : null;
+
+  const pageMark = PageIcon ? <PageIcon size={16} /> : (currentNavItem?.art ?? null);
 
   // The mobile bar has room for four destinations. Everything past them lives
   // in the "More" sheet, so no enabled page is unreachable on a phone.
@@ -476,12 +493,18 @@ export const AppLayout: React.FC = () => {
             <ChevronLeft size={18} />
           </Button>
 
-          {/* The page's own title, in the one part of a phone screen that does
-              not scroll. The lockup was here, and on a phone it said the one
-              thing you already know — which app you are in — while the thing
-              you do not, the page you are on, scrolled away with the content.
-              Home is still a tap away in the bar along the bottom. */}
-          <h1 className="min-w-0 truncate px-1 text-200 font-bold tracking-tight text-gray-1000">
+          {/* The page's own mark and title, in the one part of a phone screen
+              that does not scroll. The lockup was here, and on a phone it said
+              the one thing you already know — which app you are in — while the
+              thing you do not, the page you are on, scrolled away with the
+              content. Home is still a tap away in the bar along the bottom. */}
+          {/* No padding of its own — the row's gap is the spacing, and every
+              pixel here comes off the title, which is already truncating on the
+              longest of them. */}
+          {pageMark ? (
+            <span className="ml-1 flex shrink-0 items-center text-accent-900">{pageMark}</span>
+          ) : null}
+          <h1 className="min-w-0 truncate text-200 font-bold tracking-tight text-gray-1000">
             {pageTitle}
           </h1>
         </div>
