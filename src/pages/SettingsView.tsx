@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Reorder, useDragControls } from 'motion/react';
 import {
   Settings,
   Database,
@@ -20,6 +21,9 @@ import {
   Library,
   RotateCcw,
   LogOut,
+  GripVertical,
+  Loader2,
+  UserX,
   Palette,
   X,
   CloudOff,
@@ -42,6 +46,7 @@ import {
   describePlatformOrder,
   normalizePlatform,
 } from '../lib/constants';
+import { DELETE_ACCOUNT_MESSAGES, deleteAccount } from '../lib/deleteAccount';
 import { migrateLegacySnapshot } from '../lib/migrateLegacyGames';
 import { fileToAvatarDataUrl } from '../lib/image';
 import {
@@ -57,6 +62,106 @@ import { ConnectedAccounts } from '../components/ConnectedAccounts';
 import { TrophyBadge, TrophyPair, awardNoun } from '../components/TrophyBadge';
 import { Button, Card, Field, SectionHeader, Select, Switch, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
+
+/**
+ * A titled run of related cards.
+ *
+ * The page was one flat column of eleven cards, so finding the one you wanted
+ * meant reading all of them. These are the same cards — only the heading above
+ * each run is new.
+ */
+const SettingsGroup: React.FC<{ title: string; children: React.ReactNode }> = ({
+  title,
+  children,
+}) => (
+  <section className="space-y-3">
+    <h2 className="eyebrow px-0.5 text-gray-600">{title}</h2>
+    <div className="space-y-6">{children}</div>
+  </section>
+);
+
+type NavItem = (typeof ALL_NAV_ITEMS)[number];
+
+/**
+ * One draggable row of the sidebar order.
+ *
+ * Its own component because `useDragControls` is a hook and these are a list —
+ * and because the row needs controls of its own so that only the handle starts
+ * a drag. A row that drags from anywhere would make the rename field and the
+ * visibility switch inside it a fight to use.
+ */
+const NavReorderRow: React.FC<{
+  item: NavItem;
+  name: string;
+  visible: boolean;
+  onRename: (value: string) => void;
+  /** Absent for a destination that is always shown. */
+  onToggle?: () => void;
+  onMove: (direction: -1 | 1) => void;
+}> = ({ item, name, visible, onRename, onToggle, onMove }) => {
+  const controls = useDragControls();
+  const Icon = item.icon;
+
+  return (
+    <Reorder.Item
+      value={item.path}
+      dragListener={false}
+      dragControls={controls}
+      className="panel-inset flex flex-wrap items-center justify-between gap-3 rounded-md p-3"
+    >
+      <div className="flex min-w-56 flex-1 items-center gap-3">
+        <button
+          type="button"
+          onPointerDown={(e) => controls.start(e)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              onMove(-1);
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              onMove(1);
+            }
+          }}
+          aria-label={`Reorder ${item.name}. Drag, or use the arrow keys.`}
+          className="shrink-0 cursor-grab touch-none rounded-sm p-1 text-gray-600 hover:text-gray-900 active:cursor-grabbing"
+        >
+          <GripVertical size={16} />
+        </button>
+
+        <div
+          className={cn(
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-sm',
+            item.tone,
+          )}
+        >
+          {Icon ? <Icon size={16} /> : <TrophyPair size={15} />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <TextInput
+            defaultValue={name}
+            onChange={(e) => onRename(e.target.value)}
+            aria-label={`Sidebar name for ${item.name}`}
+            placeholder={item.name}
+            className="h-8 text-75 font-semibold"
+          />
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        {onToggle ? (
+          <Switch
+            checked={visible}
+            onChange={onToggle}
+            label={`${visible ? 'Hide' : 'Show'} ${item.name} in the sidebar`}
+          />
+        ) : (
+          <span className="w-11 text-center text-50 font-medium text-gray-600">Always</span>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+};
 
 /** Speaker icon matching the level, the way a system volume control does. */
 const VolumeIcon: React.FC<{ volume: number }> = ({ volume }) => {
@@ -163,6 +268,10 @@ export const SettingsView: React.FC = () => {
   const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   // Mirrors the stored level so the slider and the preview stay in step; the
   // sound module remains the source of truth for playback, and tells this back
@@ -197,6 +306,37 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    if (user?.id) clearUserCache(user.id);
+    await signOut();
+  };
+
+  /* -- Delete account ----------------------------------------------------- */
+
+  /**
+   * Armed only once the account's own address has been typed back.
+   *
+   * Case and surrounding space are forgiven — the point is that you read which
+   * account this is, not that you can type accurately.
+   */
+  const deleteArmed =
+    Boolean(user?.email) &&
+    deleteConfirmText.trim().toLowerCase() === user!.email!.trim().toLowerCase();
+
+  const handleDeleteAccount = async () => {
+    if (!deleteArmed || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+
+    const failure = await deleteAccount();
+    if (failure) {
+      setDeleteError(DELETE_ACCOUNT_MESSAGES[failure]);
+      setDeleting(false);
+      return;
+    }
+
+    // The same two steps signing out takes, in the same order: the local copy
+    // goes first, so a browser that somehow keeps the session cannot repaint a
+    // library whose account no longer exists.
     if (user?.id) clearUserCache(user.id);
     await signOut();
   };
@@ -330,7 +470,7 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-10">
+    <div className="mx-auto max-w-3xl space-y-8 pb-10">
       <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
         <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-200 text-gray-800">
           <Settings size={20} />
@@ -338,11 +478,13 @@ export const SettingsView: React.FC = () => {
         <div>
           <h1 className="text-600 font-bold tracking-tight text-gray-1000">Settings</h1>
           <p className="text-75 text-gray-700">
-            Account, naming, ordering, navigation and data.
+            Your account, the accounts you have linked, how the app looks and where your
+            library is kept.
           </p>
         </div>
       </div>
 
+      <SettingsGroup title="Account">
       {/* Account ------------------------------------------------------------ */}
       <Card className="space-y-5">
         <SectionHeader
@@ -411,6 +553,231 @@ export const SettingsView: React.FC = () => {
         </form>
       </Card>
 
+        {/* Delete account ---------------------------------------------------- */}
+        <Card className="space-y-4 border-negative-700/40">
+          <SectionHeader
+            icon={<UserX size={18} />}
+            title="Delete account"
+            description="Removes your sign-in and everything stored against it, permanently"
+            iconClassName="bg-negative-700/16 text-negative-900"
+          />
+
+          <p className="text-75 text-gray-700">
+            Your games, collections, profile and linked accounts go with it. There is no undo and
+            no copy kept — export a backup first if you want one.
+          </p>
+
+          {deleteError && (
+            <p role="alert" className="text-75 font-semibold text-negative-900">
+              {deleteError}
+            </p>
+          )}
+
+          {confirmingDelete ? (
+            <div className="space-y-3">
+              {/* Typing the address is the point: a Delete button one click from
+                  a Cancel button is not a decision, it is a slip waiting to
+                  happen. */}
+              <Field
+                label="Type your email address to confirm"
+                description={user?.email ?? 'Signed in'}
+              >
+                {(props) => (
+                  <TextInput
+                    {...props}
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder={user?.email ?? ''}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                )}
+              </Field>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="negative"
+                  disabled={!deleteArmed || deleting}
+                  onClick={handleDeleteAccount}
+                >
+                  {deleting ? <Loader2 size={14} className="animate-spin" /> : <UserX size={14} />}
+                  <span>{deleting ? 'Deleting…' : 'Delete my account'}</span>
+                </Button>
+                <Button
+                  buttonStyle="subtle"
+                  disabled={deleting}
+                  onClick={() => {
+                    setConfirmingDelete(false);
+                    setDeleteConfirmText('');
+                    setDeleteError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="negative"
+              buttonStyle="outline"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              <UserX size={14} />
+              <span>Delete account</span>
+            </Button>
+          )}
+        </Card>
+      </SettingsGroup>
+
+      <SettingsGroup title="Connected accounts">
+      {/* Connected accounts -------------------------------------------------- */}
+      <ConnectedAccounts />
+      </SettingsGroup>
+
+      <SettingsGroup title="Customization">
+      {/* Platform order ------------------------------------------------------ */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Sliders size={18} />}
+          title="Platform order"
+          description={`Used by the "Platform" sort in every library view — currently ${describePlatformOrder(platformOrder)}`}
+          iconClassName="bg-gray-200 text-gray-800"
+          action={
+            platformOrder.join() !== DEFAULT_PLATFORM_SORT_ORDER.join() ? (
+              <Button
+                variant="secondary"
+                buttonStyle="outline"
+                size="s"
+                onClick={() => updateProfile({ platformOrder: DEFAULT_PLATFORM_SORT_ORDER })}
+              >
+                <RotateCcw size={13} />
+                Reset
+              </Button>
+            ) : null
+          }
+        />
+
+        <div className="space-y-2">
+          {platformOrder.map((platform, index) => (
+            <div
+              key={platform}
+              className="flex items-center gap-3 panel-inset rounded-md p-2.5"
+            >
+              <span className="w-6 text-center text-75 font-bold text-gray-600">#{index + 1}</span>
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-sm"
+                style={{ color: PLATFORMS[platform]?.color }}
+              >
+                <PlatformIcon platform={platform} size={18} />
+              </div>
+              <span className="flex-1 text-100 text-gray-900">{PLATFORMS[platform]?.name}</span>
+              <div className="flex gap-1">
+                <Button
+                  size="s"
+                  iconOnly
+                  variant="secondary"
+                  buttonStyle="outline"
+                  disabled={index === 0}
+                  onClick={() => movePlatform(index, -1)}
+                  aria-label={`Move ${PLATFORMS[platform]?.name} up`}
+                >
+                  <ChevronUp size={14} />
+                </Button>
+                <Button
+                  size="s"
+                  iconOnly
+                  variant="secondary"
+                  buttonStyle="outline"
+                  disabled={index === platformOrder.length - 1}
+                  onClick={() => movePlatform(index, 1)}
+                  aria-label={`Move ${PLATFORMS[platform]?.name} down`}
+                >
+                  <ChevronDown size={14} />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Start page ---------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Home size={18} />}
+          title="Start page"
+          description="Where the app opens when you arrive"
+        />
+
+        <Field
+          label="Open on"
+          description="Only destinations you have kept visible are offered here."
+        >
+          {(props) => (
+            <Select
+              {...props}
+              value={sidebarConfig.startPath ?? DEFAULT_START_PATH}
+              onChange={(startPath) => updateSidebarConfig({ startPath })}
+              options={startPageOptions}
+            />
+          )}
+        </Field>
+      </Card>
+
+      {/* Navigation ---------------------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<Sliders size={18} />}
+          title="Sidebar navigation"
+          description="Reorder destinations or hide the ones you don't use"
+          action={
+            <Button
+              variant="secondary"
+              buttonStyle="outline"
+              size="s"
+              onClick={() => updateSidebarConfig({ navOrder: DEFAULT_NAV_ORDER })}
+            >
+              <RotateCcw size={13} />
+              Reset order
+            </Button>
+          }
+        />
+        {/* Dragged rather than nudged one row at a time. The handle also takes
+            arrow keys, because a drag is not operable by keyboard at all and
+            "reorder your navigation" should not be a mouse-only feature. */}
+        {/* Dragged rather than nudged one row at a time. The handle also takes
+            arrow keys, because a drag is not operable by keyboard at all and
+            "reorder your navigation" should not become a mouse-only feature. */}
+        <Reorder.Group
+          axis="y"
+          values={orderedNavItems.map((item) => item.path)}
+          onReorder={(navOrder: string[]) => updateSidebarConfig({ navOrder })}
+          className="space-y-2"
+        >
+          {orderedNavItems.map((item, index) => (
+            <NavReorderRow
+              key={item.path}
+              item={item}
+              name={navNames[item.path] ?? item.name}
+              visible={item.configKey ? (sidebarConfig[item.configKey] as boolean) : true}
+              onRename={(value) => renameNav(item.path, value)}
+              onToggle={
+                item.configKey
+                  ? () =>
+                      updateSidebarConfig({
+                        [item.configKey as keyof SidebarConfig]: !(sidebarConfig[
+                          item.configKey as keyof SidebarConfig
+                        ] as boolean),
+                      })
+                  : undefined
+              }
+              onMove={(direction) => moveNav(index, direction)}
+            />
+          ))}
+        </Reorder.Group>
+      </Card>
+      </SettingsGroup>
+
+      <SettingsGroup title="Appearance">
       {/* Card highlight ------------------------------------------------------ */}
       <Card className="space-y-4">
         <SectionHeader
@@ -547,199 +914,9 @@ export const SettingsView: React.FC = () => {
           ))}
         </div>
       </Card>
+      </SettingsGroup>
 
-      {/* Platform order ------------------------------------------------------ */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Sliders size={18} />}
-          title="Platform order"
-          description={`Used by the "Platform" sort in every library view — currently ${describePlatformOrder(platformOrder)}`}
-          iconClassName="bg-gray-200 text-gray-800"
-          action={
-            platformOrder.join() !== DEFAULT_PLATFORM_SORT_ORDER.join() ? (
-              <Button
-                variant="secondary"
-                buttonStyle="outline"
-                size="s"
-                onClick={() => updateProfile({ platformOrder: DEFAULT_PLATFORM_SORT_ORDER })}
-              >
-                <RotateCcw size={13} />
-                Reset
-              </Button>
-            ) : null
-          }
-        />
-
-        <div className="space-y-2">
-          {platformOrder.map((platform, index) => (
-            <div
-              key={platform}
-              className="flex items-center gap-3 panel-inset rounded-md p-2.5"
-            >
-              <span className="w-6 text-center text-75 font-bold text-gray-600">#{index + 1}</span>
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-sm"
-                style={{ color: PLATFORMS[platform]?.color }}
-              >
-                <PlatformIcon platform={platform} size={18} />
-              </div>
-              <span className="flex-1 text-100 text-gray-900">{PLATFORMS[platform]?.name}</span>
-              <div className="flex gap-1">
-                <Button
-                  size="s"
-                  iconOnly
-                  variant="secondary"
-                  buttonStyle="outline"
-                  disabled={index === 0}
-                  onClick={() => movePlatform(index, -1)}
-                  aria-label={`Move ${PLATFORMS[platform]?.name} up`}
-                >
-                  <ChevronUp size={14} />
-                </Button>
-                <Button
-                  size="s"
-                  iconOnly
-                  variant="secondary"
-                  buttonStyle="outline"
-                  disabled={index === platformOrder.length - 1}
-                  onClick={() => movePlatform(index, 1)}
-                  aria-label={`Move ${PLATFORMS[platform]?.name} down`}
-                >
-                  <ChevronDown size={14} />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Connected accounts -------------------------------------------------- */}
-      <ConnectedAccounts />
-
-      {/* Start page ---------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Home size={18} />}
-          title="Start page"
-          description="Where the app opens when you arrive"
-        />
-
-        <Field
-          label="Open on"
-          description="Only destinations you have kept visible are offered here."
-        >
-          {(props) => (
-            <Select
-              {...props}
-              value={sidebarConfig.startPath ?? DEFAULT_START_PATH}
-              onChange={(startPath) => updateSidebarConfig({ startPath })}
-              options={startPageOptions}
-            />
-          )}
-        </Field>
-      </Card>
-
-      {/* Navigation ---------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Sliders size={18} />}
-          title="Sidebar navigation"
-          description="Reorder destinations or hide the ones you don't use"
-          action={
-            <Button
-              variant="secondary"
-              buttonStyle="outline"
-              size="s"
-              onClick={() => updateSidebarConfig({ navOrder: DEFAULT_NAV_ORDER })}
-            >
-              <RotateCcw size={13} />
-              Reset order
-            </Button>
-          }
-        />
-
-        <div className="space-y-2">
-          {orderedNavItems.map((item, index) => {
-            const Icon = item.icon;
-            const visible = item.configKey
-              ? (sidebarConfig[item.configKey] as boolean)
-              : true;
-
-            return (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 panel-inset rounded-md p-3"
-              >
-                <div className="flex min-w-56 flex-1 items-center gap-3">
-                  <span className="w-6 shrink-0 text-center text-75 font-bold text-gray-600">
-                    #{index + 1}
-                  </span>
-                  <div
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-sm',
-                      item.tone,
-                    )}
-                  >
-                    {Icon ? <Icon size={16} /> : <TrophyPair size={15} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <TextInput
-                      defaultValue={navNames[item.path] ?? item.name}
-                      onChange={(e) => renameNav(item.path, e.target.value)}
-                      aria-label={`Sidebar name for ${item.name}`}
-                      placeholder={item.name}
-                      className="h-8 text-75 font-semibold"
-                    />
-                    <div className="mt-1 truncate text-50 text-gray-700">{item.description}</div>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    size="s"
-                    iconOnly
-                    variant="secondary"
-                    buttonStyle="outline"
-                    disabled={index === 0}
-                    onClick={() => moveNav(index, -1)}
-                    aria-label={`Move ${item.name} up`}
-                  >
-                    <ChevronUp size={14} />
-                  </Button>
-                  <Button
-                    size="s"
-                    iconOnly
-                    variant="secondary"
-                    buttonStyle="outline"
-                    disabled={index === orderedNavItems.length - 1}
-                    onClick={() => moveNav(index, 1)}
-                    aria-label={`Move ${item.name} down`}
-                  >
-                    <ChevronDown size={14} />
-                  </Button>
-
-                  {item.configKey ? (
-                    <Switch
-                      checked={visible}
-                      onChange={() =>
-                        updateSidebarConfig({
-                          [item.configKey as keyof SidebarConfig]: !visible,
-                        })
-                      }
-                      label={`${visible ? 'Hide' : 'Show'} ${item.name} in the sidebar`}
-                    />
-                  ) : (
-                    <span className="w-11 text-center text-50 font-medium text-gray-600">
-                      Always
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
+      <SettingsGroup title="Data">
       {/* Cloud --------------------------------------------------------------- */}
       <Card className="space-y-4">
         <SectionHeader
@@ -837,6 +1014,7 @@ export const SettingsView: React.FC = () => {
 
         {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
       </Card>
+      </SettingsGroup>
     </div>
   );
 };

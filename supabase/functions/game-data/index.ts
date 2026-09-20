@@ -550,6 +550,41 @@ Deno.serve(async (request) => {
       }
     }
 
+    /**
+     * Delete this account and everything stored against it.
+     *
+     * The id deleted is the caller's own, read from the verified session above
+     * — never one supplied in the request body, which would make this route a
+     * way to delete other people's accounts.
+     *
+     * This is the function's only use of the service role: removing an
+     * auth.users row needs the admin API, and every table references that row
+     * `on delete cascade`, so the data goes with it. The PSN tokens are cleared
+     * first and explicitly, because a leftover refresh token is a credential
+     * rather than a row.
+     */
+    if (segments[0] === 'me' && segments[1] === 'delete' && request.method === 'POST') {
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      if (!serviceRoleKey) return fail(503, 'not-configured');
+
+      const userId = auth.user.id;
+
+      await supabase.from('platform_accounts').upsert({
+        user_id: userId,
+        psn_refresh_token: null,
+        psn_access_token: null,
+        psn_token_expires_at: null,
+      });
+
+      const admin = createClient(SUPABASE_URL, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error } = await admin.auth.admin.deleteUser(userId);
+      if (error) return fail(500, 'could-not-delete');
+
+      return json({ ok: true });
+    }
+
     /* Your own account. */
     if (segments[0] === 'me' && segments[1] === 'steam') {
       if (!STEAM_API_KEY) return fail(503, 'no-steam-key');

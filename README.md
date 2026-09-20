@@ -70,6 +70,17 @@ supabase functions deploy game-data
 Then re-run the schema SQL (Settings → Cloud storage → "Copy schema SQL") to add the
 `platform_accounts` table and the new columns on `games`.
 
+**Deleting an account** (Settings → Account → Delete account) needs one more secret. Removing a
+row from `auth.users` is an admin operation, so the function needs the service role — which is
+why this lives in the function and never in the browser. The route only ever deletes the id on
+the verified caller's own session.
+
+```bash
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<project-settings-→-api-→-service_role>
+```
+
+Without it the button says so rather than failing quietly; everything else works unchanged.
+
 **Steam.** Settings → Connected accounts takes a profile URL, a custom URL name or a SteamID64.
 Your Steam profile's *Game details* privacy must be **Public**, or the Web API reports no
 achievements at all. A game added from Steam search arrives linked; any other can be linked to its
