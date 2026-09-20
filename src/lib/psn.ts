@@ -118,12 +118,23 @@ export const getPsnTitles = async (): Promise<PsnResult<PsnLibrary>> => {
     : { error: result.error };
 };
 
+/**
+ * One title's exact counts.
+ *
+ * `includeDlc` decides which trophy groups are counted. The base list is the
+ * default because a platinum is the base list — PSN numbers add-on groups
+ * beside it and rolls them together on request, so a game whose platinum you
+ * have earned otherwise reads as 45 of 76 because someone shipped three DLC
+ * packs you never bought. Someone chasing everything can ask for the lot.
+ */
 export const getPsnTitleProgress = (
   npCommunicationId: string,
   npServiceName: 'trophy' | 'trophy2' = 'trophy2',
+  includeDlc = false,
 ): Promise<PsnResult<PsnTitleProgress>> =>
   call<PsnTitleProgress>(
-    `/me/psn/title/${encodeURIComponent(npCommunicationId)}?service=${npServiceName}`,
+    `/me/psn/title/${encodeURIComponent(npCommunicationId)}?service=${npServiceName}` +
+      (includeDlc ? '&groups=all' : ''),
   );
 
 /**

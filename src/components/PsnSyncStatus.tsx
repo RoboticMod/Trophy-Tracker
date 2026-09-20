@@ -185,9 +185,11 @@ const TrophyListPicker: React.FC<{ game: UserGame; onDone: () => void }> = ({ ga
 
       {/* The counts on each row are PlayStation's own account summary, which
           adds up every trophy group including the add-ons. What the game then
-          tracks is the base list alone, so the two rarely read the same. */}
+          tracks depends on the scope chosen in Settings, so the two need not
+          read the same. */}
       <p className="text-50 text-gray-600">
-        Counts below include add-on trophies; a game tracks its base list only.
+        Counts below always include add-on trophies. What a game tracks follows
+        “PlayStation trophy counts” in Settings.
       </p>
 
       {loading ? (

@@ -46,6 +46,12 @@ import {
   normalizePlatform,
 } from '../lib/constants';
 import { DELETE_ACCOUNT_MESSAGES, deleteAccount } from '../lib/deleteAccount';
+import {
+  PSN_TROPHY_SCOPE_HINTS,
+  PSN_TROPHY_SCOPE_LABELS,
+  PsnTrophyScope,
+  usePsnTrophyScope,
+} from '../lib/psnTrophyScope';
 import { migrateLegacySnapshot } from '../lib/migrateLegacyGames';
 import { fileToAvatarDataUrl } from '../lib/image';
 import {
@@ -259,6 +265,7 @@ export const SettingsView: React.FC = () => {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [trophyScope, setTrophyScope] = usePsnTrophyScope();
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -624,6 +631,53 @@ export const SettingsView: React.FC = () => {
       <SettingsGroup title="Connected accounts">
       {/* Connected accounts -------------------------------------------------- */}
       <ConnectedAccounts />
+
+      {/* PlayStation trophy scope ------------------------------------------- */}
+      <Card className="space-y-4">
+        <SectionHeader
+          icon={<TrophyBadge platform="ps5" size={18} />}
+          title="PlayStation trophy counts"
+          description="Which trophy groups a PS5 game is measured against"
+          iconClassName="bg-playstation-700/15"
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(Object.keys(PSN_TROPHY_SCOPE_LABELS) as PsnTrophyScope[]).map((option) => {
+            const selected = trophyScope === option;
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setTrophyScope(option)}
+                aria-pressed={selected}
+                className={cn(
+                  'rounded-md border p-3 text-left transition-colors',
+                  selected
+                    ? 'border-accent-700/60 bg-accent-700/16'
+                    : 'border-gray-300 bg-black/25 hover:border-gray-400 hover:bg-black/40',
+                )}
+              >
+                <span className="block text-100 font-semibold text-gray-1000">
+                  {PSN_TROPHY_SCOPE_LABELS[option]}
+                  {option === 'base' ? (
+                    <span className="ml-2 text-50 font-bold uppercase tracking-wide text-gray-600">
+                      Default
+                    </span>
+                  ) : null}
+                </span>
+                <span className="mt-0.5 block text-50 text-gray-700">
+                  {PSN_TROPHY_SCOPE_HINTS[option]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-50 text-gray-600">
+          Counts are re-read on the next sync. Steam games are unaffected — Steam has no
+          separate add-on achievement lists.
+        </p>
+      </Card>
       </SettingsGroup>
 
       <SettingsGroup title="Customization">

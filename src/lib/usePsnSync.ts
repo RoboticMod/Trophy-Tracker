@@ -27,6 +27,7 @@ import {
   syncFieldsFor,
 } from './sync';
 import { SYNC_SAFETY_NET_MS, SyncOptions } from './useSteamSync';
+import { usePsnTrophyScope } from './psnTrophyScope';
 
 export interface PsnSyncReport {
   checked: number;
@@ -102,6 +103,11 @@ export function usePsnSync() {
   const self = useRef<((options?: SyncOptions) => Promise<PsnSyncReport>) | null>(null);
 
   const isLinked = Boolean(platformAccounts?.psnAccountId);
+
+  // Read here rather than passed in: this hook is the only thing that asks PSN
+  // for counts, so the preference belongs where the request is made.
+  const [trophyScope] = usePsnTrophyScope();
+  const includeDlc = trophyScope === 'all';
 
   const fileAsGrown = useCallback(
     (game: UserGame) => {
@@ -212,15 +218,16 @@ export function usePsnSync() {
           // The trophy list itself, for exact counts and the date of the most
           // recent trophy. The summary figures stand in if it cannot be read.
           const detail = match
-            ? await getPsnTitleProgress(match.npCommunicationId, match.npServiceName)
+            ? await getPsnTitleProgress(match.npCommunicationId, match.npServiceName, includeDlc)
             : undefined;
           if (detail?.error) outcome.error = detail.error;
 
           const game = getGames().find((g) => g.id === candidate.id) ?? candidate;
 
           const { updates, changed, grewList } = reconcile(game, {
-            // Only the counts the trophy list itself gives, which are the base
-            // game's. The account summary beside it counts add-on trophies too,
+            // Only the counts the trophy list itself gives, for whichever groups
+            // the trophy-scope preference asked for. The account summary beside
+            // it always counts add-on trophies,
             // so falling back to it would have a game's total jump by twenty
             // every time one detail request happened to fail. A game with
             // playtime but no trophy list keeps its own counts.
@@ -271,7 +278,7 @@ export function usePsnSync() {
 
       return report;
     },
-    [getGames, isLinked, updateGame, fileAsGrown],
+    [getGames, isLinked, updateGame, fileAsGrown, includeDlc],
   );
 
   self.current = syncAll;

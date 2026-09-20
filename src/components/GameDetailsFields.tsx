@@ -494,8 +494,8 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
             <p className="text-75 text-gray-700">
               Trophies, playtime and the date of your latest trophy follow your linked PlayStation
               account and update on their own. The trophy list is matched by title, or chosen
-              below. Only the base game&rsquo;s trophies are counted — add-on lists are left out,
-              so a platinum reads as 100%.
+              below. Whether add-on lists count towards the total is set in Settings — by
+              default they do not, so a platinum reads as 100%.
             </p>
           </div>
           {syncStatus ? <div className="border-t border-gray-200 pt-3">{syncStatus}</div> : null}

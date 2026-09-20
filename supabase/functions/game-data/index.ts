@@ -428,6 +428,9 @@ async function psnAccessToken(
  */
 const BASE_TROPHY_GROUP = 'default';
 
+/** Every group rolled together — the base list plus every add-on pack. */
+const ALL_TROPHY_GROUPS = 'all';
+
 /** Trophy counts across all four tiers, which is what this app tracks. */
 const countTrophies = (trophies?: {
   bronze?: number;
@@ -716,13 +719,19 @@ Deno.serve(async (request) => {
         const npCommunicationId = segments[3];
         const npServiceName = url.searchParams.get('service') === 'trophy' ? 'trophy' : 'trophy2';
 
+        // Opt-in, per the caller. The base list stays the default because a
+        // platinum is the base list; someone chasing 100% of everything can ask
+        // for the lot instead.
+        const group =
+          url.searchParams.get('groups') === 'all' ? ALL_TROPHY_GROUPS : BASE_TROPHY_GROUP;
+
         const [defined, earned] = await Promise.all([
-          getTitleTrophies(psnAuth, npCommunicationId, BASE_TROPHY_GROUP, { npServiceName }),
+          getTitleTrophies(psnAuth, npCommunicationId, group, { npServiceName }),
           getUserTrophiesEarnedForTitle(
             psnAuth,
             session.accountId,
             npCommunicationId,
-            BASE_TROPHY_GROUP,
+            group,
             { npServiceName },
           ),
         ]);
