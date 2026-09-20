@@ -187,6 +187,11 @@ Then a second pass, on what the first one left rough:
 - Phones get portrait tiles and a single collections sheet in place of the chip
   row; the metrics grid goes two across.
 
+A third pass: posters and logos are separate fields with drag-and-drop editors
+(`ArtworkField`), a logo replaces the typed title on a card, phones fold the
+three shelves into Collections (`CollectionsList`), and the metric cards wrap
+their labels instead of clipping them.
+
 ### Known gaps
 
 - **The SQL migration is one-way.** `status` is dropped in the same script that
@@ -195,10 +200,15 @@ Then a second pass, on what the first one left rough:
   the dev server renders, but the signed-in flows have not been driven end to end.
   The phone layouts were checked against a static harness of the built CSS rather
   than the real page.
-- **PlayStation has no portrait art.** `portraitCoverUrl` only answers for Steam
-  games, so a PS5 tile falls back to landscape key art cropped to 2:3 — which is
-  the case the portrait grid was meant to avoid. PSN offers nothing taller than a
-  squarish trophy-set icon; a stored per-game override is the way out.
+- **No automatic logo-free poster.** `posterSources` falls back to Steam's
+  library capsule, which has the name baked in, so the separate logo is only
+  drawn over a poster set by hand (`logoOverlay`). Steam publishes no clean
+  portrait and PSN publishes no portrait at all — SteamGridDB has both, keyed,
+  and is the way to make this automatic.
+- **PlayStation games have no portrait art at all**, so a PS5 tile crops its
+  landscape cover to 2:3 unless someone sets a poster.
+- **`?groups=all` needs the edge function redeployed** before the PlayStation
+  trophy scope can do anything.
 - `deleteCollection` fans out one write per affected game. Pre-existing, but far
   more reachable now that everything except the three shelves is deletable. A
   batched `{ kind: 'games'; op: 'upsert' }` queue variant would fix it;
