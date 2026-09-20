@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Loader2,
   Link2,
+  Pencil,
   PlayCircle,
   RefreshCw,
   Search,
@@ -62,6 +63,12 @@ interface GameInfoModalProps {
   game: UserGame | null;
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Opens the edit dialog for this game. Given wherever this modal is the only
+   * way in — a portrait tile has no room for an edit control of its own, so
+   * everything it cannot show, including the way to change any of it, is here.
+   */
+  onEdit?: () => void;
 }
 
 /** Plain-language versions of the failures the client can report. */
@@ -91,21 +98,27 @@ const formatDate = (iso: string | null | undefined) =>
       })
     : '—';
 
-export const GameInfoModal: React.FC<GameInfoModalProps> = ({ game, isOpen, onClose }) => {
+export const GameInfoModal: React.FC<GameInfoModalProps> = ({ game, isOpen, onClose, onEdit }) => {
   if (typeof document === 'undefined' || !game) return null;
 
   // Keyed on the game, so opening a second card is a fresh load rather than the
   // previous game's chart with a new title over it.
   return createPortal(
-    <GameInfo key={game.id} game={game} isOpen={isOpen} onClose={onClose} />,
+    <GameInfo key={game.id} game={game} isOpen={isOpen} onClose={onClose} onEdit={onEdit} />,
     document.body,
   );
 };
 
-const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void }> = ({
+const GameInfo: React.FC<{
+  game: UserGame;
+  isOpen: boolean;
+  onClose: () => void;
+  onEdit?: () => void;
+}> = ({
   game,
   isOpen,
   onClose,
+  onEdit,
 }) => {
   const { collections, updateGame } = useGame();
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
@@ -270,6 +283,19 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
             >
               <RefreshCw size={14} />
               {missingDetails.length === 0 ? 'Details complete' : 'Fill in missing details'}
+            </Button>
+          ) : null}
+
+          {onEdit ? (
+            <Button
+              buttonStyle="outline"
+              onClick={() => {
+                onClose();
+                onEdit();
+              }}
+            >
+              <Pencil size={14} />
+              Edit
             </Button>
           ) : null}
 

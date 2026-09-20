@@ -78,3 +78,32 @@ export async function fileToAvatarDataUrl(file: File): Promise<string> {
   }
   return resized;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Portrait artwork                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The tall box art a phone shows instead of a landscape banner.
+ *
+ * RAWG's `background_image` is key art at 16:9 — a screenshot, usually with no
+ * title on it. Cropped to 2:3 for a portrait tile it becomes an arbitrary
+ * rectangle of scenery, and a grid of those is unreadable: nothing tells you
+ * which game is which.
+ *
+ * Steam publishes the real thing at a fixed path — the 600×900 library
+ * capsule, which is the art the Steam client's own grid uses and which carries
+ * the game's logo by design. It needs no key and no request to find, only the
+ * app id the game already stores.
+ *
+ * There is no equivalent for PlayStation: PSN gives a squarish trophy-set icon
+ * and nothing taller. Those games fall back to their landscape cover, which the
+ * tile crops — so the caller must keep a fallback behind this.
+ */
+export function portraitCoverUrl(game: {
+  platform: string;
+  steamAppId?: number;
+}): string | undefined {
+  if (game.platform !== 'steam' || !game.steamAppId) return undefined;
+  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId}/library_600x900.jpg`;
+}

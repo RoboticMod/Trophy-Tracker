@@ -264,6 +264,15 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
 }
 
+/* Portrait tiles, for a phone. Three across at 375px and four by the time the
+   wide cards take over, so a screenful is a dozen games rather than one. */
+@utility grid-posters {
+  display: grid;
+  gap: --spacing(2.5);
+  align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.5rem), 1fr));
+}
+
 @utility grid-metrics {
   display: grid;
   gap: --spacing(3);
