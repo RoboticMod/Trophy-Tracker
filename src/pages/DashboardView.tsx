@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Gamepad2,
   Hourglass,
+  Library,
   Play,
   Plus,
   Search,
@@ -32,10 +33,12 @@ import {
   FilterChip,
   Gauge,
   MetricCard,
+  PageHeader,
   SectionTitle,
   Select,
   TextInput,
 } from '../components/ui';
+import { IntroNotice } from '../components/IntroNotice';
 import { completionColor, completionLabel } from '../lib/rating';
 import { formatCount } from '../lib/format';
 import { oneOf } from '../lib/usePersistentState';
@@ -180,14 +183,15 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="border-b border-gray-200 pb-5">
-        <div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Library</h1>
-          <p className="mt-1 text-75 text-gray-600">
-            Progress and achievement unlocks across Steam and PlayStation.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Library size={18} />}
+        iconClassName="bg-accent-700/16 text-accent-900"
+        title="Library"
+      />
+
+      <IntroNotice id="library">
+        Progress and achievement unlocks across Steam and PlayStation.
+      </IntroNotice>
 
       {/* Metrics -----------------------------------------------------------
           The gauge for what is queued against what is finished, beside the

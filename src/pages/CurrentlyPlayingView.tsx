@@ -6,7 +6,8 @@ import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
 import { PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
 import { formatHours, sumHours } from '../lib/format';
-import { Badge, EmptyState, MetricCard } from '../components/ui';
+import { IntroNotice } from '../components/IntroNotice';
+import { Badge, EmptyState, MetricCard, PageHeader } from '../components/ui';
 
 export const CurrentlyPlayingView: React.FC = () => {
   const { games, collections, profile } = useGame();
@@ -29,22 +30,16 @@ export const CurrentlyPlayingView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="border-b border-gray-200 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
-              <Play size={18} />
-            </div>
-            <h1 className="text-600 font-bold tracking-tight text-gray-1000">
-              {collectionName(PLAYING_COLLECTION_ID, collections)}
-            </h1>
-            <Badge tone="accent">{playingGames.length} active</Badge>
-          </div>
-          <p className="text-75 text-gray-600">
-            Games in progress right now. Log hours and achievement unlocks as you go.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Play size={18} />}
+        iconClassName="bg-accent-700/16 text-accent-900"
+        title={collectionName(PLAYING_COLLECTION_ID, collections)}
+        badge={<Badge tone="accent">{playingGames.length} active</Badge>}
+      />
+
+      <IntroNotice id="playing">
+        Games in progress right now. Log hours and achievement unlocks as you go.
+      </IntroNotice>
 
       <div className="grid-metrics">
         <MetricCard

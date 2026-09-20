@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowUpDown, Sparkles } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { IntroNotice } from '../components/IntroNotice';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
@@ -10,7 +11,7 @@ import { isPerfect } from '../lib/completion';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { Platform, PLATFORM_IDS } from '../types';
-import { EmptyState, FilterChip, MetricCard, Select } from '../components/ui';
+import { EmptyState, FilterChip, MetricCard, PageHeader, Select } from '../components/ui';
 
 /**
  * Completion is not offered here: every game on this page is at 100%, so
@@ -58,20 +59,16 @@ export const AchievementsView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="space-y-1 border-b border-gray-200 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-trophy-700/16">
-            <TrophyPair size={17} />
-          </div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">
-            Achievements &amp; Platinum Trophies
-          </h1>
-        </div>
-        <p className="text-75 text-gray-600">
-          Every game where you have unlocked all achievements — Steam perfect games and PlayStation
-          platinums.
-        </p>
-      </div>
+      <PageHeader
+        icon={<TrophyPair size={17} />}
+        iconClassName="bg-trophy-700/16"
+        title="Achievements & Platinum Trophies"
+      />
+
+      <IntroNotice id="achievements">
+        Every game where you have unlocked all achievements — Steam perfect games and PlayStation
+        platinums.
+      </IntroNotice>
 
       {/* Summary ----------------------------------------------------------- */}
       <div className="grid-metrics">

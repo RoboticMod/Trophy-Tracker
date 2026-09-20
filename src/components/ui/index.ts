@@ -20,3 +20,4 @@ export type { SparkPoint } from './Sparkline';
 export { Dialog } from './Dialog';
 export { EmptyState } from './EmptyState';
 export { MarqueeText } from './MarqueeText';
+export { PageHeader } from './PageHeader';

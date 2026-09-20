@@ -39,9 +39,11 @@ import {
   EmptyState,
   Gauge,
   Meter,
+  PageHeader,
   SectionHeader,
   StatTile,
 } from '../components/ui';
+import { IntroNotice } from '../components/IntroNotice';
 
 /**
  * The three shelves plus everything on none of them. That last slice is what
@@ -454,44 +456,41 @@ export const StatsView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
-              <BarChart3 size={18} />
-            </div>
-            <h1 className="text-600 font-bold tracking-tight text-gray-1000">Statistics</h1>
-          </div>
-          <p className="text-75 text-gray-600">
-            Progress, achievements and hours played across your library.
-          </p>
-        </div>
+      <PageHeader
+        icon={<BarChart3 size={18} />}
+        iconClassName="bg-accent-700/16 text-accent-900"
+        title="Statistics"
+        action={
+          <div className="flex items-center gap-2">
+            {isReordering && storedOrder?.length ? (
+              <Button
+                variant="secondary"
+                buttonStyle="subtle"
+                size="s"
+                onClick={() => updateSidebarConfig({ statsOrder: DEFAULT_STATS_ORDER })}
+              >
+                <RotateCcw size={13} />
+                Reset order
+              </Button>
+            ) : null}
 
-        <div className="flex items-center gap-2">
-          {isReordering && storedOrder?.length ? (
             <Button
-              variant="secondary"
-              buttonStyle="subtle"
+              variant={isReordering ? 'accent' : 'secondary'}
+              buttonStyle={isReordering ? 'fill' : 'outline'}
               size="s"
-              onClick={() => updateSidebarConfig({ statsOrder: DEFAULT_STATS_ORDER })}
+              onClick={() => setIsReordering((open) => !open)}
+              aria-pressed={isReordering}
             >
-              <RotateCcw size={13} />
-              Reset order
+              <ArrowUpDown size={13} />
+              {isReordering ? 'Done' : 'Reorder sections'}
             </Button>
-          ) : null}
+          </div>
+        }
+      />
 
-          <Button
-            variant={isReordering ? 'accent' : 'secondary'}
-            buttonStyle={isReordering ? 'fill' : 'outline'}
-            size="s"
-            onClick={() => setIsReordering((open) => !open)}
-            aria-pressed={isReordering}
-          >
-            <ArrowUpDown size={13} />
-            {isReordering ? 'Done' : 'Reorder sections'}
-          </Button>
-        </div>
-      </div>
+      <IntroNotice id="stats">
+        Progress, achievements and hours played across your library.
+      </IntroNotice>
 
       {order.map((id, index) => {
         const content = sections[id];

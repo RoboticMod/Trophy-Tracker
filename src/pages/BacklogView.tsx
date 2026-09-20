@@ -11,7 +11,8 @@ import {
   collectionName,
   fileInPermanent,
 } from '../lib/collections';
-import { Button, EmptyState, FilterChip, StatTile } from '../components/ui';
+import { IntroNotice } from '../components/IntroNotice';
+import { Button, EmptyState, FilterChip, PageHeader, StatTile } from '../components/ui';
 
 export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
@@ -40,21 +41,14 @@ export const BacklogView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      {/* Icon and title on one line, description spanning underneath both —
-          the same header shape every other view uses. */}
-      <div className="space-y-1 border-b border-gray-200 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gray-300 text-gray-800">
-            <Hourglass size={18} />
-          </div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">
-            {collectionName(BACKLOG_COLLECTION_ID, collections)}
-          </h1>
-        </div>
-        <p className="text-75 text-gray-600">
-          Games queued and waiting to be played — start any of them from its card
-        </p>
-      </div>
+      <PageHeader
+        icon={<Hourglass size={18} />}
+        title={collectionName(BACKLOG_COLLECTION_ID, collections)}
+      />
+
+      <IntroNotice id="backlog">
+        Games queued and waiting to be played — start any of them from its card.
+      </IntroNotice>
 
       <div className="grid-metrics">
         <StatTile label="Games in queue" value={String(backlogGames.length)} />
