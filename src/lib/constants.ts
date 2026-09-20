@@ -1,4 +1,11 @@
-import { Platform, PlatformConfig, Collection, GameStatus, isPlatform } from '../types';
+import { Platform, PlatformConfig, Collection, isPlatform } from '../types';
+import {
+  BACKLOG_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
+  DEFAULT_PERMANENT_NAMES,
+  PLAYING_COLLECTION_ID,
+  isPermanentCollection,
+} from './collections';
 
 export const APP_NAME = 'Trophy Tracker';
 
@@ -8,14 +15,6 @@ export const APP_NAME = 'Trophy Tracker';
  * Overridable per user in Settings.
  */
 export const DEFAULT_START_PATH = '/playing';
-
-export const DEFAULT_STATUS_NAMES: Record<GameStatus, string> = {
-  backlog: 'Backlog',
-  playing: 'Playing',
-  completed: 'Completed',
-  mastered: '100% Mastered',
-  dropped: 'Dropped',
-};
 
 export const PLATFORMS: Record<Platform, PlatformConfig> = {
   steam: {
@@ -71,19 +70,40 @@ export const normalizePlatform = (value: unknown): Platform | null => {
   return null;
 };
 
-/** The starter collection a game joins when every award is earned. */
-export const PERFECT_COLLECTION_ID = 'col-masterpieces';
-
+/**
+ * The collections every account has, seeded on first load and re-asserted on
+ * every load after it.
+ *
+ * The first three are the permanent shelves — a game sits on at most one of
+ * them, and none of them can be deleted, so the app can always answer "where is
+ * this game" without a lazy re-creation dance. The rest are ordinary starter
+ * lists, deletable like any other.
+ */
 export const DEFAULT_COLLECTIONS: Collection[] = [
   {
-    id: 'col-backlog',
-    name: 'Backlog',
+    id: BACKLOG_COLLECTION_ID,
+    name: DEFAULT_PERMANENT_NAMES[BACKLOG_COLLECTION_ID],
     description: 'Games queued to play',
     icon: 'Clock',
-    // Neutral, matching backlog everywhere else in the app.
+    // Neutral, matching the backlog everywhere else in the app.
     color: '#a5a5ad',
-    isSystem: true,
     createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: PLAYING_COLLECTION_ID,
+    name: DEFAULT_PERMANENT_NAMES[PLAYING_COLLECTION_ID],
+    description: 'Games on the go',
+    icon: 'Gamepad2',
+    color: '#4d9bf0',
+    createdAt: '2026-01-02T00:00:00.000Z',
+  },
+  {
+    id: COMPLETE_COLLECTION_ID,
+    name: DEFAULT_PERMANENT_NAMES[COMPLETE_COLLECTION_ID],
+    description: 'Every award earned',
+    icon: 'Trophy',
+    color: '#f2c14e',
+    createdAt: '2026-01-03T00:00:00.000Z',
   },
   {
     id: 'col-favorites',
@@ -91,30 +111,37 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     description: 'Favorite games',
     icon: 'Heart',
     color: '#ec5b62',
-    isSystem: false,
-    createdAt: '2026-01-02T00:00:00.000Z',
-  },
-  {
-    id: 'col-masterpieces',
-    name: '100% Platinum Club',
-    description: 'Games finished to 100%',
-    icon: 'Trophy',
-    color: '#f2c14e',
-    isSystem: false,
-    createdAt: '2026-01-03T00:00:00.000Z',
+    createdAt: '2026-01-04T00:00:00.000Z',
   },
 ];
 
 /**
- * Restores the app-owned colour on system collections. Their colour is identity
- * rather than user data, so a row saved under an older palette must not keep
- * showing the old one — re-running the schema cannot repair saved rows.
+ * Restores the app-owned colour on the permanent collections. Their colour is
+ * identity rather than user data, so a row saved under an older palette must not
+ * keep showing the old one — re-running the schema cannot repair saved rows.
  */
-export const withSystemColors = (collections: Collection[]): Collection[] =>
+export const withPermanentColors = (collections: Collection[]): Collection[] =>
   collections.map((collection) => {
-    const preset = DEFAULT_COLLECTIONS.find((d) => d.id === collection.id && d.isSystem);
+    if (!isPermanentCollection(collection.id)) return collection;
+    const preset = DEFAULT_COLLECTIONS.find((d) => d.id === collection.id);
     return preset ? { ...collection, color: preset.color } : collection;
   });
+
+/**
+ * Adds any permanent collection this account is missing, in the canonical
+ * order. Run on every load rather than only on an empty account, so a row
+ * deleted out of band — an old backup, a hand-run delete — comes back instead
+ * of leaving a shelf that games can be on but nothing can show.
+ *
+ * Returns the same array when nothing was missing, so a caller can tell whether
+ * there is anything to write back.
+ */
+export const withPermanentCollections = (collections: Collection[]): Collection[] => {
+  const missing = DEFAULT_COLLECTIONS.filter(
+    (preset) => isPermanentCollection(preset.id) && !collections.some((c) => c.id === preset.id),
+  );
+  return missing.length ? [...missing, ...collections] : collections;
+};
 
 /**
  * Accent colours offered when creating a collection. These are stored as data on

@@ -12,28 +12,17 @@ export type HighlightStyle = 'stroke' | 'fill';
 /** How a rating is entered: a slider, or a short questionnaire that scores it. */
 export type RatingMode = 'manual' | 'guided';
 
-export type GameStatus = 'backlog' | 'playing' | 'completed' | 'mastered' | 'dropped';
-
 /**
  * Where a game's figures come from. Manual is the default and always will be:
  * linking a game to a platform account is opt-in, per game.
  */
 export type SyncSource = 'manual' | 'steam' | 'psn';
 
-export const GAME_STATUSES: GameStatus[] = [
-  'backlog',
-  'playing',
-  'completed',
-  'mastered',
-  'dropped',
-];
-
 export interface UserGame {
   id: string;
   rawgId?: number;
   title: string;
   platform: Platform;
-  status: GameStatus;
   coverImage?: string;
   releaseDate?: string;
   genres: string[];
@@ -77,7 +66,6 @@ export interface Collection {
   description?: string;
   icon?: string;
   color?: string;
-  isSystem?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -120,11 +108,9 @@ export interface UserProfile {
   avatarUrl?: string;
   email?: string;
   sidebarConfig?: SidebarConfig;
-  /** User-defined display names for each status. */
-  statusNames?: Partial<Record<GameStatus, string>>;
   /** Ordering used by the "Platform" sort across every library view. */
   platformOrder?: Platform[];
-  /** How a card signals its status: a coloured stroke, or a filled tint. */
+  /** How a card signals its shelf: a coloured stroke, or a filled tint. */
   highlightStyle?: HighlightStyle;
   /** Whether ratings are set by hand, or worked out from a few questions. */
   ratingMode?: RatingMode;

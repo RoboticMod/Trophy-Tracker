@@ -3,7 +3,6 @@ import { normalizePlatform } from './constants';
 import { clampRating, normalizeRating } from './rating';
 import {
   Collection,
-  GameStatus,
   Platform,
   PlatformAccounts,
   SidebarConfig,
@@ -23,7 +22,6 @@ interface GameRow {
   rawg_id: number | null;
   title: string;
   platform: string;
-  status: GameStatus;
   cover_image: string | null;
   release_date: string | null;
   genres: string[] | null;
@@ -60,7 +58,6 @@ function toGame(row: GameRow): UserGame | null {
     rawgId: row.rawg_id ?? undefined,
     title: row.title,
     platform,
-    status: row.status,
     coverImage: row.cover_image ?? undefined,
     releaseDate: row.release_date ?? undefined,
     genres: row.genres ?? [],
@@ -96,7 +93,6 @@ function fromGame(game: UserGame, userId: string) {
     rawg_id: game.rawgId ?? null,
     title: game.title,
     platform: game.platform,
-    status: game.status,
     cover_image: game.coverImage ?? null,
     release_date: game.releaseDate ?? null,
     genres: game.genres ?? [],
@@ -127,7 +123,6 @@ interface CollectionRow {
   description: string | null;
   color: string | null;
   icon: string | null;
-  is_system: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -138,7 +133,6 @@ const toCollection = (row: CollectionRow): Collection => ({
   description: row.description ?? undefined,
   color: row.color ?? undefined,
   icon: row.icon ?? undefined,
-  isSystem: row.is_system ?? false,
   createdAt: row.created_at ?? new Date().toISOString(),
   updatedAt: row.updated_at ?? undefined,
 });
@@ -150,7 +144,6 @@ const fromCollection = (collection: Collection, userId: string) => ({
   description: collection.description ?? null,
   color: collection.color ?? null,
   icon: collection.icon ?? null,
-  is_system: collection.isSystem ?? false,
   created_at: collection.createdAt,
 });
 
@@ -160,7 +153,6 @@ interface ProfileRow {
   email: string | null;
   avatar_url: string | null;
   sidebar_config: SidebarConfig | null;
-  status_names: Partial<Record<GameStatus, string>> | null;
   platform_order: string[] | null;
   highlight_style: string | null;
   rating_mode: string | null;
@@ -172,7 +164,6 @@ const toProfile = (row: ProfileRow): UserProfile => ({
   email: row.email ?? undefined,
   avatarUrl: row.avatar_url ?? undefined,
   sidebarConfig: row.sidebar_config ?? undefined,
-  statusNames: row.status_names ?? undefined,
   platformOrder:
     (row.platform_order
       ?.map(normalizePlatform)
@@ -187,7 +178,6 @@ const fromProfile = (profile: UserProfile, userId: string) => ({
   email: profile.email ?? null,
   avatar_url: profile.avatarUrl ?? null,
   sidebar_config: profile.sidebarConfig ?? null,
-  status_names: profile.statusNames ?? null,
   platform_order: profile.platformOrder ?? null,
   highlight_style: profile.highlightStyle ?? 'stroke',
   rating_mode: profile.ratingMode ?? 'manual',
@@ -219,20 +209,42 @@ const LINK_COLUMNS = [
 
 let schemaHasLinkColumns = true;
 
+/**
+ * Whether this project still has the dropped `status` column, left `not null`.
+ *
+ * `status` was replaced by collection membership, so writes no longer name it.
+ * A project whose owner has not re-run the schema SQL still has the column and
+ * still requires a value, and answers every game write with 23502 — which would
+ * make the library read-only. So the first such failure sets this flag and every
+ * write from then on carries a filler, and Settings says the SQL needs running.
+ */
+let schemaHasLegacyStatus = false;
+
+/** The one value the old CHECK constraint accepted that means nothing here. */
+const LEGACY_STATUS_FILLER = 'playing';
+
+/** True for "null value in column violates not-null", i.e. the SQL never ran. */
+const isMissingNotNull = (error: { code?: string } | null): boolean => error?.code === '23502';
+
 /** True for "column does not exist", the one error worth retrying differently. */
 const isUnknownColumn = (error: { code?: string } | null): boolean => error?.code === '42703';
 
 type GameInsert = ReturnType<typeof fromGame>;
 
-const withoutLinkColumns = (row: GameInsert): Partial<GameInsert> => {
-  const stripped: Partial<GameInsert> = { ...row };
+/** A row on the way out: link columns optional, plus the legacy status filler. */
+type GameWriteRow = Partial<GameInsert> & { status?: string };
+
+const withoutLinkColumns = (row: GameWriteRow): GameWriteRow => {
+  const stripped: GameWriteRow = { ...row };
   LINK_COLUMNS.forEach((column) => delete stripped[column]);
   return stripped;
 };
 
 const gameRows = (games: UserGame[], userId: string) => {
-  const rows = games.map((game) => fromGame(game, userId));
-  return schemaHasLinkColumns ? rows : rows.map(withoutLinkColumns);
+  let rows: GameWriteRow[] = games.map((game) => fromGame(game, userId));
+  if (!schemaHasLinkColumns) rows = rows.map(withoutLinkColumns);
+  if (schemaHasLegacyStatus) rows = rows.map((row) => ({ ...row, status: LEGACY_STATUS_FILLER }));
+  return rows;
 };
 
 export async function listGames(userId: string): Promise<UserGame[]> {
@@ -247,28 +259,44 @@ export async function listGames(userId: string): Promise<UserGame[]> {
     .filter((g): g is UserGame => g !== null);
 }
 
-export async function upsertGame(game: UserGame, userId: string): Promise<void> {
-  const { error } = await supabase.from('games').upsert(gameRows([game], userId));
+/**
+ * Writes games, repairing the two ways this project's schema can be behind.
+ *
+ * Each failure mode is diagnosed once, from a real refusal rather than a probe,
+ * and remembered for the rest of the page: a missing link column (42703) drops
+ * those columns, and a `status` column still left not-null (23502) means the
+ * collections migration never ran, so the write carries a filler. One retry per
+ * mode, because a second failure is a different problem and belongs to the
+ * caller.
+ */
+async function upsertGameRows(games: UserGame[], userId: string): Promise<void> {
+  const write = () => supabase.from('games').upsert(gameRows(games, userId));
+
+  let { error } = await write();
   if (!error) return;
 
-  if (!isUnknownColumn(error)) throw error;
-  schemaHasLinkColumns = false;
+  if (isUnknownColumn(error) && schemaHasLinkColumns) {
+    schemaHasLinkColumns = false;
+    ({ error } = await write());
+    if (!error) return;
+  }
 
-  const retry = await supabase.from('games').upsert(gameRows([game], userId));
-  if (retry.error) throw retry.error;
+  if (isMissingNotNull(error) && !schemaHasLegacyStatus) {
+    schemaHasLegacyStatus = true;
+    ({ error } = await write());
+    if (!error) return;
+  }
+
+  throw error;
+}
+
+export async function upsertGame(game: UserGame, userId: string): Promise<void> {
+  await upsertGameRows([game], userId);
 }
 
 export async function upsertGames(games: UserGame[], userId: string): Promise<void> {
   if (games.length === 0) return;
-
-  const { error } = await supabase.from('games').upsert(gameRows(games, userId));
-  if (!error) return;
-
-  if (!isUnknownColumn(error)) throw error;
-  schemaHasLinkColumns = false;
-
-  const retry = await supabase.from('games').upsert(gameRows(games, userId));
-  if (retry.error) throw retry.error;
+  await upsertGameRows(games, userId);
 }
 
 /**
@@ -279,6 +307,15 @@ export async function upsertGames(games: UserGame[], userId: string): Promise<vo
  * linking controls looking broken.
  */
 export const hasLinkColumns = (): boolean => schemaHasLinkColumns;
+
+/**
+ * Whether this project is still carrying the retired `status` column.
+ *
+ * True only after a write has actually been refused for want of it, which is
+ * what Settings uses to say the schema SQL needs re-running — saves are going
+ * through on a filler value, so nothing looks broken until it is said out loud.
+ */
+export const hasLegacyStatusColumn = (): boolean => schemaHasLegacyStatus;
 
 export async function deleteGame(id: string, userId: string): Promise<void> {
   const { error } = await supabase.from('games').delete().eq('id', id).eq('user_id', userId);
@@ -302,7 +339,10 @@ export async function upsertCollections(
   if (collections.length === 0) return;
   const { error } = await supabase
     .from('collections')
-    .upsert(collections.map((c) => fromCollection(c, userId)));
+    // Keyed on both columns, because the primary key is (user_id, id): with the
+    // default single-column guess an id another account already holds would
+    // conflict against a row this user cannot see, and the write would fail.
+    .upsert(collections.map((c) => fromCollection(c, userId)), { onConflict: 'user_id,id' });
   if (error) throw error;
 }
 

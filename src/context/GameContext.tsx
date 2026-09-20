@@ -11,8 +11,6 @@ import { CELEBRATION_WINDOW_MS } from '../components/Celebration';
 
 import {
   Collection,
-  GAME_STATUSES,
-  GameStatus,
   Platform,
   PlatformAccounts,
   SidebarConfig,
@@ -23,13 +21,21 @@ import {
   DEFAULT_COLLECTIONS,
   DEFAULT_COLLECTION_COLOR,
   DEFAULT_PLATFORM_SORT_ORDER,
-  PERFECT_COLLECTION_ID,
-  withSystemColors,
+  withPermanentCollections,
+  withPermanentColors,
 } from '../lib/constants';
+import {
+  COMPLETE_COLLECTION_ID,
+  PLAYING_COLLECTION_ID,
+  fileInPermanent,
+  isPermanentCollection,
+  normalizeCollections,
+  permanentOf,
+} from '../lib/collections';
 import { isPerfect } from '../lib/completion';
 import { normalizeRating } from '../lib/rating';
 import { preloadAwardSounds } from '../lib/sound';
-import { oneOf, usePersistentState } from '../lib/usePersistentState';
+import { usePersistentState } from '../lib/usePersistentState';
 import { useAuth } from './AuthContext';
 import * as db from '../lib/db';
 import {
@@ -70,6 +76,14 @@ interface GameContextType {
   loading: boolean;
   /** Message shown when a write could not reach the cloud. */
   error: string | null;
+  /**
+   * A signed-in account with nothing on the server yet.
+   *
+   * Deliberately not an error: a first sign-in used to be reported as a library
+   * that could not be loaded, which is alarming and untrue. The setup route is
+   * what this sends people to instead.
+   */
+  needsSetup: boolean;
   dismissError: () => void;
   isOnline: boolean;
   /** Writes waiting for connectivity. */
@@ -85,8 +99,6 @@ interface GameContextType {
 
   activePlatformFilter: Platform | 'all';
   setActivePlatformFilter: (platform: Platform | 'all') => void;
-  activeStatusFilter: GameStatus | 'all';
-  setActiveStatusFilter: (status: GameStatus | 'all') => void;
   /** Library collection filter. 'all', or a collection id. */
   activeCollectionFilter: string;
   setActiveCollectionFilter: (collectionId: string) => void;
@@ -155,8 +167,8 @@ interface GameContextType {
    */
   goToGame: (gameId: string) => void;
   /**
-   * A game to bring on screen: asked for by name, or re-filed by a status
-   * change. The token makes flagging the same game twice a fresh event —
+   * A game to bring on screen: asked for by name, or re-filed by a move to
+   * another shelf. The token makes flagging the same game twice a fresh event —
    * without it, a game moved twice over would only ever be followed once.
    */
   follow: { gameId: string; token: number } | null;
@@ -172,7 +184,6 @@ const newId = () =>
 /** Guards for the filters below, which survive a reload in localStorage. */
 const isPlatformFilter = (value: unknown): value is Platform | 'all' =>
   value === 'all' || value === 'steam' || value === 'ps5';
-const isStatusFilter = oneOf(['all', ...GAME_STATUSES] as const);
 const isCollectionFilter = (value: unknown): value is string => typeof value === 'string';
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -192,6 +203,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Not an error: an account that has never been set up, which the setup route
+  // answers and the banner used to mislabel as a failed load.
+  const [needsSetup, setNeedsSetup] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [pendingWrites, setPendingWrites] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -203,11 +217,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     'library-platform',
     'all',
     isPlatformFilter,
-  );
-  const [activeStatusFilter, setActiveStatusFilter] = usePersistentState<GameStatus | 'all'>(
-    'library-status',
-    'all',
-    isStatusFilter,
   );
   const [activeCollectionFilter, setActiveCollectionFilter] = usePersistentState<string>(
     'library-collection',
@@ -347,7 +356,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /* ---------------------------------------------------------------------- */
   /* Load                                                                    */
   /* ---------------------------------------------------------------------- */
-
   const load = useCallback(
     async (id: string) => {
       setLoading(true);
@@ -358,11 +366,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Cached rows predate the 0-100 rating scale, so normalise on read.
         setGames(cached.games.map((g) => ({ ...g, rating: normalizeRating(g.rating) })));
         setCollections(
-          withSystemColors(cached.collections.length ? cached.collections : DEFAULT_COLLECTIONS),
+          withPermanentColors(
+            withPermanentCollections(
+              cached.collections.length ? cached.collections : DEFAULT_COLLECTIONS,
+            ),
+          ),
         );
         if (cached.profile) setProfile(cached.profile);
       }
       setPendingWrites(readQueue(id).length);
+
+      // Held across the try below, so the seeding writes that follow it can see
+      // what the load found without being inside its catch.
+      let profileToSeed: UserProfile | null = null;
+      let collectionsToSeed: Collection[] = [];
 
       try {
         await flushQueue(id);
@@ -373,8 +390,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           db.getProfile(id),
         ]);
 
-        const nextCollections = withSystemColors(
-          remoteCollections.length ? remoteCollections : DEFAULT_COLLECTIONS,
+        // The permanent shelves are asserted on every load, not only on an
+        // empty account: a game's shelf is its membership of one of these rows,
+        // so a row deleted out of band would strand every game filed on it.
+        const nextCollections = withPermanentColors(
+          withPermanentCollections(
+            remoteCollections.length ? remoteCollections : DEFAULT_COLLECTIONS,
+          ),
         );
         const nextProfile: UserProfile = remoteProfile ?? {
           id,
@@ -393,26 +415,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .catch(() => setPlatformAccounts(null));
 
         /**
-         * Games already at 100% on another shelf.
+         * Games already at 100% but filed somewhere else.
          *
-         * Reaching 100% now moves a game to the 100% status as it happens, but
+         * Reaching 100% now moves a game onto that shelf as it happens, but
          * games that got there before that rule existed are still filed as
-         * playing or main story complete. They are moved once, here, quietly —
+         * playing, or on no shelf at all. They are moved once, here, quietly —
          * these are old completions, not new ones, so nothing celebrates.
          */
         const promoted: UserGame[] = [];
         const nextGames = remoteGames.map((game) => {
-          if (!isPerfect(game) || game.status === 'mastered') return game;
+          const collections = normalizeCollections(game.collections);
+          const needsShelf = isPerfect(game) && permanentOf(collections) !== COMPLETE_COLLECTION_ID;
+          const changed =
+            needsShelf || collections.length !== (game.collections?.length ?? 0);
+          if (!changed) return game;
+
           const fixed: UserGame = {
             ...game,
-            status: 'mastered',
-            completedAt: game.completedAt ?? game.updatedAt,
+            collections: needsShelf
+              ? fileInPermanent(collections, COMPLETE_COLLECTION_ID)
+              : collections,
+            completedAt: needsShelf ? game.completedAt ?? game.updatedAt : game.completedAt,
           };
           promoted.push(fixed);
           return fixed;
         });
 
+        // A filter naming a collection that has since been deleted — on another
+        // device, or by the migration that merged the legacy shelves — would
+        // show an empty library with nothing to explain it.
+        setActiveCollectionFilter((filter) =>
+          filter !== 'all' && !nextCollections.some((c) => c.id === filter) ? 'all' : filter,
+        );
+
         latest.current.games = nextGames;
+        latest.current.collections = nextCollections;
         setGames(nextGames);
         setCollections(nextCollections);
         setProfile(nextProfile);
@@ -425,17 +462,50 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLastSyncedAt(new Date().toISOString());
         setError(null);
 
-        // First sign-in on a fresh account: seed starter collections and profile.
-        if (!remoteCollections.length) await db.upsertCollections(DEFAULT_COLLECTIONS, id);
-        if (!remoteProfile) await db.saveProfile(nextProfile, id);
+        /**
+         * A brand-new account, as opposed to one whose cloud is unreachable.
+         *
+         * Nothing at all on the server is not a failure — it is someone who has
+         * just signed up. Reporting it as "could not load your library" is what
+         * the setup route exists to replace.
+         */
+        setNeedsSetup(
+          !remoteProfile && remoteCollections.length === 0 && remoteGames.length === 0,
+        );
+        if (!remoteProfile) profileToSeed = nextProfile;
+        // A fresh account gets the whole starter set; an existing one gets back
+        // only whichever permanent shelves it was missing.
+        collectionsToSeed = remoteCollections.length
+          ? nextCollections.filter(
+              (c) => isPermanentCollection(c.id) && !remoteCollections.some((r) => r.id === c.id),
+            )
+          : nextCollections;
       } catch (err) {
         setError(
           err instanceof Error
             ? `Could not load your library from the cloud (${err.message}). Showing the last local copy.`
             : 'Could not load your library from the cloud. Showing the last local copy.',
         );
-      } finally {
         setLoading(false);
+        return;
+      }
+
+      setLoading(false);
+
+      /**
+       * Seeding, deliberately outside the try above.
+       *
+       * These writes are repairs, not the load: folding them into the same
+       * catch meant a seed that failed — which it did on every account after
+       * the first, while collection ids were globally unique — was reported as
+       * a library that could not be read. A failed seed is retried on the next
+       * load and costs nothing in the meantime.
+       */
+      try {
+        await db.upsertCollections(collectionsToSeed, id);
+        if (profileToSeed) await db.saveProfile(profileToSeed, id);
+      } catch {
+        // Retried on the next load; the shelves are present locally regardless.
       }
     },
     [flushQueue, push, user?.email],
@@ -475,52 +545,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /* ---------------------------------------------------------------------- */
   /* Mutations                                                               */
   /* ---------------------------------------------------------------------- */
-
   /**
-   * The collection a finished game belongs in, created if it has been deleted.
+   * Keeps the 100% shelf in step with whether a game is actually finished.
    *
-   * The starter set ships with one — "100% Platinum Club" — so this almost
-   * always finds it by id. Matching on the name as well covers a renamed copy,
-   * and creating one covers an account that deleted it before ever finishing a
-   * game.
+   * One rule, both directions: earning every award files the game onto that
+   * shelf, and losing one takes it off again — but only on the crossing, so a
+   * game deliberately shelved elsewhere while at 100% stays where it was put.
+   * Coming off, it lands on Playing, because it is a game you are part-way
+   * through again rather than one with no shelf at all.
+   *
+   * There is no lazy re-creation here any more: the shelf is a permanent
+   * collection, asserted on every load, so it cannot be missing.
    */
-  const perfectCollection = useCallback(
-    (createIfMissing: boolean): string | null => {
-      const preset = DEFAULT_COLLECTIONS.find((c) => c.id === PERFECT_COLLECTION_ID);
-      const existing =
-        latest.current.collections.find((c) => c.id === PERFECT_COLLECTION_ID) ??
-        latest.current.collections.find(
-          (c) => c.name.trim().toLowerCase() === preset?.name.trim().toLowerCase(),
-        );
-
-      if (existing) return existing.id;
-      if (!createIfMissing || !preset) return null;
-
-      const created: Collection = { ...preset, createdAt: new Date().toISOString() };
-      setCollections((prev) => [...prev, created]);
-      latest.current.collections = [...latest.current.collections, created];
-      void push({ kind: 'collections', op: 'upsert', collections: [created] });
-      return created.id;
-    },
-    [push],
-  );
-
-  /**
-   * Keeps a game's membership of that collection in step with whether it is
-   * actually finished. Adding on the way in and removing on the way out is the
-   * same rule in both directions, so the collection never fills up with games
-   * that stopped being finished.
-   */
-  const fileByCompletion = useCallback(
-    (collections: string[], perfect: boolean): string[] => {
-      const id = perfectCollection(perfect);
-      if (!id) return collections;
-
-      if (perfect) return collections.includes(id) ? collections : [...collections, id];
-      return collections.filter((c) => c !== id);
-    },
-    [perfectCollection],
-  );
+  const shelfForCompletion = (
+    collections: string[],
+    wasPerfect: boolean,
+    isNowPerfect: boolean,
+  ): string[] => {
+    if (isNowPerfect) return fileInPermanent(collections, COMPLETE_COLLECTION_ID);
+    if (wasPerfect && permanentOf(collections) === COMPLETE_COLLECTION_ID) {
+      return fileInPermanent(collections, PLAYING_COLLECTION_ID);
+    }
+    return collections;
+  };
 
   const addGame = useCallback(
     (
@@ -530,17 +577,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = new Date().toISOString();
       const game: UserGame = { ...data, id: newId(), addedAt: now, updatedAt: now };
 
-      // A game added already finished is dated now unless a date was given, so
-      // it has somewhere to sit in a list ordered by completion.
-      if (!game.completedAt && (game.status === 'mastered' || isPerfect(game))) {
-        game.completedAt = now;
-      }
-
       // Every unlock earned is the 100% shelf, whatever was picked in the form.
       if (isPerfect(game)) {
-        game.status = 'mastered';
-        game.collections = fileByCompletion(game.collections, true);
+        game.collections = fileInPermanent(game.collections, COMPLETE_COLLECTION_ID);
+        // A game added already finished is dated now unless a date was given,
+        // so it has somewhere to sit in a list ordered by completion.
+        game.completedAt = game.completedAt ?? now;
       }
+
+      // The choke point: nothing reaches the cloud on two shelves at once.
+      game.collections = normalizeCollections(game.collections);
+
       latest.current.games = [game, ...latest.current.games];
       setGames((prev) => [game, ...prev]);
       void push({ kind: 'game', op: 'upsert', game });
@@ -552,9 +599,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Requested now, played by whichever surface is in front of someone — the
       // announcement while it is open, the card once it has been scrolled to.
-      if (game.status === 'mastered' || isPerfect(game)) {
-        triggerCelebration(game.id);
-      }
+      if (isPerfect(game)) triggerCelebration(game.id);
 
       return game;
     },
@@ -571,64 +616,43 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const merged: UserGame = { ...current, ...updates, updatedAt: new Date().toISOString() };
 
-      const becameFinished =
-        (merged.status === 'completed' || merged.status === 'mastered') &&
-        current.status !== 'completed' &&
-        current.status !== 'mastered';
-      if (becameFinished) merged.completedAt = merged.completedAt ?? merged.updatedAt;
-
-      /**
-       * Taking an unlock back undoes the completion.
-       *
-       * The status was standing in for 100% in several places, so a game filed
-       * as mastered kept its gold rim, its nav badge and its place in the
-       * showcase after an unlock was removed — while the meter underneath
-       * honestly read 95%. Losing the last unlock now demotes the shelf the
-       * game sits on, and the completion date goes with it, since there is no
-       * longer a completion for it to date. Only the status the app set itself
-       * is withdrawn: an explicit status in this same edit is left alone.
-       */
-      if (
-        updates.status === undefined &&
-        merged.status === 'mastered' &&
-        isPerfect(current) &&
-        !isPerfect(merged)
-      ) {
-        merged.status = 'playing';
-        merged.completedAt = undefined;
-      }
+      const wasPerfect = isPerfect(current);
+      const nowPerfect = isPerfect(merged);
+      const shelfBefore = permanentOf(current.collections);
 
       // Explicit undefined check: dropping back to 0 unlocked is a real edit.
       const progressed =
         updates.achievementsUnlocked !== undefined || updates.hoursPlayed !== undefined;
       if (progressed) merged.lastPlayedAt = merged.updatedAt;
 
-      // Unlocking the last one counts even when the status never changes.
-      const becamePerfect = !isPerfect(current) && isPerfect(merged);
-      const celebrate = becameFinished || becamePerfect;
+      /**
+       * Completion follows the counts, and only the counts.
+       *
+       * An explicit shelf in this same edit wins: the app withdraws only what
+       * the app itself decided. So moving a game by hand is never argued with,
+       * while unlocking the last award — or taking one back — re-files it.
+       */
+      if (updates.collections === undefined && nowPerfect !== wasPerfect) {
+        merged.collections = shelfForCompletion(merged.collections, wasPerfect, nowPerfect);
+      }
 
       // The last unlock is a completion in its own right, whatever shelf the
-      // game is filed on, so it carries a date like any other.
-      if (becamePerfect && !merged.completedAt) merged.completedAt = merged.updatedAt;
-
-      // And it moves the game onto the 100% shelf, the mirror of the rule above
-      // that takes it off again. An explicit status in this same edit wins.
-      if (becamePerfect && updates.status === undefined) merged.status = 'mastered';
-
-      // Finishing a game files it with the other finished ones, and losing that
-      // status takes it back out. Only on the crossing, so a game deliberately
-      // pulled out of that collection while still at 100% stays out.
-      const perfectNow = isPerfect(merged);
-      if (perfectNow !== isPerfect(current)) {
-        merged.collections = fileByCompletion(merged.collections, perfectNow);
+      // game is filed on, so it carries a date like any other — and losing it
+      // takes the date away, since there is no longer a completion to date.
+      if (nowPerfect && !merged.completedAt) merged.completedAt = merged.updatedAt;
+      if (wasPerfect && !nowPerfect && updates.completedAt === undefined) {
+        merged.completedAt = undefined;
       }
 
-      // A status change re-files a game: out of the backlog, into another
-      // section, sometimes off the current view entirely. Follow it so the move
-      // is something you watch rather than something you go looking for.
-      if (updates.status !== undefined && updates.status !== current.status) {
-        followGame(id);
-      }
+      merged.collections = normalizeCollections(merged.collections);
+
+      // Unlocking the last one counts even when nothing else changes.
+      const celebrate = !wasPerfect && nowPerfect;
+
+      // Moving shelf re-files a game: out of the backlog, into another section,
+      // sometimes off the current view entirely. Follow it so the move is
+      // something you watch rather than something you go looking for.
+      if (permanentOf(merged.collections) !== shelfBefore) followGame(id);
 
       // The ref as well as state, so a second write to this game before the
       // next render — a sync walking the library — builds on this one.
@@ -657,7 +681,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description,
         color,
         icon,
-        isSystem: false,
         createdAt: new Date().toISOString(),
       };
       setCollections((prev) => [...prev, collection]);
@@ -676,14 +699,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const current = latest.current.collections.find((c) => c.id === id);
       if (!current) return;
 
-      // A system collection's colour is identity rather than user data —
-      // withSystemColors restores it on every load — so an attempt to change it
-      // would be undone on the next refresh. Everything else is editable.
+      // A permanent collection's colour is identity rather than user data —
+      // withPermanentColors restores it on every load — so an attempt to change
+      // it would be undone on the next refresh. Locked by id rather than by a
+      // stored flag, which a restored backup can get wrong. Name and
+      // description stay editable, which is how the shelves are renamed.
       const { color, ...rest } = updates;
       const merged: Collection = {
         ...current,
         ...rest,
-        ...(current.isSystem ? {} : { color: color ?? current.color }),
+        ...(isPermanentCollection(id) ? {} : { color: color ?? current.color }),
         updatedAt: new Date().toISOString(),
       };
 
@@ -695,6 +720,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteCollection = useCallback(
     (id: string) => {
+      // The real guard, in the model rather than only in the UI: a shelf is
+      // where games live, so deleting one would strand every game on it.
+      if (isPermanentCollection(id)) return;
+
+      // A filter naming a collection that no longer exists shows an empty
+      // library with nothing to explain it.
+      setActiveCollectionFilter((filter) => (filter === id ? 'all' : filter));
+
       setCollections((prev) => prev.filter((c) => c.id !== id));
 
       const affected = latest.current.games.filter((g) => g.collections?.includes(id));
@@ -817,6 +850,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshPlatformAccounts,
       loading,
       error,
+      needsSetup,
       dismissError: () => setError(null),
       isOnline,
       pendingWrites,
@@ -825,8 +859,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getGames,
       activePlatformFilter,
       setActivePlatformFilter,
-      activeStatusFilter,
-      setActiveStatusFilter,
       activeCollectionFilter,
       setActiveCollectionFilter,
       isQuickAddOpen,
@@ -858,6 +890,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshPlatformAccounts,
       loading,
       error,
+      needsSetup,
       isOnline,
       pendingWrites,
       lastSyncedAt,
@@ -865,8 +898,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getGames,
       activePlatformFilter,
       setActivePlatformFilter,
-      activeStatusFilter,
-      setActiveStatusFilter,
       activeCollectionFilter,
       setActiveCollectionFilter,
       isQuickAddOpen,

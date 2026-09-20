@@ -13,7 +13,19 @@ const cacheKey = (userId: string) => `${NS}:cache:${userId}`;
 const queueKey = (userId: string) => `${NS}:queue:${userId}`;
 const progressKey = (userId: string) => `${NS}:progress:${userId}`;
 
+/**
+ * The shape of a cached library, so an old one can be recognised and thrown
+ * away rather than painted over the current model.
+ *
+ * Bumped when the model changes in a way a stale snapshot would misrepresent.
+ * 2: games stopped carrying `status` and moved onto permanent collections — a
+ * v1 snapshot would show a whole library with no shelf at all until the network
+ * answered.
+ */
+export const CACHE_VERSION = 2;
+
 export interface CachedSnapshot {
+  version?: number;
   games: UserGame[];
   collections: Collection[];
   profile: UserProfile | null;
@@ -44,13 +56,21 @@ function write(key: string, value: unknown): void {
   }
 }
 
-export const readSnapshot = (userId: string): CachedSnapshot | null =>
-  read<CachedSnapshot>(cacheKey(userId));
+/** Null for a snapshot written by an older model, which is not worth showing. */
+export const readSnapshot = (userId: string): CachedSnapshot | null => {
+  const snapshot = read<CachedSnapshot>(cacheKey(userId));
+  return snapshot && snapshot.version === CACHE_VERSION ? snapshot : null;
+};
 
 export const writeSnapshot = (
   userId: string,
   snapshot: Omit<CachedSnapshot, 'cachedAt'>,
-): void => write(cacheKey(userId), { ...snapshot, cachedAt: new Date().toISOString() });
+): void =>
+  write(cacheKey(userId), {
+    ...snapshot,
+    version: CACHE_VERSION,
+    cachedAt: new Date().toISOString(),
+  });
 
 /** Collapsed on the way out too, so a queue stacked up before this existed
  *  shrinks on the next read rather than waiting for another edit. */
@@ -142,6 +162,10 @@ export function purgeLegacyStorage(): void {
       'gametracker_pro_collections_v1',
       'gametracker_pro_profile_v2',
       'gametracker_pro_sync_meta_v1',
+      // The library status filter, retired with the status model itself. It
+      // sits under the usePersistentState prefix rather than this module's
+      // namespace, so clearUserCache would never reach it.
+      'trophy-tracker.pref.library-status',
     ].forEach((key) => localStorage.removeItem(key));
   } catch {
     // ignore
