@@ -28,7 +28,7 @@ which owns the sidebar, the mobile bar, the top bar and the two banners.
 
 | Path | File | What it is |
 |---|---|---|
-| `/` | `pages/DashboardView.tsx` | The library: filters, sort, the whole grid |
+| `/` | `pages/DashboardView.tsx` | Home: the library, with filters, sort and the grid |
 | `/playing` | `pages/CurrentlyPlayingView.tsx` | Games on the Playing shelf |
 | `/backlog` | `pages/BacklogView.tsx` | Games on the Backlog shelf |
 | `/achievements` | `pages/AchievementsView.tsx` | Games at 100%, by `isPerfect` |
@@ -66,6 +66,12 @@ perm-backlog  ·  perm-playing  ·  perm-complete
   the migration merge and delete those unambiguously.
 
 Everything else is an ordinary list: deletable, colourable, joinable in any number.
+
+On a phone the same library draws as portrait tiles — `GamePosterCard` rather
+than `GameCard`, chosen by `useIsPhone` rather than by CSS, because two elements
+with the same `data-game-id` is what the follow lookup searches for. Their art is
+Steam’s 600×900 library capsule (`portraitCoverUrl`), falling back through the
+stored landscape cover to a lettered tile.
 
 **100% has exactly one definition**: `isPerfect` in
 [`lib/completion.ts`](src/lib/completion.ts) — every award earned, counts only.
@@ -112,6 +118,10 @@ send CORS headers and the Steam key must not ship in the bundle.
   `reconcile(game, incoming)` returns `{ updates, changed, grewList }`; deciding
   what `grewList` means for a game's shelf is the hooks' job.
 - A sync never touches `rating`. Ratings are yours.
+- PlayStation counts follow `usePsnTrophyScope`: the base trophy list by default,
+  or every group including add-ons. The edge function takes `?groups=all`.
+- A sync passes `{ automatic: true }` to `updateGame`, which is what makes a shelf
+  change it causes announce itself in `GameMovedDialog`.
 
 ## Design system
 
@@ -164,12 +174,31 @@ papercuts grown around the old one. Landed:
 - Page descriptions became dismissable `IntroNotice` banners, synced to the profile.
 - Adding a game no longer writes RAWG's community score as your rating.
 
+Then a second pass, on what the first one left rough:
+
+- A card lists **every** collection a game is in, shelf first, not just the shelf.
+  The collections page shows only your own lists, since each shelf has a page
+  already, and the edit dialog's two pickers became one.
+- The achievement rating is asked for, and shown, only at 100% — it is a verdict
+  on a whole list and cannot honestly be given part-way through.
+- PS5 trophy counts can include add-on groups (`usePsnTrophyScope`).
+- `GameMovedDialog`: when the app re-files a game itself, it says so.
+- Home replaced Library; the wordmark links to it; the rating track has ticks.
+- Phones get portrait tiles and a single collections sheet in place of the chip
+  row; the metrics grid goes two across.
+
 ### Known gaps
 
 - **The SQL migration is one-way.** `status` is dropped in the same script that
   reads it. Take a Supabase backup before running it.
 - **Not exercised against a live account.** Every change typechecks and builds, and
   the dev server renders, but the signed-in flows have not been driven end to end.
+  The phone layouts were checked against a static harness of the built CSS rather
+  than the real page.
+- **PlayStation has no portrait art.** `portraitCoverUrl` only answers for Steam
+  games, so a PS5 tile falls back to landscape key art cropped to 2:3 — which is
+  the case the portrait grid was meant to avoid. PSN offers nothing taller than a
+  squarish trophy-set icon; a stored per-game override is the way out.
 - `deleteCollection` fans out one write per affected game. Pre-existing, but far
   more reachable now that everything except the three shelves is deletable. A
   batched `{ kind: 'games'; op: 'upsert' }` queue variant would fix it;
