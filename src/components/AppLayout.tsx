@@ -23,6 +23,7 @@ import { QuickAddModal } from './QuickAddModal';
 import { SessionProgressDialog } from './SessionProgressDialog';
 import { UserGame } from '../types';
 import { APP_NAME, DEFAULT_START_PATH } from '../lib/constants';
+import { useIsPhone } from '../lib/useMediaQuery';
 import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
 import { useSync } from '../context/SyncContext';
@@ -50,6 +51,9 @@ import { EASE_OUT } from '../lib/motion';
  * case this is for.
  */
 const FOLLOW_LOOKUP_MS = 300;
+
+/** Reached through Collections on a phone instead of from the bottom bar. */
+const FOLDED_ON_PHONE = new Set(['/playing', '/backlog', '/achievements']);
 
 /**
  * The page a game can actually be seen on.
@@ -100,6 +104,11 @@ export const AppLayout: React.FC = () => {
     loading,
     follow,
   } = useGame();
+
+  // Whether the layout is the phone one. The nav is a different set of
+  // destinations rather than the same set restyled, so this is a query rather
+  // than a breakpoint class.
+  const phone = useIsPhone();
 
   const playingCount = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID)).length;
   const backlogCount = games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)).length;
@@ -176,7 +185,12 @@ export const AppLayout: React.FC = () => {
       const idxB = navOrder.indexOf(b.path);
       return (idxA === -1 ? navOrder.length : idxA) - (idxB === -1 ? navOrder.length : idxB);
     })
-    .filter((item) => item.enabled);
+    .filter((item) => item.enabled)
+    // The three shelves fold into Collections on a phone. The bottom bar holds
+    // five destinations before it starts hiding them behind a "More" sheet,
+    // and a shelf is a collection anyway — the page that lists them all can
+    // carry these three without inventing anything.
+    .filter((item) => !phone || !FOLDED_ON_PHONE.has(item.path));
 
   /**
    * The destination the app opens on.

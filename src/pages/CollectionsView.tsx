@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FolderKanban, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, FolderKanban, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import {
@@ -8,6 +9,8 @@ import {
   comparePlatformOrder,
 } from '../lib/constants';
 import { isPermanentCollection } from '../lib/collections';
+import { CollectionsList } from '../components/CollectionsList';
+import { useIsPhone } from '../lib/useMediaQuery';
 import { Badge, Button, Card, EmptyState, Field, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
@@ -93,6 +96,11 @@ export const CollectionsView: React.FC = () => {
     setIsQuickAddOpen,
     profile,
   } = useGame();
+
+  const navigate = useNavigate();
+  // On a phone this page is a list you drill into; on a wide screen it is a tab
+  // strip with the games already beside it.
+  const phone = useIsPhone();
 
   const [activeCollectionId, setActiveCollectionId] = useState<string>('');
   /** The collection whose delete has been asked for but not yet confirmed. */
@@ -236,7 +244,21 @@ export const CollectionsView: React.FC = () => {
         </Card>
       )}
 
+      {/* On a phone this page is the way to every shelf as well as every list,
+          since the bottom bar has room for five destinations and dropping
+          Playing, Backlog and 100% into here is what made them fit. A row
+          shows what is actually inside rather than only what you called it. */}
+      {phone && !activeCollectionId ? (
+        <CollectionsList
+          onOpen={(target) => {
+            if (target.startsWith('/')) navigate(target);
+            else setActiveCollectionId(target);
+          }}
+        />
+      ) : null}
+
       {/* Tabs -------------------------------------------------------------- */}
+      {!phone && (
       <div className="flex flex-wrap items-center gap-2">
         {customCollections.map((col) => {
           const isSelected = activeCollection?.id === col.id;
@@ -280,8 +302,27 @@ export const CollectionsView: React.FC = () => {
           );
         })}
       </div>
+      )}
 
-      {activeCollection && (
+      {/* A way back to the list, which on a phone is the page this drilled in
+          from. The browser's own back would work; a control that is visibly
+          part of the page is what people reach for. */}
+      {phone && activeCollectionId ? (
+        <Button
+          buttonStyle="subtle"
+          size="s"
+          className="-ml-2"
+          onClick={() => {
+            setActiveCollectionId('');
+            setEditingId(null);
+          }}
+        >
+          <ChevronLeft size={15} />
+          All collections
+        </Button>
+      ) : null}
+
+      {activeCollection && (!phone || activeCollectionId) && (
         <Card className="space-y-4">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="space-y-0.5">
@@ -412,9 +453,11 @@ export const CollectionsView: React.FC = () => {
         </Card>
       )}
 
-      <GameGrid games={collectionGames} platformOrder={platformOrder} />
+      {(!phone || activeCollectionId) && (
+        <GameGrid games={collectionGames} platformOrder={platformOrder} />
+      )}
 
-      {collectionGames.length === 0 && (
+      {(!phone || activeCollectionId) && collectionGames.length === 0 && (
         <EmptyState
           icon={<Folder size={24} />}
           title={activeCollection ? 'This collection is empty' : 'No collections yet'}

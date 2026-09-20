@@ -44,12 +44,19 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   label,
   breakdown,
 }) => (
-  <Card className="flex items-center justify-between gap-4 p-4">
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="eyebrow min-w-0 truncate text-gray-600">{label}</div>
+  <Card className="flex items-center justify-between gap-2 p-3 sm:gap-4 sm:p-4">
+    <div className="flex min-w-0 flex-col gap-1.5 sm:gap-2">
+      {/* Wrapped on a phone, truncated once there is room to truncate to.
+          Two of these across a 375px screen leaves about seventy pixels beside
+          the emblem, and "Active unlocks (64%)" truncated there read as
+          "Active unl…" — a label that has been cut down to nothing tells you
+          less than a label on two lines. */}
+      <div className="eyebrow min-w-0 text-gray-600 line-clamp-2 sm:truncate">{label}</div>
 
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-700 font-bold leading-none tabular-nums text-gray-1000">{value}</span>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-3">
+        <span className="text-500 font-bold leading-none tabular-nums text-gray-1000 sm:text-700">
+          {value}
+        </span>
 
         {breakdown?.length ? (
           <span className="flex items-center gap-3">
@@ -66,7 +73,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
     <div
       className={cn(
-        'flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-lg',
+        'flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-lg sm:h-12 sm:w-12',
         tone,
       )}
     >
@@ -104,16 +111,22 @@ export const StatTile: React.FC<StatTileProps> = ({
 }) => (
   <div
     className={
-      surface === 'panel' ? 'panel rounded-lg px-5 py-4' : 'panel-inset rounded-md px-3.5 py-3'
+      surface === 'panel'
+        ? 'panel rounded-lg px-3.5 py-3 sm:px-5 sm:py-4'
+        : 'panel-inset rounded-md px-3 py-2.5 sm:px-3.5 sm:py-3'
     }
   >
-    <div className="eyebrow truncate text-gray-600">{label}</div>
+    {/* Same reasoning as the card above: on a phone a clipped label says less
+        than a wrapped one. */}
+    <div className="eyebrow text-gray-600 line-clamp-2 sm:truncate">{label}</div>
     <div
-      className="mt-1.5 text-500 font-bold leading-none tabular-nums text-gray-1000"
+      className="mt-1.5 text-400 font-bold leading-none tabular-nums text-gray-1000 sm:text-500"
       style={color ? { color } : undefined}
     >
       {value}
     </div>
-    {caption ? <div className="mt-1 truncate text-50 text-gray-600">{caption}</div> : null}
+    {caption ? (
+      <div className="mt-1 text-50 text-gray-600 line-clamp-2 sm:truncate">{caption}</div>
+    ) : null}
   </div>
 );
