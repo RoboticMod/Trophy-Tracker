@@ -8,7 +8,7 @@ import {
   Search,
   Flame,
   FolderKanban,
-  Star,
+  ListFilter,
   ArrowUpDown,
   Loader2,
 } from 'lucide-react';
@@ -214,7 +214,7 @@ export const DashboardView: React.FC = () => {
             suffix="%"
             verdict={completionLabel(completion)}
             color={completionColor(completion)}
-            caption={`${formatCount(unlocked)} of ${formatCount(unlockable)} across what you are playing, queued and finished`}
+            caption={`${formatCount(unlocked)} of ${formatCount(unlockable)} across playing, backlog and 100%`}
             size={88}
           />
         </Card>
@@ -384,7 +384,7 @@ export const DashboardView: React.FC = () => {
         <div className="flex flex-wrap items-center justify-start gap-3 border-t border-gray-200 pt-3 md:justify-end">
           <div className="flex items-center gap-2">
             <label htmlFor="library-rating" className="eyebrow flex items-center gap-1 text-gray-600">
-              <Star size={12} className="text-trophy-900" />
+              <ListFilter size={12} className="text-trophy-900" />
               Rating
             </label>
             <Select

@@ -12,7 +12,7 @@ import {
   fileInPermanent,
 } from '../lib/collections';
 import { IntroNotice } from '../components/IntroNotice';
-import { Button, EmptyState, FilterChip, PageHeader, StatTile } from '../components/ui';
+import { Button, EmptyState, FilterChip, PageHeader } from '../components/ui';
 
 export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
@@ -44,20 +44,20 @@ export const BacklogView: React.FC = () => {
       <PageHeader
         icon={<Hourglass size={18} />}
         title={collectionName(BACKLOG_COLLECTION_ID, collections)}
+        stats={[
+          { key: 'queued', label: 'in queue', value: String(backlogGames.length) },
+          {
+            key: 'unlockable',
+            label: 'still to unlock',
+            value: String(potentialAchievements),
+          },
+        ]}
       />
 
       <IntroNotice id="backlog">
         Games queued and waiting to be played. Starting one from its card moves it to
         “{collectionName(PLAYING_COLLECTION_ID, collections)}”.
       </IntroNotice>
-
-      <div className="grid-metrics">
-        <StatTile label="Games in queue" value={String(backlogGames.length)} />
-        <StatTile
-          label="Achievements still to unlock"
-          value={String(potentialAchievements)}
-        />
-      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="eyebrow mr-1 flex items-center gap-1 text-gray-600">

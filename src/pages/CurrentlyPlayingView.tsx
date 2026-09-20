@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
-import { Play, Clock } from 'lucide-react';
-import { TrophyPair } from '../components/TrophyBadge';
+import { Play } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
 import { PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
 import { formatHours, sumHours } from '../lib/format';
 import { IntroNotice } from '../components/IntroNotice';
-import { Badge, EmptyState, MetricCard, PageHeader } from '../components/ui';
+import { Badge, EmptyState, PageHeader } from '../components/ui';
 
 export const CurrentlyPlayingView: React.FC = () => {
   const { games, collections, profile } = useGame();
@@ -35,32 +34,20 @@ export const CurrentlyPlayingView: React.FC = () => {
         iconClassName="bg-accent-700/16 text-accent-900"
         title={collectionName(PLAYING_COLLECTION_ID, collections)}
         badge={<Badge tone="accent">{playingGames.length} active</Badge>}
+        stats={[
+          { key: 'titles', label: 'active titles', value: String(playingGames.length) },
+          { key: 'hours', label: 'logged', value: `${formatHours(totalHours)}h` },
+          {
+            key: 'unlocks',
+            label: `unlocked (${possible > 0 ? Math.round((unlocked / possible) * 100) : 0}%)`,
+            value: `${unlocked} / ${possible}`,
+          },
+        ]}
       />
 
       <IntroNotice id="playing">
         Games in progress right now. Log hours and achievement unlocks as you go.
       </IntroNotice>
-
-      <div className="grid-metrics">
-        <MetricCard
-          icon={<Play size={18} />}
-          tone="bg-accent-700/16 text-accent-900"
-          value={String(playingGames.length)}
-          label="Active titles"
-        />
-        <MetricCard
-          icon={<Clock size={18} />}
-          tone="bg-gray-200 text-gray-800"
-          value={`${formatHours(totalHours)}h`}
-          label="Logged in active games"
-        />
-        <MetricCard
-          icon={<TrophyPair size={16} />}
-          tone="bg-trophy-700/16"
-          value={`${unlocked} / ${possible}`}
-          label={`Active unlocks (${possible > 0 ? Math.round((unlocked / possible) * 100) : 0}%)`}
-        />
-      </div>
 
       <GameGrid games={playingGames} platformOrder={platformOrder} />
 

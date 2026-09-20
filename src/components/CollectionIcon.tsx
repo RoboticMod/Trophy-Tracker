@@ -6,7 +6,7 @@ import {
   Folder,
   Gamepad2,
   Heart,
-  Sparkles,
+  ListPlus,
   Trophy,
 } from 'lucide-react';
 
@@ -25,8 +25,12 @@ const ICONS: Record<string, React.ElementType> = {
   Folder,
   Gamepad2,
   Heart,
-  Sparkles,
+  ListPlus,
   Trophy,
+  // A collection saved before the star was retired. Aliased rather than
+  // dropped, so an existing row draws the icon that replaced it instead of
+  // falling back to a generic folder — and the star itself is never rendered.
+  Sparkles: ListPlus,
 };
 
 export const CollectionIcon: React.FC<{ name?: string; size?: number }> = ({

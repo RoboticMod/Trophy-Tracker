@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpDown, Sparkles } from 'lucide-react';
+import { ArrowUpDown } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { IntroNotice } from '../components/IntroNotice';
 import { GameGrid } from '../components/GameGrid';
@@ -11,7 +11,7 @@ import { isPerfect } from '../lib/completion';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { Platform, PLATFORM_IDS } from '../types';
-import { EmptyState, FilterChip, MetricCard, PageHeader, Select } from '../components/ui';
+import { EmptyState, FilterChip, PageHeader, Select } from '../components/ui';
 
 /**
  * Completion is not offered here: every game on this page is at 100%, so
@@ -62,35 +62,37 @@ export const AchievementsView: React.FC = () => {
       <PageHeader
         icon={<TrophyPair size={17} />}
         iconClassName="bg-trophy-700/16"
-        title="Achievements & Platinum Trophies"
+        title="100% Achievements & Platinum Trophies"
+        stats={[
+          {
+            key: 'finished',
+            label: 'finished',
+            value: String(completedGames.length),
+            breakdown: (
+              <span className="ml-1 flex items-baseline gap-2.5">
+                {PLATFORM_IDS.map((p) => (
+                  <span
+                    key={p}
+                    className="flex items-center gap-1"
+                    title={PLATFORMS[p].name}
+                  >
+                    <TrophyBadge platform={p} size={16} />
+                    <span className="text-75 font-bold tabular-nums text-gray-700">
+                      {completedGames.filter((g) => g.platform === p).length}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            ),
+          },
+          { key: 'unlocked', label: 'unlocked', value: String(totalUnlocked) },
+        ]}
       />
 
       <IntroNotice id="achievements">
         Every game where you have unlocked all achievements — Steam perfect games and PlayStation
         platinums.
       </IntroNotice>
-
-      {/* Summary ----------------------------------------------------------- */}
-      <div className="grid-metrics">
-        <MetricCard
-          icon={<TrophyPair size={22} />}
-          tone="bg-trophy-700/16"
-          value={String(completedGames.length)}
-          label="100% finished titles"
-          breakdown={PLATFORM_IDS.map((p) => ({
-            key: p,
-            icon: <TrophyBadge platform={p} size={20} />,
-            count: completedGames.filter((g) => g.platform === p).length,
-            title: PLATFORMS[p].name,
-          }))}
-        />
-        <MetricCard
-          icon={<Sparkles size={24} />}
-          tone="bg-accent-700/16 text-accent-900"
-          value={String(totalUnlocked)}
-          label="Achievements unlocked"
-        />
-      </div>
 
       {/* Filter and sort ---------------------------------------------------- */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">

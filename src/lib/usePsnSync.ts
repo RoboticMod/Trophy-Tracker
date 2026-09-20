@@ -122,7 +122,7 @@ export function usePsnSync() {
           NEW_ACHIEVEMENTS_COLLECTION,
           NEW_ACHIEVEMENTS_DESCRIPTION,
           NEW_ACHIEVEMENTS_COLOR,
-          'Sparkles',
+          'ListPlus',
         );
 
       const listed = game.collections.includes(collection.id)

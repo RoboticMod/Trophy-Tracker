@@ -82,23 +82,27 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
   const isRated = clamped > 0;
 
   const ratingField = useNumericField(clamped, (n) => onChange(snapRating(n)));
-  const fillPercent = (clamped / MAX_RATING) * 100;
 
   /**
-   * Both layers are drawn across the thumb's travel, not the whole track.
-   *
    * The thumb's centre only ever reaches from half a thumb in from the left to
-   * half a thumb in from the right. A fill painted as a flat percentage of the
-   * full track therefore ran ahead of the thumb near 10 and lagged behind it
-   * near 0. Taking the thumb's width out of the span — and pushing both layers
-   * in by half of it — puts the end of the fill exactly under the thumb's
-   * centre at every value, and lands the ticks on the values they mark.
+   * half a thumb in from the right, so anything that must line up with it has
+   * to have the thumb's width taken out of its span.
+   *
+   * The ticks do that by being drawn across the travel rather than the track.
+   * The fill cannot: inset the same way, it started half a thumb in from the
+   * left and left the first few pixels of track showing bare grey at every
+   * value. So it spans the whole track and carries the inset in its stop
+   * instead — full width, ending exactly under the thumb's centre.
    */
   const TRAVEL = `calc(100% - var(--rating-thumb))`;
 
+  const fillStop =
+    `calc(var(--rating-thumb) / 2 + ` +
+    `${clamped / MAX_RATING} * (100% - var(--rating-thumb)))`;
+
   const fill =
-    `linear-gradient(90deg, ${color} 0, ${color} ${fillPercent}%, ` +
-    `var(--color-gray-300) ${fillPercent}%)`;
+    `linear-gradient(90deg, ${color} 0, ${color} ${fillStop}, ` +
+    `var(--color-gray-300) ${fillStop})`;
 
   /** A tick at every whole point, so the track is a scale rather than a smear. */
   const tickSpacing = 100 / MAX_RATING;
@@ -123,8 +127,8 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
         style={{
           color,
           backgroundImage: `${ticks}, ${fill}`,
-          backgroundSize: `${TRAVEL} 100%, ${TRAVEL} 100%`,
-          backgroundPosition: `calc(var(--rating-thumb) / 2) center, calc(var(--rating-thumb) / 2) center`,
+          backgroundSize: `${TRAVEL} 100%, 100% 100%`,
+          backgroundPosition: `calc(var(--rating-thumb) / 2) center, 0 center`,
           backgroundRepeat: 'no-repeat, no-repeat',
         }}
       />
