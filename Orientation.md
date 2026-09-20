@@ -187,12 +187,26 @@ Then a second pass, on what the first one left rough:
 - PS5 trophy counts can include add-on groups (`usePsnTrophyScope`).
 - `GameMovedDialog`: when the app re-files a game itself, it says so.
 - Home replaced Library; the wordmark links to it; the rating track has ticks.
-- Phones get a single collections sheet in place of the chip row, and the
-  metrics grid goes two across.
+- Phones get a single collections sheet in place of the chip row.
 
-A third pass: phones fold the three shelves into Collections (`CollectionsList`),
-the metric cards wrap their labels instead of clipping them, and the library is
-two `GameCard`s per row rather than four portrait tiles.
+A third pass: phones fold the three shelves into Collections (`CollectionsList`)
+and the library is two `GameCard`s per row rather than four portrait tiles.
+
+A fourth: the Playing / 100% / Backlog summary bands became a stat strip under
+the page title, through `PageHeader`'s `stats` slot — they had drifted into three
+different shapes, and on a wide screen they were mostly void. `MetricCard` now
+puts its emblem in the corner rather than in a column of its own, `grid-metrics`
+is one per row on a phone, and the card sheds its chips, playtime and award
+label there. The star is retired: see below.
+
+### Conventions worth keeping
+
+- **No star or sparkle icon.** It was used for the achievements emblem and the
+  rating filter and read as decoration in both. `CollectionIcon` keeps
+  `Sparkles` only as a key aliased to `ListPlus`, so a row saved under the old
+  name still draws something sensible.
+- **A page's headline figures go in `PageHeader`'s `stats`**, not in a band of
+  cards below it. One component means the pages cannot drift apart again.
 
 ### Known gaps
 
