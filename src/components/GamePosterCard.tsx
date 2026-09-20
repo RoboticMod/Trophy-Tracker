@@ -3,12 +3,13 @@ import { motion } from 'motion/react';
 import { UserGame } from '../types';
 import { PERMANENT_COLOR, PLAYING_COLLECTION_ID, permanentOf } from '../lib/collections';
 import { useGame } from '../context/GameContext';
-import { logoOverlay, posterSources } from '../lib/image';
-import { CoverArt } from './CoverArt';
+import { PosterArt } from './PosterArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardProgressLabel } from './TrophyBadge';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
+import { OverlayBadge } from './ui';
+import { ratingColor } from '../lib/rating';
 import { EditGameModal } from './EditGameModal';
 import { GameInfoModal } from './GameInfoModal';
 import { completionPercent, isPerfect } from '../lib/completion';
@@ -71,7 +72,6 @@ export const GamePosterCard: React.FC<GamePosterCardProps> = ({
   // as a tile this size has for it. A named chip would cover the logo the tile
   // exists to let you read.
   const shelfColor = shelf ? PERMANENT_COLOR[shelf] : null;
-  const logo = logoOverlay(game);
 
   return (
     <>
@@ -101,27 +101,11 @@ export const GamePosterCard: React.FC<GamePosterCardProps> = ({
             found !== null && 'ring-2 ring-accent-700',
           )}
         >
-          {/* Steam's library capsule first — portrait, and carrying the game's
-              own logo by design — then the stored landscape art, then a
-              lettered tile. CoverArt walks the list and keeps the first that
-              loads, so a PlayStation game, which has no such capsule, simply
-              falls through to its cover cropped. */}
-          <CoverArt
-            src={posterSources(game)}
-            title={game.title}
-            className="absolute inset-0 h-full w-full object-cover object-center"
-          />
-
-          {/* The name as artwork, where one has been set. A logo only goes
-              over a poster chosen by hand, since a storefront capsule already
-              has the lettering baked in and this would print it twice. */}
-          {logo ? (
-            <img
-              src={logo}
-              alt={game.title}
-              className="pointer-events-none absolute inset-x-2 top-3 max-h-[38%] w-[calc(100%-1rem)] object-contain object-top drop-shadow-[0_2px_6px_rgb(0_0_0/0.7)]"
-            />
-          ) : null}
+          {/* Chosen art, then Steam's library capsule, then the landscape cover —
+              and whichever loads is contained rather than cropped, over a
+              blurred copy of itself. PosterArt also decides whether the logo
+              goes on, since only it knows which of the three it settled on. */}
+          <PosterArt game={game} logoInset className="absolute inset-0 h-full w-full" />
 
           {/* One scrim, at the foot.
 
@@ -133,6 +117,23 @@ export const GamePosterCard: React.FC<GamePosterCardProps> = ({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gray-25 via-gray-25/75 to-transparent" />
 
           {perfect && <div aria-hidden className="trophy-sweep" />}
+
+          {/* Top right, clear of the art's own lettering and of the figures
+              along the foot — and where a score is looked for on a shelf of
+              boxes. */}
+          {game.rating ? (
+            <div className="absolute right-1.5 top-1.5">
+              <OverlayBadge
+                circle
+                size={24}
+                style={{
+                  boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}, 0 0 8px -5px ${ratingColor(game.rating)}`,
+                }}
+              >
+                <RatingValue value={game.rating} size="xs" label="Game rated" bare />
+              </OverlayBadge>
+            </div>
+          ) : null}
 
           {/* One row along the foot: whose game it is, how far through, and
               what you made of it. The achievement rating is deliberately not
@@ -157,15 +158,6 @@ export const GamePosterCard: React.FC<GamePosterCardProps> = ({
                 {game.achievementsUnlocked}/{game.achievementsTotal}
               </span>
 
-              {game.rating ? (
-                <RatingValue
-                  value={game.rating}
-                  size="xs"
-                  label="Game rated"
-                  bare
-                  className="ml-auto"
-                />
-              ) : null}
             </div>
 
             <div className="h-1 overflow-hidden rounded-full bg-gray-25/70">

@@ -369,10 +369,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Keep the optimistic local change and retry when connectivity returns.
         enqueue(userId, entry);
         setPendingWrites(readQueue(userId).length);
+        // A database that is merely behind is not a network problem, and saying
+        // "could not reach the cloud" about it sends people to check their wifi
+        // rather than to run the SQL that would fix it.
         setError(
-          err instanceof Error
-            ? `Saved locally — could not reach the cloud (${err.message}).`
-            : 'Saved locally — could not reach the cloud.',
+          db.isSchemaOutOfDate()
+            ? db.SCHEMA_OUT_OF_DATE_MESSAGE
+            : err instanceof Error
+              ? `Saved locally — could not reach the cloud (${err.message}).`
+              : 'Saved locally — could not reach the cloud.',
         );
       }
     },

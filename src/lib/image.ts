@@ -180,27 +180,3 @@ export function steamLogoUrl(game: {
   return `${STEAM_APPS}/${game.steamAppId}/logo.png`;
 }
 
-/**
- * Every candidate for a portrait tile, best first.
- *
- * A cover you chose yourself always wins. Failing that it is Steam's library
- * capsule, which is real box art; failing that the landscape cover, cropped,
- * which is the poor case the whole portrait grid exists to avoid.
- */
-export const posterSources = (game: {
-  platform: string;
-  steamAppId?: number;
-  coverPortrait?: string;
-  coverImage?: string;
-}): (string | undefined)[] => [game.coverPortrait, portraitCoverUrl(game), game.coverImage];
-
-/**
- * The logo to draw over a cover, or nothing.
- *
- * Only ever one you set yourself. Steam's library capsule already has the name
- * across it, so overlaying the separate logo file on top of that would print
- * it twice — and the app cannot tell, from a URL, whether a picture has
- * lettering in it. Choosing a cover is what says "this one is clean".
- */
-export const logoOverlay = (game: { coverPortrait?: string; logoImage?: string }): string | undefined =>
-  game.coverPortrait && game.logoImage ? game.logoImage : undefined;

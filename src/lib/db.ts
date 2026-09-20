@@ -237,8 +237,35 @@ const LEGACY_STATUS_FILLER = 'playing';
 /** True for "null value in column violates not-null", i.e. the SQL never ran. */
 const isMissingNotNull = (error: { code?: string } | null): boolean => error?.code === '23502';
 
-/** True for "column does not exist", the one error worth retrying differently. */
-const isUnknownColumn = (error: { code?: string } | null): boolean => error?.code === '42703';
+/**
+ * True for "column does not exist".
+ *
+ * PostgREST answers with its own PGRST204 when the column is missing from its
+ * cached schema rather than from the table, which is the same problem wearing a
+ * different number.
+ */
+const isUnknownColumn = (error: { code?: string } | null): boolean =>
+  error?.code === '42703' || error?.code === 'PGRST204';
+
+/** True for "no unique constraint matching the ON CONFLICT specification". */
+const isMissingConstraint = (error: { code?: string } | null): boolean =>
+  error?.code === '42P10';
+
+/**
+ * Whether this project's tables are behind the schema the app writes against.
+ *
+ * Set by the retries below, from a real refusal rather than a probe. Every one
+ * of them recovers, so writes keep working — but quietly, and the recovery
+ * costs something each time (artwork dropped, a slower upsert path). Saying so
+ * out loud is how someone learns to re-run the SQL.
+ */
+let schemaOutOfDate = false;
+
+export const isSchemaOutOfDate = (): boolean => schemaOutOfDate;
+
+/** What to tell someone whose database is behind. */
+export const SCHEMA_OUT_OF_DATE_MESSAGE =
+  'Your database is missing columns this version writes. Open Settings → Cloud storage, copy the schema SQL and run it in Supabase.';
 
 type GameInsert = ReturnType<typeof fromGame>;
 
@@ -288,12 +315,14 @@ async function upsertGameRows(games: UserGame[], userId: string): Promise<void> 
 
   if (isUnknownColumn(error) && schemaHasLinkColumns) {
     schemaHasLinkColumns = false;
+    schemaOutOfDate = true;
     ({ error } = await write());
     if (!error) return;
   }
 
   if (isMissingNotNull(error) && !schemaHasLegacyStatus) {
     schemaHasLegacyStatus = true;
+    schemaOutOfDate = true;
     ({ error } = await write());
     if (!error) return;
   }
@@ -348,13 +377,23 @@ export async function upsertCollections(
   userId: string,
 ): Promise<void> {
   if (collections.length === 0) return;
-  const { error } = await supabase
-    .from('collections')
-    // Keyed on both columns, because the primary key is (user_id, id): with the
-    // default single-column guess an id another account already holds would
-    // conflict against a row this user cannot see, and the write would fail.
-    .upsert(collections.map((c) => fromCollection(c, userId)), { onConflict: 'user_id,id' });
-  if (error) throw error;
+  const rows = collections.map((c) => fromCollection(c, userId));
+
+  // Keyed on both columns, because the primary key is (user_id, id): with the
+  // default single-column guess an id another account already holds would
+  // conflict against a row this user cannot see, and the write would fail.
+  const { error } = await supabase.from('collections').upsert(rows, { onConflict: 'user_id,id' });
+  if (!error) return;
+
+  // A project still on the old single-column key has no constraint to name, and
+  // Postgres refuses the statement outright rather than ignoring the hint. That
+  // made every collection write fail — including the seeding one on load — and
+  // report itself as a library that could not reach the cloud.
+  if (!isMissingConstraint(error)) throw error;
+  schemaOutOfDate = true;
+
+  const retry = await supabase.from('collections').upsert(rows);
+  if (retry.error) throw retry.error;
 }
 
 export async function deleteCollection(id: string, userId: string): Promise<void> {

@@ -15,6 +15,7 @@ import {
   RefreshCw,
   X,
   MoreHorizontal,
+  ChevronLeft,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
@@ -109,6 +110,11 @@ export const AppLayout: React.FC = () => {
   // destinations rather than the same set restyled, so this is a query rather
   // than a breakpoint class.
   const phone = useIsPhone();
+
+  // Nothing to go back to on the first screen of a fresh tab. History has no
+  // public "can I" — the length is the closest thing, and it only ever
+  // undercounts, which is the safe direction for greying a control out.
+  const canGoBack = typeof window !== 'undefined' && window.history.length > 1;
 
   const playingCount = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID)).length;
   const backlogCount = games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)).length;
@@ -433,14 +439,34 @@ export const AppLayout: React.FC = () => {
       </header>
 
       {/* Mobile header ------------------------------------------------------ */}
-      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-gray-100/85 px-4 py-3 backdrop-blur-xl md:hidden">
-        <NavLink
-          to="/"
-          aria-label={`${APP_NAME} home`}
-          className="rounded-md transition-opacity hover:opacity-80"
-        >
-          <Wordmark size="sm" />
-        </NavLink>
+      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-100/85 px-3 py-3 backdrop-blur-xl md:hidden">
+        <div className="flex min-w-0 items-center gap-1">
+          {/* A phone has no sidebar to show where you are, and screens here go
+              two and three deep — a collection, then a game. The platform back
+              gesture exists but is not visible, and a control you can see is
+              the one people reach for. Held open rather than shown
+              conditionally, so the header never changes width under a thumb
+              already on its way to something else. */}
+          <Button
+            buttonStyle="subtle"
+            size="s"
+            iconOnly
+            aria-label="Go back"
+            disabled={!canGoBack}
+            onClick={() => navigate(-1)}
+            className={cn('shrink-0', !canGoBack && 'opacity-30')}
+          >
+            <ChevronLeft size={18} />
+          </Button>
+
+          <NavLink
+            to="/"
+            aria-label={`${APP_NAME} home`}
+            className="min-w-0 rounded-md transition-opacity hover:opacity-80"
+          >
+            <Wordmark size="sm" markOnly />
+          </NavLink>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             buttonStyle="outline"

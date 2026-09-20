@@ -60,25 +60,12 @@ export const ArtworkField: React.FC<ArtworkFieldProps> = ({
     }
   };
 
+  /* Preview beside the controls rather than above them. Stacked, a 112px
+     thumbnail sat over a full-width URL row and left most of the panel empty;
+     side by side the row is only as wide as it needs to be and the whole block
+     is no taller than the picture. */
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="eyebrow text-gray-700">{label}</span>
-        {value ? (
-          <button
-            type="button"
-            onClick={() => {
-              onChange(undefined);
-              setError(null);
-            }}
-            className="flex items-center gap-1 rounded-sm text-50 text-gray-600 hover:text-gray-900"
-          >
-            <RotateCcw size={11} />
-            Reset
-          </button>
-        ) : null}
-      </div>
-
+    <div className="flex gap-3">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -91,8 +78,10 @@ export const ArtworkField: React.FC<ArtworkFieldProps> = ({
           void accept(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          'relative flex items-center justify-center overflow-hidden rounded-md border border-dashed transition-colors',
-          aspect === 'portrait' ? 'aspect-[2/3] w-28' : 'aspect-[16/9] w-full max-w-64',
+          'relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed transition-colors',
+          // A poster is tall; a logo is wide and short, and a tall frame around
+          // one is a box of empty space with a word floating in it.
+          aspect === 'portrait' ? 'aspect-[2/3] w-[4.5rem]' : 'aspect-[16/9] w-[6.5rem]',
           dragging
             ? 'border-accent-700 bg-accent-700/16'
             : 'border-gray-400/60 bg-black/25 hover:border-gray-400',
@@ -107,8 +96,8 @@ export const ArtworkField: React.FC<ArtworkFieldProps> = ({
             style={{
               backgroundImage:
                 'linear-gradient(45deg, var(--color-gray-300) 25%, transparent 25%, transparent 75%, var(--color-gray-300) 75%), linear-gradient(45deg, var(--color-gray-300) 25%, transparent 25%, transparent 75%, var(--color-gray-300) 75%)',
-              backgroundSize: '12px 12px',
-              backgroundPosition: '0 0, 6px 6px',
+              backgroundSize: '10px 10px',
+              backgroundPosition: '0 0, 5px 5px',
             }}
           />
         )}
@@ -119,57 +108,79 @@ export const ArtworkField: React.FC<ArtworkFieldProps> = ({
             alt=""
             className={cn(
               'relative h-full w-full',
-              // A logo is a shape on nothing and must not be cropped; a cover
+              // A logo is a shape on nothing and must not be cropped; a poster
               // is a picture and should fill its frame.
-              checkered ? 'object-contain p-2' : 'object-cover',
+              checkered ? 'object-contain p-1.5' : 'object-cover',
             )}
           />
         ) : (
-          <span className="relative flex flex-col items-center gap-1 px-2 text-center text-50 text-gray-600">
-            <ImageUp size={18} />
-            Drop an image
+          <span className="relative flex flex-col items-center gap-1 px-1 text-center text-50 leading-tight text-gray-600">
+            <ImageUp size={16} />
+            Drop
           </span>
         )}
 
         {busy && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-25/70">
-            <Loader2 size={18} className="animate-spin text-gray-900" />
+            <Loader2 size={16} className="animate-spin text-gray-900" />
           </div>
         )}
       </div>
 
-      <div className="flex gap-2">
-        <TextInput
-          value={value?.startsWith('data:') ? '' : (value ?? '')}
-          placeholder={value?.startsWith('data:') ? 'Uploaded image' : 'https://…'}
-          onChange={(e) => onChange(e.target.value.trim() || undefined)}
-          aria-label={`${label} URL`}
-          className="h-8 text-75"
-        />
-        <Button
-          type="button"
-          size="s"
-          variant="secondary"
-          buttonStyle="outline"
-          onClick={() => inputRef.current?.click()}
-        >
-          <Upload size={13} />
-          <span>Upload</span>
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            void accept(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
-      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="eyebrow text-gray-700">{label}</span>
+          {value ? (
+            <button
+              type="button"
+              onClick={() => {
+                onChange(undefined);
+                setError(null);
+              }}
+              className="flex items-center gap-1 rounded-sm text-50 text-gray-600 hover:text-gray-900"
+            >
+              <RotateCcw size={11} />
+              Reset
+            </button>
+          ) : null}
+        </div>
 
-      {error ? <p className="text-50 text-negative-900">{error}</p> : null}
-      {!error && hint ? <p className="text-50 text-gray-600">{hint}</p> : null}
+        <div className="flex gap-2">
+          <TextInput
+            value={value?.startsWith('data:') ? '' : (value ?? '')}
+            placeholder={value?.startsWith('data:') ? 'Uploaded image' : 'https://…'}
+            onChange={(e) => onChange(e.target.value.trim() || undefined)}
+            aria-label={`${label} URL`}
+            className="h-8 min-w-0 text-75"
+          />
+          <Button
+            type="button"
+            size="s"
+            variant="secondary"
+            buttonStyle="outline"
+            onClick={() => inputRef.current?.click()}
+            aria-label={`Upload ${label.toLowerCase()}`}
+          >
+            <Upload size={13} />
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              void accept(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+        </div>
+
+        {error ? (
+          <p className="text-50 text-negative-900">{error}</p>
+        ) : hint ? (
+          <p className="text-50 leading-snug text-gray-600">{hint}</p>
+        ) : null}
+      </div>
     </div>
   );
 };

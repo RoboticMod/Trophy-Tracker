@@ -11,8 +11,7 @@ import {
   collectionName,
   isPermanentCollection,
 } from '../lib/collections';
-import { posterSources } from '../lib/image';
-import { CoverArt } from './CoverArt';
+import { PosterArt } from './PosterArt';
 import { Button, Dialog } from './ui';
 import { cn } from '../lib/cn';
 
@@ -158,12 +157,7 @@ const CollectionRow: React.FC<{
     {preview.length > 0 ? (
       <div className="flex gap-1.5">
         {preview.map((game) => (
-          <CoverArt
-            key={game.id}
-            src={posterSources(game)}
-            title={game.title}
-            className="h-16 w-[2.6rem] shrink-0 rounded-sm object-cover object-center"
-          />
+          <PosterArt key={game.id} game={game} className="h-16 w-[2.6rem] shrink-0 rounded-sm" />
         ))}
       </div>
     ) : (

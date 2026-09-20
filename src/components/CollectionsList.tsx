@@ -11,10 +11,8 @@ import {
   collectionName,
   isPermanentCollection,
 } from '../lib/collections';
-import { posterSources } from '../lib/image';
-import { CoverArt } from './CoverArt';
+import { PosterArt } from './PosterArt';
 import { CollectionIcon } from './CollectionIcon';
-import { cn } from '../lib/cn';
 
 /**
  * Where each permanent shelf already has a page of its own.
@@ -129,13 +127,10 @@ const CollectionListRow: React.FC<{
     {games.length > 0 ? (
       <div className="mt-3 flex gap-2 overflow-hidden">
         {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <CoverArt
+          <PosterArt
             key={game.id}
-            src={posterSources(game)}
-            title={game.title}
-            className={cn(
-              'aspect-[2/3] w-[4.25rem] shrink-0 rounded-sm border border-gray-300/60 object-cover object-center',
-            )}
+            game={game}
+            className="aspect-[2/3] w-[4.25rem] shrink-0 rounded-sm border border-gray-300/60"
           />
         ))}
       </div>

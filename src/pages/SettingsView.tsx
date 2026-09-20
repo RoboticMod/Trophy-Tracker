@@ -37,7 +37,11 @@ import { useSync } from '../context/SyncContext';
 import { useAuth } from '../context/AuthContext';
 import { clearUserCache } from '../lib/localCache';
 import { SidebarConfig, HighlightStyle, Platform } from '../types';
-import { SUPABASE_SCHEMA_SQL } from '../lib/db';
+import {
+  SCHEMA_OUT_OF_DATE_MESSAGE,
+  SUPABASE_SCHEMA_SQL,
+  isSchemaOutOfDate,
+} from '../lib/db';
 import { GameCatalogCard } from '../components/GameCatalogCard';
 import {
   DEFAULT_PLATFORM_SORT_ORDER,
@@ -267,6 +271,9 @@ export const SettingsView: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [trophyScope, setTrophyScope] = usePsnTrophyScope();
   const { syncEverything } = useSync();
+  // Which option the sync now under way was started for, so only that button
+  // shows the spinner rather than both of them at once.
+  const [scopeSyncing, setScopeSyncing] = useState<PsnTrophyScope | null>(null);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -649,22 +656,34 @@ export const SettingsView: React.FC = () => {
               <button
                 key={option}
                 type="button"
-                onClick={() => {
-                  if (option === trophyScope) return;
+                disabled={scopeSyncing !== null}
+                onClick={async () => {
+                  if (option === trophyScope || scopeSyncing) return;
                   setTrophyScope(option);
                   // Straight away, rather than waiting for the next timed
                   // pass: a setting that appears to do nothing for ten minutes
-                  // reads as a setting that does not work.
-                  void syncEverything();
+                  // reads as a setting that does not work. Awaited so the
+                  // button can say it is working — re-reading a whole PSN
+                  // library is seconds of silence otherwise.
+                  setScopeSyncing(option);
+                  try {
+                    await syncEverything();
+                  } finally {
+                    setScopeSyncing(null);
+                  }
                 }}
                 aria-pressed={selected}
                 className={cn(
-                  'rounded-md border p-3 text-left transition-colors',
+                  'flex items-center gap-2 rounded-md border p-3 text-left transition-colors',
                   selected
                     ? 'border-accent-700/60 bg-accent-700/16'
                     : 'border-gray-300 bg-black/25 hover:border-gray-400 hover:bg-black/40',
+                  scopeSyncing !== null && 'opacity-60',
                 )}
               >
+                {scopeSyncing === option ? (
+                  <Loader2 size={15} className="shrink-0 animate-spin text-accent-900" />
+                ) : null}
                 <span className="block text-100 font-semibold text-gray-1000">
                   {PSN_TROPHY_SCOPE_LABELS[option]}
                 </span>
@@ -982,6 +1001,15 @@ export const SettingsView: React.FC = () => {
             </span>
           }
         />
+
+        {/* Only once a write has actually been refused, so it states a fact
+            rather than warning about a maybe — and it sits here because the
+            button that fixes it is two lines below. */}
+        {isSchemaOutOfDate() ? (
+          <p className="rounded-md border border-notice-700/50 bg-notice-700/12 p-3 text-50 font-semibold text-notice-900">
+            {SCHEMA_OUT_OF_DATE_MESSAGE}
+          </p>
+        ) : null}
 
         <p className="text-75 text-gray-700">
           Changes save to Supabase as you make them. When you are offline they queue locally and

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { canSearchRawg, needsCover, rawgCover, useCatalogSettings } from './catalog';
+import { steamLogoUrl } from './image';
 
 /**
  * Bringing the library's covers over to RAWG.
@@ -61,4 +62,43 @@ export function useCoverArt() {
       }
     })();
   }, [loading, rawgKey]);
+}
+
+/**
+ * Bringing the library's logos over from Steam.
+ *
+ * Steam publishes a game's name as its own transparent file, beside the art, at
+ * a path the app can work out from the app id alone. That is the pair a poster
+ * tile wants: a picture, and lettering that can be placed on it rather than
+ * baked into it at whatever size the storefront chose.
+ *
+ * Unlike covers, this asks for nothing over the network to decide. The URL
+ * either resolves when a tile draws it or it does not, and a logo that 404s
+ * falls back to the art alone — so the pass is a straight write over the
+ * library rather than a walk of requests, and games already in the library get
+ * one on the next load.
+ *
+ * Mounted beside the cover pass, by the sync provider.
+ */
+export function useSteamLogos() {
+  const { getGames, updateGame, loading } = useGame();
+
+  const latest = useRef({ getGames, updateGame });
+  latest.current = { getGames, updateGame };
+
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (loading || started.current) return;
+    started.current = true;
+
+    latest.current
+      .getGames()
+      // Only where there is one to be had and none set: a logo chosen by hand
+      // is a choice, and this must never overwrite it.
+      .filter((game) => !game.logoImage && steamLogoUrl(game))
+      .forEach((game) => {
+        latest.current.updateGame(game.id, { logoImage: steamLogoUrl(game) });
+      });
+  }, [loading]);
 }

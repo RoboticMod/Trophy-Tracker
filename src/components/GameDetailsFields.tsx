@@ -215,7 +215,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           the name across it, so choosing one is how you say it does not. */}
       <fieldset className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
         <legend className="eyebrow px-1 text-gray-700">Artwork</legend>
-        <div className="flex flex-wrap gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ArtworkField
             label="Poster"
             hint="Tall art, shown on phones."
@@ -228,12 +228,12 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
             label="Logo"
             hint={
               values.coverPortrait
-                ? 'Drawn over the poster instead of the title.'
-                : 'Set a poster first — a logo needs clean art to sit on.'
+                ? 'Drawn over the poster.'
+                : 'Filled in from Steam where there is one.'
             }
             value={values.logoImage}
             onChange={(logoImage) => onChange({ logoImage })}
-            aspect="portrait"
+            aspect="wide"
             checkered
             maxDimension={512}
             maxBytes={160 * 1024}
