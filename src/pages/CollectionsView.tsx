@@ -182,7 +182,9 @@ export const CollectionsView: React.FC = () => {
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-end">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
+          {/* Hidden on a phone, where the app header states the page already —
+              see PageHeader, which does the same for every other view. */}
+          <div className="hidden items-center gap-2.5 md:flex">
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
               <FolderKanban size={18} />
             </div>

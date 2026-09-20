@@ -35,23 +35,17 @@ export const BacklogView: React.FC = () => {
 
   const filtered = sorted.filter((g) => platformFilter === 'all' || g.platform === platformFilter);
 
-  const potentialAchievements = backlogGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
-
   const startLabel = `Start ${collectionName(PLAYING_COLLECTION_ID, collections).toLowerCase()}`;
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+      {/* How many are queued, and nothing else. A count of the awards waiting
+          inside them measured the size of the job rather than the queue, and it
+          only ever grew. */}
       <PageHeader
         icon={<Hourglass size={18} />}
         title={collectionName(BACKLOG_COLLECTION_ID, collections)}
-        stats={[
-          { key: 'queued', label: 'in queue', value: String(backlogGames.length) },
-          {
-            key: 'unlockable',
-            label: 'still to unlock',
-            value: String(potentialAchievements),
-          },
-        ]}
+        stats={[{ key: 'queued', label: 'in queue', value: String(backlogGames.length) }]}
       />
 
       <IntroNotice id="backlog">

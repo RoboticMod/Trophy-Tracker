@@ -285,6 +285,23 @@ export const AppLayout: React.FC = () => {
     if (!syncing && isOnline) void sync.syncEverything();
   };
 
+  /**
+   * The name of the page being looked at, for the phone header.
+   *
+   * Read from the full named list rather than from `navItems`, which has had
+   * the three shelves folded out of it on a phone — they are still reachable
+   * through Collections, and a page you can open is a page whose name the
+   * header has to be able to say. A custom label from Settings comes with it,
+   * since `named` has already been applied.
+   */
+  const pageTitle =
+    rawNavItems.map(named).find((item) => item.path === location.pathname)?.name ??
+    (location.pathname === '/settings'
+      ? 'Settings'
+      : location.pathname === '/setup'
+        ? 'Set up your library'
+        : APP_NAME);
+
   // The mobile bar has room for four destinations. Everything past them lives
   // in the "More" sheet, so no enabled page is unreachable on a phone.
   const mobilePrimary = navItems.slice(0, 4);
@@ -459,13 +476,14 @@ export const AppLayout: React.FC = () => {
             <ChevronLeft size={18} />
           </Button>
 
-          <NavLink
-            to="/"
-            aria-label={`${APP_NAME} home`}
-            className="min-w-0 rounded-md transition-opacity hover:opacity-80"
-          >
-            <Wordmark size="sm" />
-          </NavLink>
+          {/* The page's own title, in the one part of a phone screen that does
+              not scroll. The lockup was here, and on a phone it said the one
+              thing you already know — which app you are in — while the thing
+              you do not, the page you are on, scrolled away with the content.
+              Home is still a tap away in the bar along the bottom. */}
+          <h1 className="min-w-0 truncate px-1 text-200 font-bold tracking-tight text-gray-1000">
+            {pageTitle}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <Button

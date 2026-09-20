@@ -1,14 +1,16 @@
-import { Platform, UserGame } from '../types';
-import { comparePlatformOrder } from './constants';
+import { UserGame } from '../types';
 import { completionRatio } from './completion';
 
 /**
  * Every way a list of games can be ordered. Views offer a subset — completion
  * means nothing on a page where everything is already at 100%, and unlock count
  * means little on one where most games sit at zero.
+ *
+ * Platform is not one of them. Every grid already splits into a Steam section
+ * and a PlayStation one, so choosing it sorted a page into the order it was
+ * going to be shown in anyway.
  */
 export type GameSortOption =
-  | 'platform'
   | 'recent'
   | 'achievement-rating-desc'
   | 'hours-desc'
@@ -20,7 +22,6 @@ export type GameSortOption =
 
 /** Option labels, so two views offering the same sort never word it differently. */
 export const SORT_LABELS: Record<GameSortOption, string> = {
-  platform: 'Platform',
   recent: 'Recently played',
   'achievement-rating-desc': 'Achievement rating: highest first',
   'hours-desc': 'Playtime: most hours',
@@ -64,17 +65,8 @@ function byCompletionDate(a: UserGame, b: UserGame, newestFirst: boolean): numbe
  * so a chosen order carries through each section rather than applying to only
  * one of them.
  */
-export function compareGames(
-  a: UserGame,
-  b: UserGame,
-  sortBy: GameSortOption,
-  platformOrder?: Platform[],
-): number {
+export function compareGames(a: UserGame, b: UserGame, sortBy: GameSortOption): number {
   switch (sortBy) {
-    case 'platform': {
-      const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-      return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
-    }
     case 'achievement-rating-desc':
       return (b.achievementRating || 0) - (a.achievementRating || 0);
     case 'hours-desc':

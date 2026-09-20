@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
+import { useIsPhone } from '../../lib/useMediaQuery';
 
 /**
  * The title block every library page opens with.
@@ -50,37 +51,57 @@ export const PageHeader: React.FC<{
   action,
   stats,
   className,
-}) => (
-  <div className={cn('space-y-3 border-b border-gray-200 pb-5', className)}>
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div
-          className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
-            iconClassName,
-          )}
-        >
-          {icon}
-        </div>
-        <h1 className="min-w-0 text-600 font-bold tracking-tight text-gray-1000">{title}</h1>
-        {badge}
-      </div>
+}) => {
+  /**
+   * A phone reads its page title from the app header, which is fixed and so
+   * says where you are however far down the page you have scrolled. Repeating
+   * it here would state the same thing twice, a line apart, and cost a phone
+   * the top of every page to do it.
+   *
+   * The figures and the controls stay: neither is a title, and neither is
+   * anywhere else.
+   */
+  const phone = useIsPhone();
+  if (phone && !stats?.length && !action) return null;
 
-      {action}
-    </div>
-
-    {/* Number first, then what it counts. A row of these scans as figures with
-        captions rather than as sentences with numbers buried in them. */}
-    {stats?.length ? (
-      <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-        {stats.map((stat) => (
-          <div key={stat.key} className="flex items-baseline gap-1.5">
-            <dd className="text-300 font-bold tabular-nums text-gray-1000">{stat.value}</dd>
-            <dt className="eyebrow text-gray-600">{stat.label}</dt>
-            {stat.breakdown}
+  return (
+    <div className={cn('space-y-3 border-b border-gray-200 pb-5', className)}>
+      {phone ? (
+        action ? (
+          <div className="flex justify-end">{action}</div>
+        ) : null
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+                iconClassName,
+              )}
+            >
+              {icon}
+            </div>
+            <h1 className="min-w-0 text-600 font-bold tracking-tight text-gray-1000">{title}</h1>
+            {badge}
           </div>
-        ))}
-      </dl>
-    ) : null}
-  </div>
-);
+
+          {action}
+        </div>
+      )}
+
+      {/* Number first, then what it counts. A row of these scans as figures with
+          captions rather than as sentences with numbers buried in them. */}
+      {stats?.length ? (
+        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+          {stats.map((stat) => (
+            <div key={stat.key} className="flex items-baseline gap-1.5">
+              <dd className="text-300 font-bold tabular-nums text-gray-1000">{stat.value}</dd>
+              <dt className="eyebrow text-gray-600">{stat.label}</dt>
+              {stat.breakdown}
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  );
+};

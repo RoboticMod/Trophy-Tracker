@@ -4,7 +4,6 @@ import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
 import { PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
-import { formatHours, sumHours } from '../lib/format';
 import { IntroNotice } from '../components/IntroNotice';
 import { Badge, EmptyState, PageHeader } from '../components/ui';
 
@@ -23,26 +22,17 @@ export const CurrentlyPlayingView: React.FC = () => {
     [games, platformOrder],
   );
 
-  const totalHours = sumHours(playingGames);
-  const unlocked = playingGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
-  const possible = playingGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
-
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+      {/* One figure: how many games are on the go. The hours and the unlock
+          tally that used to sit beside it are on every card below, and a
+          running total of either is not what this page is opened for. */}
       <PageHeader
         icon={<Play size={18} />}
         iconClassName="bg-accent-700/16 text-accent-900"
         title={collectionName(PLAYING_COLLECTION_ID, collections)}
         badge={<Badge tone="accent">{playingGames.length} active</Badge>}
-        stats={[
-          { key: 'titles', label: 'active titles', value: String(playingGames.length) },
-          { key: 'hours', label: 'logged', value: `${formatHours(totalHours)}h` },
-          {
-            key: 'unlocks',
-            label: `unlocked (${possible > 0 ? Math.round((unlocked / possible) * 100) : 0}%)`,
-            value: `${unlocked} / ${possible}`,
-          },
-        ]}
+        stats={[{ key: 'titles', label: 'active titles', value: String(playingGames.length) }]}
       />
 
       <IntroNotice id="playing">

@@ -268,8 +268,17 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       )}
 
       {/* Cover ------------------------------------------------------------- */}
-      <div className="relative aspect-[16/9] w-full rounded-t-lg bg-gray-25">
-        <div className="absolute inset-0 overflow-hidden rounded-t-lg">
+      {/* On a phone the artwork is the whole card, so it is rounded on all four
+          corners rather than opening a panel below it. */}
+      <div
+        className={cn(
+          'relative aspect-[16/9] w-full bg-gray-25',
+          phone ? 'rounded-lg' : 'rounded-t-lg',
+        )}
+      >
+        <div
+          className={cn('absolute inset-0 overflow-hidden', phone ? 'rounded-lg' : 'rounded-t-lg')}
+        >
           <CoverArt
             src={game.coverImage}
             title={game.title}
@@ -295,7 +304,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             wide enough for a row of them — left to run the full width they
             slid underneath those two buttons and were clipped mid-word. */}
         <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%_-_2.75rem)] flex-wrap items-center gap-1 sm:left-3 sm:top-3 sm:max-w-[calc(100%_-_5.5rem)] sm:gap-1.5">
-          {!hidePlatform && (
+          {/* Kept on a phone even inside a platform section: that heading is
+              the only other thing saying which platform a game is on, and on a
+              phone it has scrolled off the top long before the cards below it
+              have. */}
+          {(!hidePlatform || phone) && (
             <OverlayBadge square tint={platform.tint} title={platform.name}>
               <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
             </OverlayBadge>
@@ -346,7 +359,10 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
         {/* Completion emblem: a round disc carrying the platform's own trophy
             artwork, ringed in gold so it reads as an award rather than a chip. */}
-        {isMastered && (
+        {/* Not on a phone: the bottom-right corner is where the progress
+            overlay now sits, and the gold rim around the card already says the
+            game is finished. */}
+        {isMastered && !phone && (
           // Below the card-wide info button rather than above it: a medal in
           // the corner of a clickable card should not be the one patch of it
           // that does nothing when clicked.
@@ -372,10 +388,14 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
               from across the grid before the digits are. Bare inside it: the
               scrim is already the box, and a second outline nested within the
               first only adds clutter. */}
+          {/* A disc on a wide card; a compact rectangle on a phone, where it is
+              one of four things left on the tile and a 28px circle beside a
+              square platform mark made the two corners disagree. */}
           {game.rating ? (
             <OverlayBadge
-              circle
-              size={28}
+              circle={!phone}
+              compact={phone}
+              size={phone ? undefined : 28}
               // Ring and bloom in one inline shadow: the colour is computed from
               // the score, so there is no token class to reach for.
               style={{
@@ -401,88 +421,111 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           </button>
         </div>
 
+        {/* Progress, on a phone ---------------------------------------------- */}
+        {/* Half a phone screen is not enough room to say much, so the card says
+            only the two things a library is scanned for: how far through the
+            list this game is, and what it scored. Both sit straight on the
+            artwork's own scrim — the panel that used to carry them was a second
+            surface for one line of text. */}
+        {phone ? (
+          <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1.5">
+            <div className="flex items-baseline gap-1 text-75 font-bold tabular-nums text-gray-1000">
+              <span>
+                {game.achievementsUnlocked} / {game.achievementsTotal}
+              </span>
+              <span className="font-normal text-gray-800">({progress}%)</span>
+            </div>
+
+            <Meter
+              value={progress}
+              tone={progress === 100 ? 'trophy' : 'accent'}
+              label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
+            />
+          </div>
+        ) : null}
+
         {/* Title ------------------------------------------------------------ */}
         {/* The completion emblem sits in the bottom-right corner, so on a
             finished game the text keeps clear of it rather than running
-            underneath. */}
-        <div
-          className={cn(
-            'pointer-events-none absolute inset-x-2.5 bottom-2 z-10 sm:inset-x-3.5 sm:bottom-2.5',
-            isMastered && 'pr-12',
-          )}
-        >
-          {/* A long name gets a second line before it gets any movement:
-              reading a wrapped title takes no time at all, where reading a
-              scrolling one takes as long as the scroll. Only a name too long
-              for even two lines scrolls, on hover, to show the rest. The block
-              is anchored to the bottom of the artwork, so the extra line grows
-              up into the scrim rather than changing the card's height. */}
-          <h3 className="text-100 font-bold tracking-tight text-gray-1000 sm:text-200">
-            <MarqueeText trigger="hover" lines={2}>
-              {game.title}
-            </MarqueeText>
-          </h3>
-          <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              {formatHours(game.hoursPlayed)}h played
-            </span>
+            underneath. Gone on a phone along with everything else the artwork
+            itself already says — the name is a tap away in the details dialog,
+            and it is what the card's own button announces. */}
+        {phone ? null : (
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-x-2.5 bottom-2 z-10 sm:inset-x-3.5 sm:bottom-2.5',
+              isMastered && 'pr-12',
+            )}
+          >
+            {/* A long name gets a second line before it gets any movement:
+                reading a wrapped title takes no time at all, where reading a
+                scrolling one takes as long as the scroll. Only a name too long
+                for even two lines scrolls, on hover, to show the rest. The block
+                is anchored to the bottom of the artwork, so the extra line grows
+                up into the scrim rather than changing the card's height. */}
+            <h3 className="text-100 font-bold tracking-tight text-gray-1000 sm:text-200">
+              <MarqueeText trigger="hover" lines={2}>
+                {game.title}
+              </MarqueeText>
+            </h3>
+            <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {formatHours(game.hoursPlayed)}h played
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Progress ---------------------------------------------------------- */}
       {/* Always the same three lines — label, count, meter — whatever the
           state. The count used to share the label's line and wrap below it only
           when the long completion announcement needed the room, so finished
-          cards stood taller than the rest of their row. */}
-      <div className="mt-auto space-y-1.5 p-2.5 sm:space-y-2 sm:p-4">
-        <div
-          className={cn(
-            'eyebrow flex min-w-0 items-center gap-1.5',
-            isMastered ? 'text-trophy-900' : 'text-gray-600',
-          )}
-        >
-          {/* The platform's own award, dimmed until it is actually earned. */}
-          <TrophyBadge platform={game.platform} size={16} muted={!isMastered} />
-          <span className="truncate" title={awardLabel}>
-            {awardLabel}
-          </span>
-        </div>
+          cards stood taller than the rest of their row.
 
-        <div className="flex h-4 items-center gap-1.5 text-75 font-bold tabular-nums text-gray-900">
-          {/* The badge rides this row on a phone, where the labelled line above
-              is hidden — so the count still says which awards it is counting. */}
-          <TrophyBadge
-            platform={game.platform}
-            size={14}
-            muted={!isMastered}
-            className="sm:hidden"
+          A phone gets none of this panel: its two figures are over the artwork
+          above, and the surface they sat on is the background being dropped. */}
+      {phone ? null : (
+        <div className="mt-auto space-y-2 p-4">
+          <div
+            className={cn(
+              'eyebrow flex min-w-0 items-center gap-1.5',
+              isMastered ? 'text-trophy-900' : 'text-gray-600',
+            )}
+          >
+            {/* The platform's own award, dimmed until it is actually earned. */}
+            <TrophyBadge platform={game.platform} size={16} muted={!isMastered} />
+            <span className="truncate" title={awardLabel}>
+              {awardLabel}
+            </span>
+          </div>
+
+          <div className="flex h-4 items-center gap-1.5 text-75 font-bold tabular-nums text-gray-900">
+            {/* Only once the list is finished, mirroring where it can be set. A
+                score shown on a game still in progress is one from an earlier
+                completion, or from before this rule, and either way it is a
+                verdict on a list this game is no longer done with. */}
+            {isMastered && game.achievementRating ? (
+              <RatingValue
+                value={game.achievementRating}
+                size="xs"
+                label={`${awardNoun(game.platform)} rated`}
+              />
+            ) : null}
+            <span>
+              {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
+              <span className="font-normal text-gray-600">({progress}%)</span>
+            </span>
+          </div>
+
+          <Meter
+            value={progress}
+            tone={progress === 100 ? 'trophy' : 'accent'}
+            label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
           />
-
-          {/* Only once the list is finished, mirroring where it can be set. A
-              score shown on a game still in progress is one from an earlier
-              completion, or from before this rule, and either way it is a
-              verdict on a list this game is no longer done with. */}
-          {isMastered && game.achievementRating ? (
-            <RatingValue
-              value={game.achievementRating}
-              size="xs"
-              label={`${awardNoun(game.platform)} rated`}
-            />
-          ) : null}
-          <span>
-            {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
-            <span className="font-normal text-gray-600">({progress}%)</span>
-          </span>
         </div>
-
-        <Meter
-          value={progress}
-          tone={progress === 100 ? 'trophy' : 'accent'}
-          label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
-        />
-      </div>
+      )}
 
       {/* Lifted above the info button, so a view's own action — starting a
           backlog game — stays clickable rather than opening the dialog. */}

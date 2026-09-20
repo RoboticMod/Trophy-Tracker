@@ -30,12 +30,16 @@ interface MetricCardProps {
  * row beneath it. Given three or four of these side by side, a separate row for
  * two small figures left the cards mostly empty space.
  *
- * The emblem is set against the right edge and centred on the card's full
- * height rather than tucked into the top corner. In the corner it shared a line
- * with the label and left the whole lower right of the card empty; centred, it
- * balances the number and reads as the card's mark. It is also given a well
- * comfortably larger than the artwork inside it, so the glyph has room to
- * breathe instead of filling its box edge to edge.
+ * The padding is the card's own, passed with `bare`: `cn` is a plain join, so a
+ * `p-3.5` handed to Card does not override its default `p-5` — it only loses to
+ * whichever of the two Tailwind happened to emit last, which is `p-5`.
+ *
+ * Everything is centred on the card's own height, and the emblem is a column of
+ * the row rather than a mark pinned to a corner. These sit in a grid beside the
+ * library gauge, which is the taller thing in the row, so the cards are stretched
+ * well past the height their content needs: hugging the top edge, the figures
+ * left the lower half of every card empty and the emblem floating away from the
+ * number it belongs to. Centred, the card reads at any height the row gives it.
  */
 export const MetricCard: React.FC<MetricCardProps> = ({
   icon,
@@ -44,37 +48,37 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   label,
   breakdown,
 }) => (
-  <Card className="relative flex flex-col gap-1 p-3 sm:gap-2 sm:p-4">
-    {/* The emblem sits in the corner rather than in a column of its own.
-        Centred against the card's full height it claimed a share of the width
-        at every size, which on a phone left the label about seventy pixels to
-        live in — "Active unlocks (64%)" came out as "Active unl…". Out of the
-        flow, the text gets the whole card and only has to keep clear of one
-        corner. */}
-    <div className="eyebrow min-w-0 pr-10 text-gray-600 line-clamp-2 sm:truncate sm:pr-12">
-      {label}
-    </div>
+  <Card bare className="flex items-center gap-3 p-3.5 sm:gap-4 sm:p-4">
+    <div className="min-w-0 flex-1 space-y-1.5">
+      <div className="eyebrow truncate text-gray-600">{label}</div>
 
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-3">
-      <span className="text-500 font-bold leading-none tabular-nums text-gray-1000 sm:text-700">
-        {value}
-      </span>
-
-      {breakdown?.length ? (
-        <span className="flex items-center gap-3">
-          {breakdown.map((entry) => (
-            <span key={entry.key} className="flex items-center gap-1.5" title={entry.title}>
-              {entry.icon}
-              <span className="text-75 font-bold tabular-nums text-gray-700">{entry.count}</span>
-            </span>
-          ))}
+      {/* Centred rather than sharing a baseline: an icon paired with a small
+          digit sits optically low beside a numeral this size, which read as the
+          split having slipped off the line. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-500 font-bold leading-none tabular-nums text-gray-1000 sm:text-600">
+          {value}
         </span>
-      ) : null}
+
+        {breakdown?.length ? (
+          <span className="flex items-center gap-2.5">
+            {breakdown.map((entry) => (
+              <span key={entry.key} className="flex items-center gap-1.5" title={entry.title}>
+                {entry.icon}
+                <span className="text-75 font-bold tabular-nums text-gray-700">{entry.count}</span>
+              </span>
+            ))}
+          </span>
+        ) : null}
+      </div>
     </div>
 
+    {/* A column of its own, which it can afford now that these are one per row
+        on a phone — the crowding that put it in the corner was a card sharing a
+        phone's width with another. */}
     <div
       className={cn(
-        'absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-md sm:h-9 sm:w-9 sm:rounded-lg',
+        'flex h-9 w-9 shrink-0 items-center justify-center rounded-md sm:h-10 sm:w-10 sm:rounded-lg',
         tone,
       )}
     >

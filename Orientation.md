@@ -131,6 +131,11 @@ send CORS headers and the Steam key must not ship in the bundle.
 - **Class strings must be literal.** Tailwind v4 scans source text, so a class
   built by concatenation is dropped at build time with no error. This is why the
   colour maps in `lib/collections.ts` are written out per id.
+
+- **`cn` joins, it does not merge.** Pass a `p-3.5` to a component applying its
+  own `p-5` and both land in the list: the winner is whichever Tailwind emitted
+  last, which is the larger value. A variant is a prop (`OverlayBadge`'s
+  `compact`, `Card`'s `bare`), never an override from outside.
 - **Custom properties need `@property` to animate**, or they jump between
   keyframes — see the marquee edge fades.
 
@@ -177,27 +182,39 @@ papercuts grown around the old one. Landed:
 - Page descriptions became dismissable `IntroNotice` banners, synced to the profile.
 - Adding a game no longer writes RAWG's community score as your rating.
 
-Then a second pass, on what the first one left rough:
-
-- A card lists **every** collection a game is in, shelf first, not just the shelf.
-  The collections page shows only your own lists, since each shelf has a page
-  already, and the edit dialog's two pickers became one.
-- The achievement rating is asked for, and shown, only at 100% — it is a verdict
-  on a whole list and cannot honestly be given part-way through.
-- PS5 trophy counts can include add-on groups (`usePsnTrophyScope`).
-- `GameMovedDialog`: when the app re-files a game itself, it says so.
-- Home replaced Library; the wordmark links to it; the rating track has ticks.
-- Phones get a single collections sheet in place of the chip row.
-
-A third pass: phones fold the three shelves into Collections (`CollectionsList`)
-and the library is two `GameCard`s per row rather than four portrait tiles.
+A second pass, on what the first left rough: a card lists **every** collection a
+game is in, shelf first; the achievement rating is asked for only at 100%, being
+a verdict on a whole list; PS5 counts can include add-on groups
+(`usePsnTrophyScope`); `GameMovedDialog` says so when the app re-files a game
+itself; Home replaced Library; and phones got one collections sheet in place of
+the chip row. A third: phones fold the three shelves into Collections
+(`CollectionsList`) and the library is two `GameCard`s per row.
 
 A fourth: the Playing / 100% / Backlog summary bands became a stat strip under
 the page title, through `PageHeader`'s `stats` slot — they had drifted into three
-different shapes, and on a wide screen they were mostly void. `MetricCard` now
-puts its emblem in the corner rather than in a column of its own, `grid-metrics`
-is one per row on a phone, and the card sheds its chips, playtime and award
-label there. The star is retired: see below.
+different shapes, and on a wide screen they were mostly void. `grid-metrics` is
+one per row on a phone — which is what later let `MetricCard` give its emblem a
+column again — and the card sheds its chips there. The star is retired: see
+below.
+
+A fifth pass cut each surface down to what it is read for:
+
+- **Figures count games, not unlocks.** Statistics' platform rows end in the
+  perfected count alone, Home's gauge caption counts the games its arc speaks
+  for, and Playing and Backlog state one figure each — the hours and running
+  unlock totals were on every card below anyway.
+- **`MetricCard` centres on its own height** and gives the emblem a column —
+  stretched to the gauge beside it, the lower half of every box was void.
+- **Platform is no longer a sort.** `GameSortOption` has no `'platform'` and
+  `compareGames` takes no `platformOrder`: every grid splits into platform
+  sections already. The Settings card stays — it orders those sections.
+- **A phone card is the artwork**: platform mark, a compact rectangular score,
+  and the count and meter on the art's own scrim. No panel, title, hours, award
+  label or emblem — the name is what the card's button announces.
+- **A phone reads its page title from the fixed app header**, where the lockup
+  was. `PageHeader` draws no title below `md`, and nothing at all when it has
+  neither figures nor controls; `CollectionsView` and `SettingsView` hide their
+  hand-rolled ones the same way.
 
 ### Conventions worth keeping
 

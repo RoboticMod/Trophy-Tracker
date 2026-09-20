@@ -479,11 +479,15 @@ export const SettingsView: React.FC = () => {
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-10">
       <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-200 text-gray-800">
+        {/* Mark and title off on a phone: the app header names the page, and
+            repeating it a line below cost the top of the screen. */}
+        <div className="hidden h-10 w-10 items-center justify-center rounded-md bg-gray-200 text-gray-800 md:flex">
           <Settings size={20} />
         </div>
         <div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Settings</h1>
+          <h1 className="hidden text-600 font-bold tracking-tight text-gray-1000 md:block">
+            Settings
+          </h1>
           <p className="text-75 text-gray-700">
             Your account, the accounts you have linked, how the app looks and where your
             library is kept.
@@ -701,7 +705,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Sliders size={18} />}
           title="Platform order"
-          description={`Used by the "Platform" sort in every library view — currently ${describePlatformOrder(platformOrder)}`}
+          description={`The order the platform sections run in, in every library view and in Statistics — currently ${describePlatformOrder(platformOrder)}`}
           iconClassName="bg-gray-200 text-gray-800"
           action={
             platformOrder.join() !== DEFAULT_PLATFORM_SORT_ORDER.join() ? (

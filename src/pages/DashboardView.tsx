@@ -49,11 +49,6 @@ import { CollectionsSheet } from '../components/CollectionsSheet';
 
 type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 
-/**
- * Platform is not offered here: the grid already groups into a Steam section
- * and a PlayStation one, so ordering by platform sorted the page into an order
- * it was going to be shown in anyway.
- */
 const SORT_OPTIONS = [
   'title-asc',
   'recent',
@@ -149,7 +144,7 @@ export const DashboardView: React.FC = () => {
       ),
     [games],
   );
-  const { unlocked, unlockable, percent: completion } = aggregateCompletion(gaugeGames);
+  const { percent: completion } = aggregateCompletion(gaugeGames);
 
   const processedGames = useMemo(() => {
     const result = games.filter((g) => {
@@ -176,18 +171,10 @@ export const DashboardView: React.FC = () => {
       return true;
     });
 
-    result.sort((a, b) => compareGames(a, b, sortBy, platformOrder));
+    result.sort((a, b) => compareGames(a, b, sortBy));
 
     return result;
-  }, [
-    games,
-    activePlatformFilter,
-    activeCollectionFilter,
-    ratingFilter,
-    localSearch,
-    sortBy,
-    platformOrder,
-  ]);
+  }, [games, activePlatformFilter, activeCollectionFilter, ratingFilter, localSearch, sortBy]);
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
@@ -214,7 +201,10 @@ export const DashboardView: React.FC = () => {
             suffix="%"
             verdict={completionLabel(completion)}
             color={completionColor(completion)}
-            caption={`${formatCount(unlocked)} of ${formatCount(unlockable)} across playing, backlog and 100%`}
+            // Games, not unlocks: the arc measures how far through the awards
+            // you are, and the caption says how much of the library that arc
+            // is speaking for.
+            caption={`${formatCount(gaugeGames.length)} games across playing, backlog and 100%`}
             size={88}
           />
         </Card>

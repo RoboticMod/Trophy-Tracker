@@ -5,7 +5,7 @@ import { IntroNotice } from '../components/IntroNotice';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
-import { PLATFORMS, describePlatformOrder } from '../lib/constants';
+import { PLATFORMS } from '../lib/constants';
 import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
 import { isPerfect } from '../lib/completion';
 import { oneOf } from '../lib/usePersistentState';
@@ -20,7 +20,6 @@ import { EmptyState, FilterChip, PageHeader, Select } from '../components/ui';
 const SORT_OPTIONS = [
   'completed-desc',
   'completed-asc',
-  'platform',
   'recent',
   'unlocked-desc',
   'achievement-rating-desc',
@@ -51,8 +50,8 @@ export const AchievementsView: React.FC = () => {
     () =>
       completedGames
         .filter((g) => selectedPlatform === 'all' || g.platform === selectedPlatform)
-        .sort((a, b) => compareGames(a, b, sortBy, platformOrder)),
-    [completedGames, selectedPlatform, sortBy, platformOrder],
+        .sort((a, b) => compareGames(a, b, sortBy)),
+    [completedGames, selectedPlatform, sortBy],
   );
 
   const totalUnlocked = completedGames.reduce((acc, g) => acc + (g.achievementsUnlocked || 0), 0);
@@ -115,10 +114,7 @@ export const AchievementsView: React.FC = () => {
               onChange={setSortBy}
               options={SORT_OPTIONS.map((option) => ({
                 value: option,
-                label:
-                  option === 'platform'
-                    ? `Platform (${describePlatformOrder(platformOrder)})`
-                    : SORT_LABELS[option],
+                label: SORT_LABELS[option],
               }))}
             />
           </div>

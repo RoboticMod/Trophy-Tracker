@@ -24,6 +24,7 @@ import {
 import { aggregateCompletion, completionPercent, isPerfect } from '../lib/completion';
 import { backlogLabel, completionColor } from '../lib/rating';
 import { formatCount, formatHours, relativeTime, sumHours } from '../lib/format';
+import { cn } from '../lib/cn';
 import { PLATFORM_IDS } from '../types';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
@@ -128,14 +129,12 @@ export const StatsView: React.FC = () => {
     () =>
       PLATFORM_IDS.map((p) => {
         const pGames = games.filter((g) => g.platform === p);
-        const { unlocked, unlockable, percent } = aggregateCompletion(pGames);
+        const { percent } = aggregateCompletion(pGames);
         return {
           platform: p,
           config: PLATFORMS[p],
           count: pGames.length,
           hours: sumHours(pGames),
-          achievements: unlocked,
-          maxAchievements: unlockable,
           completionRate: percent,
           perfectCount: pGames.filter(isPerfect).length,
         };
@@ -296,19 +295,28 @@ export const StatsView: React.FC = () => {
                   </div>
                 </div>
 
+                {/* What a platform is scanned for here is how many of its games
+                    are finished. The running achievement total that used to sit
+                    beside it was the page's least actionable figure, and the
+                    meter below already carries the completion share.
+
+                    Shown at zero as well, dimmed: one platform's row ending in
+                    a figure and the other's ending in nothing reads as a bug
+                    rather than as a score of none. */}
                 <div className="flex items-center gap-3 font-bold tabular-nums text-gray-700">
-                  {stat.perfectCount > 0 && (
-                    <span
-                      className="flex items-center gap-1.5 text-trophy-900"
-                      title={`${stat.perfectCount} ${trophyLabel(stat.platform)}`}
-                    >
-                      <TrophyBadge platform={stat.platform} size={18} />
-                      <span className="text-50">{stat.perfectCount}</span>
-                    </span>
-                  )}
-                  <span>
-                    {formatCount(stat.achievements)}/{formatCount(stat.maxAchievements)} (
-                    {stat.completionRate}%)
+                  <span
+                    className={cn(
+                      'flex items-center gap-1.5',
+                      stat.perfectCount > 0 ? 'text-trophy-900' : 'text-gray-600',
+                    )}
+                    title={`${stat.perfectCount} ${trophyLabel(stat.platform)}`}
+                  >
+                    <TrophyBadge
+                      platform={stat.platform}
+                      size={18}
+                      muted={stat.perfectCount === 0}
+                    />
+                    <span className="text-50">{stat.perfectCount}</span>
                   </span>
                 </div>
               </div>
