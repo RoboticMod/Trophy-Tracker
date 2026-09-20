@@ -15,6 +15,7 @@ import { BacklogView } from './pages/BacklogView';
 import { CollectionsView } from './pages/CollectionsView';
 import { StatsView } from './pages/StatsView';
 import { SettingsView } from './pages/SettingsView';
+import { SetupView } from './pages/SetupView';
 
 /** Shown instead of a broken app when Supabase credentials are absent. */
 function SetupNotice() {
@@ -69,6 +70,7 @@ function AuthenticatedApp() {
             <Route path="collections" element={<CollectionsView />} />
             <Route path="stats" element={<StatsView />} />
             <Route path="settings" element={<SettingsView />} />
+            <Route path="setup" element={<SetupView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

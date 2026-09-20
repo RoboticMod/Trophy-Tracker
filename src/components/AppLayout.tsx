@@ -94,6 +94,7 @@ export const AppLayout: React.FC = () => {
     isOnline,
     pendingWrites,
     error,
+    needsSetup,
     dismissError,
     loading,
     follow,
@@ -443,6 +444,18 @@ export const AppLayout: React.FC = () => {
           air. It used to be pt-32, which cleared the header twice over and
           started every page a third of a screen down. */}
       <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-20 sm:px-6 md:py-8 2xl:px-10">
+        {/* An account with nothing saved yet is not a failure, and saying so
+            was alarming and untrue. A genuine network problem still gets
+            today's wording; a first sign-in gets a way forward instead. */}
+        {needsSetup && !error && location.pathname !== '/setup' ? (
+          <div className="mx-auto mb-5 flex max-w-[1760px] flex-wrap items-center gap-3 rounded-md border border-accent-700/45 bg-accent-700/12 p-3 text-75 font-semibold text-accent-900 backdrop-blur-sm">
+            <span className="flex-1">Your library isn’t set up yet.</span>
+            <Button variant="accent" size="s" onClick={() => navigate('/setup')}>
+              Go to setup
+            </Button>
+          </div>
+        ) : null}
+
         {error ? (
           <div
             role="alert"
