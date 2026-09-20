@@ -30,6 +30,22 @@ export function relativeTime(iso: string | undefined | null): string {
 /** "1,204" — thousands separators for counts large enough to need scanning. */
 export const formatCount = (value: number): string => value.toLocaleString();
 
+/**
+ * A full calendar date, in the reader's own locale — "12 Aug 2024".
+ *
+ * An em dash for nothing rather than an empty cell: a figure that is absent and
+ * one that failed to format look the same either way, and a dash at least holds
+ * the line's shape.
+ */
+export const formatDate = (iso: string | null | undefined): string =>
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
+
 /* -------------------------------------------------------------------------- */
 /* Playtime                                                                    */
 /* -------------------------------------------------------------------------- */

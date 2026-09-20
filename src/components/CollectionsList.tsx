@@ -121,18 +121,31 @@ const CollectionListRow: React.FC<{
       <ChevronRight size={18} className="shrink-0 text-gray-600" />
     </div>
 
-    {/* Posters only, no figures: this is a glance at what is inside, and a
-        count or a meter under each one would turn it back into the list of
-        rows the page is trying not to be. */}
+    {/* Posters and their names, no figures: this is a glance at what is
+        inside, and a count or a meter under each one would turn it back into
+        the list of rows the page is trying not to be. A name is not a figure —
+        it is what makes the glance answerable for art you do not already
+        recognise, which is most of it. */}
     {games.length > 0 ? (
       <div className="mt-3 flex gap-2 overflow-hidden">
         {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <CoverArt
+          <span
             key={game.id}
-            src={game.coverImage}
-            title={game.title}
-            className="aspect-video w-24 shrink-0 rounded-sm border border-gray-300/60 object-cover object-center"
-          />
+            className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-sm border border-gray-300/60"
+          >
+            <CoverArt
+              src={game.coverImage}
+              title={game.title}
+              className="h-full w-full object-cover object-center"
+            />
+            <span
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-gray-25/95 via-gray-25/45 to-transparent"
+            />
+            <span className="absolute inset-x-1 bottom-0.5 block truncate text-50 font-semibold text-gray-1000 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]">
+              {game.title}
+            </span>
+          </span>
         ))}
       </div>
     ) : null}

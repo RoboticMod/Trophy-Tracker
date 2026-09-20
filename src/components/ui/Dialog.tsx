@@ -24,6 +24,34 @@ interface DialogProps {
 }
 
 /**
+ * How many dialogs currently hold the page's scroll, and what it was before the
+ * first of them took it.
+ *
+ * Each dialog used to save and restore `document.body.style.overflow` itself,
+ * which is correct for one at a time and wrong the moment a second opens: the
+ * first to close restores the page's scroll while the second is still up. That
+ * became reachable when a dialog gained a button opening another one — and
+ * because the exit animation outlives the close, *which* one closes first is a
+ * matter of timing rather than of order. Counted here instead: the lock goes on
+ * with the first and comes off with the last.
+ */
+let scrollLocks = 0;
+let scrollLockPrevious = '';
+
+const lockBodyScroll = () => {
+  if (scrollLocks === 0) {
+    scrollLockPrevious = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  scrollLocks += 1;
+};
+
+const unlockBodyScroll = () => {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (scrollLocks === 0) document.body.style.overflow = scrollLockPrevious;
+};
+
+/**
  * Modal shell shared by every dialog in the app: backdrop, escape handling,
  * body scroll lock, initial focus, and a consistent header/footer.
  */
@@ -57,13 +85,12 @@ export const Dialog: React.FC<DialogProps> = ({
     };
     document.addEventListener('keydown', onKeyDown);
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
     (initialFocusRef?.current ?? panelRef.current)?.focus();
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockBodyScroll();
     };
   }, [isOpen]);
 

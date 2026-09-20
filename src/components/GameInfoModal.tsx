@@ -21,7 +21,7 @@ import { useGame } from '../context/GameContext';
 import { useSync } from '../context/SyncContext';
 import { syncFieldsFor } from '../lib/sync';
 import { completionPercent, isPerfect } from '../lib/completion';
-import { formatCount, formatHours, relativeTime } from '../lib/format';
+import { formatCount, formatDate, formatHours, relativeTime } from '../lib/format';
 import { PERMANENT_TONE, collectionName, isPermanentCollection, permanentOf } from '../lib/collections';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
@@ -88,15 +88,6 @@ const formatPrice = (cents: number, currency: string) => {
     return `${(cents / 100).toFixed(2)} ${currency}`;
   }
 };
-
-const formatDate = (iso: string | null | undefined) =>
-  iso
-    ? new Date(iso).toLocaleDateString(undefined, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    : '—';
 
 export const GameInfoModal: React.FC<GameInfoModalProps> = ({ game, isOpen, onClose, onEdit }) => {
   if (typeof document === 'undefined' || !game) return null;

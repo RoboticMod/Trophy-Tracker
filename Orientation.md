@@ -126,12 +126,11 @@ send CORS headers and the Steam key must not ship in the bundle.
 ## Design system
 
 [`src/index.css`](src/index.css) — one `@theme` block of tokens (`--color-*`,
-`--text-*`), then utilities. Two rules worth knowing:
+`--text-*`), then utilities. Three rules worth knowing:
 
 - **Class strings must be literal.** Tailwind v4 scans source text, so a class
   built by concatenation is dropped at build time with no error. This is why the
   colour maps in `lib/collections.ts` are written out per id.
-
 - **`cn` joins, it does not merge.** Pass a `p-3.5` to a component applying its
   own `p-5` and both land in the list: the winner is whichever Tailwind emitted
   last, which is the larger value. A variant is a prop (`OverlayBadge`'s
@@ -181,43 +180,43 @@ five, a dragged sidebar order, page descriptions as dismissable `IntroNotice`
 banners — which is why a page's first rule can end up beside its second — and
 no more writing RAWG's community score in as your rating.
 
-A second pass, on what the first left rough: a card lists **every** collection a
-game is in, shelf first; the achievement rating is asked for only at 100%, being
-a verdict on a whole list; PS5 counts can include add-on groups
-(`usePsnTrophyScope`); `GameMovedDialog` says so when the app re-files a game
-itself; Home replaced Library; and phones got one collections sheet in place of
-the chip row. A third: phones fold the three shelves into Collections
-(`CollectionsList`) and the library is two `GameCard`s per row.
+Passes since then, each cutting a surface down to what it is read for. A card
+lists **every** collection a game is in, shelf first; the achievement rating is
+asked for only at 100%, being a verdict on a whole list; phones fold the three
+shelves into Collections (`CollectionsList`) and lay the library out two
+`GameCard`s per row; `grid-metrics` is one per row there, which is what let
+`MetricCard` give its emblem a column. The star is retired: see below. And:
 
-A fourth: the Playing / 100% / Backlog summary bands folded up into the page
-header, having drifted into three shapes and, on a wide screen, mostly void.
-`grid-metrics` is one per row on a phone — which is what later let `MetricCard`
-give its emblem a column again. The star is retired: see below.
-
-A fifth pass cut each surface down to what it is read for:
-
-- **Figures count games, not unlocks.** Statistics' platform rows end in the
-  perfected count alone, and Home's gauge caption counts the games its arc
-  speaks for — the running unlock totals were on every card below anyway.
-- **A page's figures are `Badge` pills beside its title** (`PageHeader`'s
-  `badge`): `6 active`, `27 queued`, `19 finished` and the two platform marks.
-  A strip underneath restated the title a line below itself.
+- **Figures count games, not unlocks**, and live as `Badge` pills beside the
+  page title: `6 active`, `27 queued`, `19 finished` and the two platform marks.
+  Statistics' platform rows end in the perfected count alone and Home's gauge
+  caption counts the games its arc speaks for.
 - **`MetricCard` centres on its own height** and gives the emblem a column —
   stretched to the gauge beside it, the lower half of every box was void.
 - **Platform is no longer a sort.** `GameSortOption` has no `'platform'` and
   `compareGames` takes no `platformOrder`: every grid splits into platform
   sections already. The Settings card stays — it orders those sections.
-- **A phone card is the artwork**: platform mark, a compact rectangular score,
-  and on the art's own scrim the name, the award mark beside its own word
-  (`awardNoun`), the count hard right, and the meter. No panel, hours or emblem,
-  and no percentage — the line fills a 166px card without it and the meter draws
-  it anyway.
+- **A phone card is the artwork**, in a 3:2 box rather than 16:9: platform mark,
+  a fixed-width score, and on the art's own scrim the name, the award mark
+  beside its own word (`awardNoun`), the count hard right, and the meter. No
+  panel, hours, emblem or percentage — the line fills a 166px card without it.
+- **The cover scrims are a share of the box, not a pixel height.** At `h-20` and
+  `h-24` they totalled 176px over a 94px phone cover — overlapping by 82px,
+  darkening every pixel of the art twice. The overlay text carries its own
+  shadow so they can stay light.
 - **A phone reads its page title, and the tab's mark, from the fixed app
-  header**, where the lockup was. `PageHeader` draws no title below `md` — only
-  pills and controls, and nothing at all without either; `CollectionsView` and
-  `SettingsView` hide their hand-rolled ones the same way.
+  header**, where the lockup was. `PageHeader` draws no title below `md`, and
+  nothing at all without pills or controls; `CollectionsView` and `SettingsView`
+  hide their hand-rolled ones the same way.
 - **One rule between sections, not two.** `PageHeader` ends in a border, so a
   filter row below it carries none — with the notice gone they sat a gap apart.
+- **A phone splits a game into two windows**: `GamePersonalModal` for what is
+  yours — hours, the last unlock, both ratings, and `notes`, which nothing had
+  ever read back — with a button stepping through to `GameInfoModal` for the
+  store page. A wide screen scrolls one column through both, as before.
+- **`Dialog`'s scroll lock is reference-counted.** Saving and restoring
+  `body.overflow` per dialog meant the first of two to close handed the page
+  back its scroll — and the exit animation makes "first" a matter of timing.
 
 ### Conventions worth keeping
 
@@ -225,10 +224,9 @@ A fifth pass cut each surface down to what it is read for:
   rating filter and read as decoration in both. `CollectionIcon` keeps
   `Sparkles` only as a key aliased to `ListPlus`, so a row saved under the old
   name still draws something sensible.
-- **A page's headline figures go in `PageHeader`'s `badge`**, as pills beside
-  the title — not in a strip under it or a band of cards below it. Both were
-  tried; both restated the title. One component means the pages cannot drift
-  apart again.
+- **A page's headline figures go in `PageHeader`'s `badge`**, never in a strip
+  under the title or a band of cards below it. Both were tried; both restated
+  the title.
 
 ### Known gaps
 

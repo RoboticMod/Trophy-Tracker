@@ -17,6 +17,7 @@ import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
 import { EditGameModal } from './EditGameModal';
 import { GameInfoModal } from './GameInfoModal';
+import { GamePersonalModal } from './GamePersonalModal';
 import { Celebration } from './Celebration';
 import { RatingValue } from './Rating';
 import { MarqueeText, Meter, OverlayBadge } from './ui';
@@ -78,6 +79,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   const { profile, collections, added, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  /**
+   * Your own record of the game, which a phone opens instead of the store
+   * page's window. A wide screen has the room to scroll one column through
+   * both, so it keeps the single dialog it has always had.
+   */
+  const [isPersonalOpen, setIsPersonalOpen] = useState(false);
 
   const [cardRef, onScreen] = useInView<HTMLDivElement>(0.5);
 
@@ -245,7 +252,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           do nothing else. */}
       <button
         type="button"
-        onClick={() => setIsInfoOpen(true)}
+        onClick={() => (phone ? setIsPersonalOpen(true) : setIsInfoOpen(true))}
         aria-label={`Game info for ${game.title}`}
         title="Open game info"
         className="absolute inset-0 z-20 rounded-lg"
@@ -269,11 +276,16 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
       {/* Cover ------------------------------------------------------------- */}
       {/* On a phone the artwork is the whole card, so it is rounded on all four
-          corners rather than opening a panel below it. */}
+          corners rather than opening a panel below it — and it is given a
+          taller box than 16:9, because half of a 16:9 phone card was overlay
+          and the picture had nowhere left to be. `object-cover` trims a little
+          off a landscape still to fill it; that is the price of the height, and
+          a far milder one than the portrait tile this repo tried and removed,
+          which cropped the same art roughly in half. */}
       <div
         className={cn(
-          'relative aspect-[16/9] w-full bg-gray-25',
-          phone ? 'rounded-lg' : 'rounded-t-lg',
+          'relative w-full bg-gray-25',
+          phone ? 'aspect-[3/2] rounded-lg' : 'aspect-[16/9] rounded-t-lg',
         )}
       >
         <div
@@ -290,9 +302,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
                 : '',
             ].join(' ')}
           />
-          {/* Scrims top and bottom guarantee overlay legibility over any art. */}
-          <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-gray-25/75 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-gray-25 via-gray-25/60 to-transparent" />
+          {/* Scrims top and bottom guarantee overlay legibility over any art.
+
+              A share of the box, not a pixel height. They were `h-20` and
+              `h-24`, measured against a wide card — on a phone, whose cover box
+              is barely taller than the bottom scrim alone, the two overlapped
+              and darkened the whole picture twice over. As fractions they cover
+              the same part of the art whatever size the card is.
+
+              The bottom one is also lighter than it was: the text over it
+              carries its own shadow now, so the gradient only has to hold the
+              last stretch behind the meter rather than the entire lower half. */}
+          <div className="absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-gray-25/70 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-gray-25/95 via-gray-25/45 to-transparent" />
 
           {/* Completion celebration: a slow specular sweep across the art. */}
           {isMastered && <div aria-hidden className="trophy-sweep" />}
@@ -396,6 +418,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
               circle={!phone}
               compact={phone}
               size={phone ? undefined : 28}
+              // One width whatever the score: "10" is two characters and "8.5"
+              // is three, and left to size themselves the boxes on two cards
+              // beside each other did not line up. Safe to pass in from here
+              // because OverlayBadge sets no min-width of its own — the height
+              // and padding could not be, which is why `compact` is a prop.
+              className={phone ? 'min-w-9' : undefined}
               // Ring and bloom in one inline shadow: the colour is computed from
               // the score, so there is no token class to reach for.
               style={{
@@ -432,7 +460,9 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             fill this line at 166px, and the meter directly below draws the same
             number. */}
         {phone ? (
-          <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1">
+          // Its own shadow, so the scrim behind it can be lighter than the one
+          // that used to carry this text on its own.
+          <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]">
             <h3 className="truncate text-75 font-bold tracking-tight text-gray-1000">
               {game.title}
             </h3>
@@ -545,6 +575,22 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       {burst !== null && <Celebration key={burst} platform={game.platform} />}
 
       <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
+
+      <GamePersonalModal
+        game={game}
+        isOpen={isPersonalOpen}
+        onClose={() => setIsPersonalOpen(false)}
+        // One closes as the other opens. Two dialogs up at once would be safe
+        // now that the scroll lock is counted, but a stack of them is not what
+        // stepping from your record to the store page is — it is the same move
+        // sideways that Edit makes.
+        onOpenStore={() => {
+          setIsPersonalOpen(false);
+          setIsInfoOpen(true);
+        }}
+        onEdit={() => setIsEditOpen(true)}
+      />
+
       <GameInfoModal
         game={game}
         isOpen={isInfoOpen}
