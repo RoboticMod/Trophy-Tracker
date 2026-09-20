@@ -641,6 +641,78 @@
   }
 }
 
+/**
+ * The two edge fades, as animatable lengths.
+ *
+ * A plain custom property cannot be animated — it is a string as far as the
+ * engine is concerned, so it would jump between keyframes. @property gives each
+ * one a type, which is what lets it be interpolated.
+ */
+@property --marquee-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 6px;
+}
+
+@property --marquee-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 6px;
+}
+
+/* The fade on the side the text is resting against, dropped so the first and
+   last characters are fully legible while the text is still.
+
+   Phase-matched to marquee-bounce: that rests at 0-18% against the start and at
+   50-68% against the far end, so each fade falls away just before its rest,
+   holds through it, and grows back as the text moves off again. Both read the
+   same --marquee-duration the component already sets, so they stay locked
+   together at any length of text. */
+@keyframes marquee-fade {
+  0%,
+  18% {
+    --marquee-fade-start: 0px;
+    --marquee-fade-end: 6px;
+  }
+  34% {
+    --marquee-fade-start: 6px;
+    --marquee-fade-end: 6px;
+  }
+  50%,
+  68% {
+    --marquee-fade-start: 6px;
+    --marquee-fade-end: 0px;
+  }
+  84%,
+  100% {
+    --marquee-fade-start: 0px;
+    --marquee-fade-end: 6px;
+  }
+}
+
+/* The same, phase-matched to marquee-bounce-instant: 0% at the start, 38-56% at
+   the far end. */
+@keyframes marquee-fade-instant {
+  0% {
+    --marquee-fade-start: 0px;
+    --marquee-fade-end: 6px;
+  }
+  22% {
+    --marquee-fade-start: 6px;
+    --marquee-fade-end: 6px;
+  }
+  38%,
+  56% {
+    --marquee-fade-start: 6px;
+    --marquee-fade-end: 0px;
+  }
+  78%,
+  100% {
+    --marquee-fade-start: 0px;
+    --marquee-fade-end: 6px;
+  }
+}
+
 /* The hover variant, which starts moving on the same frame the pointer arrives.
    The resting beat the loop above opens with is there so an always-on marquee
    can be read at a glance before it drifts; on hover it is just a delay between
@@ -677,10 +749,20 @@
       mask-image: linear-gradient(
         90deg,
         transparent 0,
-        #000 6px,
-        #000 calc(100% - 6px),
+        #000 var(--marquee-fade-start, 6px),
+        #000 calc(100% - var(--marquee-fade-end, 6px)),
         transparent 100%
       );
+    }
+
+    /* The fade animates on the outer element, the movement on the inner span,
+       so the two run independently off one shared duration. */
+    &[data-overflowing='true'][data-trigger='always'] {
+      animation: marquee-fade var(--marquee-duration, 6s) linear infinite;
+    }
+
+    .group:hover &[data-overflowing='true'][data-trigger='hover'] {
+      animation: marquee-fade-instant var(--marquee-duration, 6s) linear infinite;
     }
   }
 
@@ -706,6 +788,8 @@
   @media (prefers-reduced-motion: reduce) {
     text-overflow: ellipsis;
     mask-image: none !important;
+
+    animation: none !important;
 
     & > span {
       animation: none !important;
