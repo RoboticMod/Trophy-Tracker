@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FolderKanban, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
@@ -44,6 +44,34 @@ const ColourSwatches: React.FC<{
   </fieldset>
 );
 
+/**
+ * A save that waits for a pause in typing.
+ *
+ * The inline editor wrote to the cloud on every keystroke, so renaming a
+ * collection to "Soulsborne" was eleven writes and eleven optimistic re-renders
+ * of every game grid watching that collection. The field stays instant — it is
+ * local state — and only the write is held back.
+ */
+const SAVE_DEBOUNCE_MS = 400;
+
+function useDebouncedSave<T>(save: (value: T) => void) {
+  const timer = useRef<number | null>(null);
+  const latest = useRef(save);
+  latest.current = save;
+
+  useEffect(
+    () => () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  return useCallback((value: T) => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => latest.current(value), SAVE_DEBOUNCE_MS);
+  }, []);
+}
+
 export const CollectionsView: React.FC = () => {
   const {
     collections,
@@ -56,21 +84,41 @@ export const CollectionsView: React.FC = () => {
   } = useGame();
 
   const [activeCollectionId, setActiveCollectionId] = useState<string>('');
+  /** The collection whose delete has been asked for but not yet confirmed. */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   // Held by id rather than as a boolean, so switching tabs closes the editor
   // instead of carrying it over onto a collection you only meant to look at.
   const [editingId, setEditingId] = useState<string | null>(null);
   /** The rename in progress, which is allowed to be briefly empty. */
   const [nameDraft, setNameDraft] = useState('');
+  const [descriptionDraft, setDescriptionDraft] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(DEFAULT_COLLECTION_COLOR);
 
+  // Permanent shelves first. They are where games actually live, so they are
+  // what the tab strip should open on rather than whatever sorted first.
+  const orderedCollections = useMemo(
+    () => [
+      ...collections.filter((c) => isPermanentCollection(c.id)),
+      ...collections.filter((c) => !isPermanentCollection(c.id)),
+    ],
+    [collections],
+  );
+
   const activeCollection =
-    collections.find((c) => c.id === activeCollectionId) ?? collections[0] ?? null;
+    collections.find((c) => c.id === activeCollectionId) ?? orderedCollections[0] ?? null;
   const isEditing = activeCollection !== null && editingId === activeCollection.id;
   const isPermanent = activeCollection !== null && isPermanentCollection(activeCollection.id);
   const platformOrder = profile.platformOrder;
+
+  const saveName = useDebouncedSave<{ id: string; name: string }>((next) =>
+    updateCollection(next.id, { name: next.name }),
+  );
+  const saveDescription = useDebouncedSave<{ id: string; description?: string }>((next) =>
+    updateCollection(next.id, { description: next.description }),
+  );
 
   const collectionGames = useMemo(() => {
     if (!activeCollection) return [];
@@ -81,6 +129,23 @@ export const CollectionsView: React.FC = () => {
         return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
       });
   }, [games, activeCollection, platformOrder]);
+
+  /**
+   * Deleting the collection being looked at, and then landing somewhere real.
+   *
+   * The tab strip is about to lose a tab; without this the page would sit on an
+   * id that no longer exists and fall back to whichever collection happened to
+   * be first, which reads as the page jumping about on its own.
+   */
+  const handleDelete = () => {
+    if (!activeCollection) return;
+    deleteCollection(activeCollection.id);
+    setConfirmDeleteId(null);
+    setEditingId(null);
+    setActiveCollectionId(
+      orderedCollections.find((c) => c.id !== activeCollection.id)?.id ?? '',
+    );
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +166,6 @@ export const CollectionsView: React.FC = () => {
             </div>
             <h1 className="text-600 font-bold tracking-tight text-gray-1000">Collections</h1>
           </div>
-          <p className="text-75 text-gray-600">Custom lists across your library</p>
         </div>
 
         <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
@@ -159,7 +223,7 @@ export const CollectionsView: React.FC = () => {
 
       {/* Tabs -------------------------------------------------------------- */}
       <div className="flex flex-wrap items-center gap-2">
-        {collections.map((col) => {
+        {orderedCollections.map((col) => {
           const isSelected = activeCollection?.id === col.id;
           const count = games.filter((g) => g.collections?.includes(col.id)).length;
           return (
@@ -229,6 +293,7 @@ export const CollectionsView: React.FC = () => {
                 aria-expanded={isEditing}
                 onClick={() => {
                   setNameDraft(activeCollection.name);
+                  setDescriptionDraft(activeCollection.description ?? '');
                   setEditingId(isEditing ? null : activeCollection.id);
                 }}
               >
@@ -236,25 +301,44 @@ export const CollectionsView: React.FC = () => {
                 <span>{isEditing ? 'Done' : 'Edit'}</span>
               </Button>
 
-              {!isPermanent && (
-                <Button
-                  variant="negative"
-                  buttonStyle="outline"
-                  size="s"
-                  onClick={() => deleteCollection(activeCollection.id)}
-                >
-                  <Trash2 size={13} />
-                  <span>Delete</span>
-                </Button>
-              )}
+              {/* Deleting used to happen on a single click, with no undo and no
+                  warning — and now that every ordinary list is deletable, that
+                  click is a great deal easier to reach. The count is in the
+                  question because it is the thing people are actually afraid
+                  of: the answer is that the games stay. */}
+              {!isPermanent &&
+                (confirmDeleteId === activeCollection.id ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-75 text-gray-800">
+                      Delete “{activeCollection.name}”? The {collectionGames.length}{' '}
+                      {collectionGames.length === 1 ? 'game' : 'games'} in it stay in your library.
+                    </span>
+                    <Button variant="negative" size="s" onClick={handleDelete}>
+                      Delete
+                    </Button>
+                    <Button buttonStyle="subtle" size="s" onClick={() => setConfirmDeleteId(null)}>
+                      Keep
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="negative"
+                    buttonStyle="outline"
+                    size="s"
+                    onClick={() => setConfirmDeleteId(activeCollection.id)}
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete</span>
+                  </Button>
+                ))}
             </div>
           </div>
 
           {/* Edited in place rather than in a dialog: the tab strip above is
               where the colour actually shows, so the change is visible in the
-              same glance that makes it. Every keystroke saves — the list a
-              collection holds is untouched by any of this, so there is nothing
-              here to cancel out of. */}
+              same glance that makes it. Typing saves itself once you pause — the
+              list a collection holds is untouched by any of this, so there is
+              nothing here to cancel out of. */}
           {isEditing && (
             <div className="space-y-4 border-t border-gray-200 pt-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -271,7 +355,7 @@ export const CollectionsView: React.FC = () => {
                         // collection called nothing.
                         setNameDraft(e.target.value);
                         const next = e.target.value.trim();
-                        if (next) updateCollection(activeCollection.id, { name: next });
+                        if (next) saveName({ id: activeCollection.id, name: next });
                       }}
                       onBlur={() => setNameDraft(activeCollection.name)}
                     />
@@ -282,12 +366,14 @@ export const CollectionsView: React.FC = () => {
                   {(props) => (
                     <TextInput
                       {...props}
-                      value={activeCollection.description ?? ''}
-                      onChange={(e) =>
-                        updateCollection(activeCollection.id, {
+                      value={descriptionDraft}
+                      onChange={(e) => {
+                        setDescriptionDraft(e.target.value);
+                        saveDescription({
+                          id: activeCollection.id,
                           description: e.target.value || undefined,
-                        })
-                      }
+                        });
+                      }}
                       placeholder="What belongs in here?"
                     />
                   )}
