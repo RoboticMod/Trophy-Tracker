@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# desloppify scan state — local tooling, not part of the project.
+.desloppify/
