@@ -101,7 +101,7 @@ export const Dialog: React.FC<DialogProps> = ({
               size === 'l' ? 'max-w-4xl' : 'max-w-2xl',
             )}
           >
-            <header className="flex items-start justify-between gap-4 border-b border-gray-200 p-5">
+            <header className="flex items-start justify-between gap-4 border-b border-gray-200 p-4 sm:p-5">
               <div className="flex min-w-0 items-center gap-3">
                 {icon ? (
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-200 text-gray-800">
@@ -128,10 +128,10 @@ export const Dialog: React.FC<DialogProps> = ({
               </button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>
 
             {footer ? (
-              <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-black/25 p-4">
+              <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-black/25 p-3 sm:p-4">
                 {footer}
               </footer>
             ) : null}

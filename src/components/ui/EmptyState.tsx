@@ -8,7 +8,7 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action }) => (
-  <div className="mx-auto max-w-md space-y-3 rounded-lg border border-dashed border-gray-400/60 bg-white/2 p-10 text-center backdrop-blur-sm">
+  <div className="mx-auto max-w-md space-y-3 rounded-lg border border-dashed border-gray-400/60 bg-white/2 p-6 text-center backdrop-blur-sm sm:p-10">
     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-gray-200 text-gray-700 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]">
       {icon}
     </div>

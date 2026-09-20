@@ -28,7 +28,20 @@ export const CELEBRATION_DELAY_MS = 650;
 
 interface CelebrationProps {
   platform: Platform;
+  /**
+   * Which hue the glow and the shine are tinted with. Gold is a completion;
+   * blue is the gentler "this arrived" version the add dialog uses, where
+   * nothing has been earned and gold would be claiming something.
+   */
+  tone?: 'trophy' | 'accent';
+  /** The rising sparks. Off for an arrival, which is not a fanfare. */
+  sparks?: boolean;
 }
+
+const TONE_TINT: Record<NonNullable<CelebrationProps['tone']>, string> = {
+  trophy: 'var(--color-trophy-900)',
+  accent: 'var(--color-accent-900)',
+};
 
 /**
  * Plays over the card that was just completed: a band of light sweeping up the
@@ -37,8 +50,12 @@ interface CelebrationProps {
  * Mount it with a fresh key per celebration — the spread is randomised once on
  * mount, so no two runs land the same way, and the CSS animations restart.
  */
-export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
-  const sparks = useMemo(() => {
+export const Celebration: React.FC<CelebrationProps> = ({
+  platform,
+  tone = 'trophy',
+  sparks = true,
+}) => {
+  const particles = useMemo(() => {
     const palette = [
       'var(--color-trophy-900)',
       'var(--color-trophy-700)',
@@ -67,12 +84,15 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 z-30 overflow-hidden rounded-lg"
+      // One custom property, read by both gradients below through color-mix, so
+      // switching tone moves a variable rather than duplicating the gradients.
+      style={{ '--celebration-tint': TONE_TINT[tone] } as React.CSSProperties}
     >
       <div
         className="celebration-glow absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--color-trophy-900) 24%, transparent), transparent 70%)',
+            'radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--celebration-tint) 24%, transparent), transparent 70%)',
         }}
       />
 
@@ -81,33 +101,35 @@ export const Celebration: React.FC<CelebrationProps> = ({ platform }) => {
         style={{
           top: '50%',
           background:
-            'linear-gradient(to top, transparent, color-mix(in srgb, var(--color-trophy-900) 34%, transparent) 55%, transparent)',
+            'linear-gradient(to top, transparent, color-mix(in srgb, var(--celebration-tint) 34%, transparent) 55%, transparent)',
         }}
       />
 
       {/* Anchored to the bottom edge, so the sparkles climb the whole card. */}
-      <div className="absolute inset-x-0 bottom-0 h-0">
-        {sparks.map((s) => (
-          <span
-            key={s.id}
-            className="celebration-particle absolute bottom-0 block"
-            style={
-              {
-                '--drift': s.drift,
-                '--rise': s.rise,
-                '--rot': s.rot,
-                '--dur': s.duration,
-                left: s.dx,
-                width: s.size,
-                height: s.size,
-                borderRadius: s.radius,
-                backgroundColor: s.color,
-                animationDelay: s.delay,
-              } as React.CSSProperties
-            }
-          />
-        ))}
-      </div>
+      {sparks && (
+        <div className="absolute inset-x-0 bottom-0 h-0">
+          {particles.map((s) => (
+            <span
+              key={s.id}
+              className="celebration-particle absolute bottom-0 block"
+              style={
+                {
+                  '--drift': s.drift,
+                  '--rise': s.rise,
+                  '--rot': s.rot,
+                  '--dur': s.duration,
+                  left: s.dx,
+                  width: s.size,
+                  height: s.size,
+                  borderRadius: s.radius,
+                  backgroundColor: s.color,
+                  animationDelay: s.delay,
+                } as React.CSSProperties
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

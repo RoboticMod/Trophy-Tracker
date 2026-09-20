@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import {
   Search,
-  Sparkles,
   Plus,
   Bookmark,
   Check,
@@ -37,7 +36,15 @@ import { CoverArt } from '../components/CoverArt';
 import { EditGameModal } from '../components/EditGameModal';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
-import { Button, EmptyState, FilterChip, OverlayBadge, TextInput } from '../components/ui';
+import { IntroNotice } from '../components/IntroNotice';
+import {
+  Button,
+  EmptyState,
+  FilterChip,
+  OverlayBadge,
+  PageHeader,
+  TextInput,
+} from '../components/ui';
 import { ResultPlatforms, VersionToggle } from '../components/CatalogVersions';
 
 export const SearchView: React.FC = () => {
@@ -111,7 +118,10 @@ export const SearchView: React.FC = () => {
         hoursPlayed: 0,
         achievementsUnlocked: 0,
         achievementsTotal: details?.achievementsTotal ?? 0,
-        rating: game.rating,
+        // No rating. This used to write RAWG's community score onto the game as
+        // *your* rating, with no user action at all — a number you never gave,
+        // on a scale that is not the one the app asks you for. The result card
+        // still shows the score, labelled as RAWG's.
         collections: [toBacklog ? BACKLOG_COLLECTION_ID : PLAYING_COLLECTION_ID],
         ...syncFieldsFor({ platform, steamAppId: game.steamAppId }),
       },
@@ -147,27 +157,29 @@ export const SearchView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-6 pb-10">
-      <div className="space-y-2 border-b border-gray-200 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
-            <Sparkles size={18} />
-          </div>
-          <h1 className="text-600 font-bold tracking-tight text-gray-1000">Search &amp; add</h1>
-        </div>
-        <p className="text-75 text-gray-700">
-          Search {sourceName} and add games to your Steam or PlayStation library. The catalog can be
-          changed in{' '}
-          <Link to="/settings" className="font-semibold text-accent-900 hover:text-accent-1000">
-            Settings
-          </Link>
-          .
-        </p>
-      </div>
+      {/* A plus, matching the Add button and the add dialog — the three ways to
+          add a game were a sparkle, a sparkle and a plus. */}
+      <PageHeader
+        icon={<Plus size={18} />}
+        iconClassName="bg-accent-700/16 text-accent-900"
+        title="Search & add"
+      />
+
+      {/* Kept as a note rather than dropped outright: which catalog is being
+          searched, and where to change it, is not something the title says. */}
+      <IntroNotice id="search">
+        Search {sourceName} and add games to your Steam or PlayStation library. The catalog can be
+        changed in{' '}
+        <Link to="/settings" className="font-semibold text-accent-900 hover:text-accent-1000">
+          Settings
+        </Link>
+        .
+      </IntroNotice>
 
       <div className="space-y-4">
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-600"
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 sm:left-4"
             size={18}
           />
           <TextInput
@@ -176,7 +188,7 @@ export const SearchView: React.FC = () => {
             placeholder="Search by title — Elden Ring, Hollow Knight, Balatro…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-12 pl-12 text-200"
+            className="h-11 pl-11 text-100 sm:h-12 sm:pl-12 sm:text-200"
           />
         </div>
 

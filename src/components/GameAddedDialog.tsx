@@ -158,6 +158,19 @@ export const GameAddedDialog: React.FC = () => {
             />
           </div>
 
+          {/* Every arrival gets a quiet blue wash over the preview: the dialog
+              says a game landed, and this is that sentence in light. Blue
+              rather than gold, and no sparks — adding a game is not an
+              achievement, and gold would be claiming one.
+
+              Keyed on the game id so it plays once per game rather than on
+              every re-render while the sync fills the counts in. It needs no
+              timer and no useCelebration, since the glow and shine keyframes
+              are finite and `forwards` — which also means, crucially, no award
+              sound. */}
+          <Celebration key={`arrival-${game.id}`} platform={game.platform} tone="accent" sparks={false} />
+
+          {/* The real thing, on top, when the game arrived already finished. */}
           {burst !== null && <Celebration key={burst} platform={game.platform} />}
         </div>
 

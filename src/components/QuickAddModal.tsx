@@ -2,14 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   Search,
-  Sparkles,
   Plus,
   Clock,
   Loader2,
   KeyRound,
   WifiOff,
   Eraser,
-  Minimize2,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { UserGame } from '../types';
@@ -115,8 +113,13 @@ export const QuickAddModal: React.FC = () => {
    * Hides the dialog without touching the draft, so browsing the library and
    * coming back does not mean filling the form in again. The draft only clears
    * on an explicit "Clear all" or once the game has actually been added.
+   *
+   * This is what the X, Esc and a backdrop click all do. It used to have a
+   * "Minimize" button of its own saying so, which is a window-manager verb for
+   * something that is not a window — the behaviour is worth keeping, the
+   * button was not.
    */
-  const minimize = () => setIsQuickAddOpen(false);
+  const hide = () => setIsQuickAddOpen(false);
 
   const close = () => {
     setIsQuickAddOpen(false);
@@ -152,7 +155,9 @@ export const QuickAddModal: React.FC = () => {
       coverImage: game.image || '',
       platform: game.platform,
       steamAppId: game.steamAppId,
-      rating: game.rating ?? v.rating,
+      // Deliberately not `rating`. A catalog result carries RAWG's community
+      // score, and pre-filling the slider with it made someone else's average
+      // look like a rating you had given.
     }));
     setTab('custom');
 
@@ -276,9 +281,8 @@ export const QuickAddModal: React.FC = () => {
     <Dialog
       isOpen={isQuickAddOpen}
       title="Add a game"
-      description="Search for a game, or enter the details yourself"
-      icon={<Sparkles size={18} />}
-      onClose={minimize}
+      icon={<Plus size={18} />}
+      onClose={hide}
       initialFocusRef={tab === 'search' ? searchRef : undefined}
       footer={
         <>
@@ -290,11 +294,6 @@ export const QuickAddModal: React.FC = () => {
           >
             <Eraser size={14} />
             Clear all
-          </Button>
-
-          <Button buttonStyle="subtle" onClick={minimize} title="Keeps what you have entered">
-            <Minimize2 size={14} />
-            Minimize
           </Button>
 
           {tab === 'custom' && (
@@ -312,7 +311,7 @@ export const QuickAddModal: React.FC = () => {
         </>
       }
     >
-      <div className="mb-5 flex gap-1 rounded-sm bg-black/25 p-1">
+      <div className="mb-3 flex gap-1 rounded-sm bg-black/25 p-1 sm:mb-5">
         {/* "Search games", not the catalogs it happens to be searching: which
             database a title comes out of is a setting, not a choice being made
             here, and naming both of them made the tab the longest label in the
@@ -364,7 +363,7 @@ export const QuickAddModal: React.FC = () => {
               onCancel={() => setChoosing(null)}
             />
           ) : isSearching ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-gray-700">
+            <div className="flex flex-col items-center gap-2 py-8 text-gray-700 sm:py-12">
               <Loader2 size={22} className="animate-spin" />
               <p className="text-75">Searching…</p>
             </div>
@@ -375,7 +374,9 @@ export const QuickAddModal: React.FC = () => {
               {showingRecent ? (
                 <p className="eyebrow text-gray-600">Recently played on Steam</p>
               ) : null}
-              <div className="grid max-h-[380px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {/* Capped against the viewport on a phone, where a fixed 380px
+                  of results pushes the footer buttons off the screen. */}
+              <div className="grid max-h-[46dvh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:max-h-[380px] sm:grid-cols-2">
                 {searchResults.map((game) => (
                   <ResultRow
                     key={game.key}
@@ -504,7 +505,7 @@ const SearchEmptyState: React.FC<{
           ];
 
   return (
-    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-black/25 px-6 py-10 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-black/25 px-6 py-6 text-center sm:py-10">
       <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-200 text-gray-700">
         {icon}
       </div>
@@ -524,7 +525,7 @@ const TabButton: React.FC<{
     onClick={onClick}
     aria-pressed={active}
     className={cn(
-      'flex flex-1 items-center justify-center gap-2 rounded-sm px-4 py-2 text-100 font-medium transition-colors',
+      'flex flex-1 items-center justify-center gap-2 rounded-sm px-4 py-1.5 text-100 font-medium transition-colors sm:py-2',
       active ? 'bg-accent-700 text-gray-1000' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900',
     )}
   >
