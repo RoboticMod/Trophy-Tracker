@@ -277,6 +277,13 @@
   display: grid;
   gap: --spacing(3);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+
+  /* Two across on a phone rather than one. Stacked, four metric cards were a
+     whole screen to scroll past before reaching a single game. */
+  @media (width < 48rem) {
+    gap: --spacing(2);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+  }
 }
 
 /* Frosted scrim shared by every indicator that sits on top of cover art, so

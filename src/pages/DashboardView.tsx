@@ -7,6 +7,7 @@ import {
   Plus,
   Search,
   Flame,
+  FolderKanban,
   Star,
   ArrowUpDown,
   Loader2,
@@ -43,6 +44,8 @@ import { completionColor, completionLabel } from '../lib/rating';
 import { formatCount } from '../lib/format';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
+import { useIsPhone } from '../lib/useMediaQuery';
+import { CollectionsSheet } from '../components/CollectionsSheet';
 
 type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 
@@ -84,6 +87,11 @@ export const DashboardView: React.FC = () => {
   } = useGame();
 
   const [localSearch, setLocalSearch] = useState('');
+  const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
+
+  // The collection filter is a wrapped chip row on a wide screen and a single
+  // button on a phone, which are different controls rather than one restyled.
+  const phone = useIsPhone();
   // Sort and rating filter persist: they describe how you like the library laid
   // out, and re-picking them after every reload was busywork.
   const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
@@ -313,9 +321,32 @@ export const DashboardView: React.FC = () => {
           })}
         </div>
 
-        {/* Collections, each lit in its own colour when it is the one being
-            shown — the same identity the tabs on the collections page and the
-            dot on a game's chip already carry. */}
+        {/* One button on a phone, the whole row from md up.
+
+            Wrapped to four or five lines of small targets, the chip row was
+            the tallest thing on this page and you had to read all of it to
+            find the collection you wanted. The sheet gives each one a line and
+            a strip of its covers instead. */}
+        {phone ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              buttonStyle="outline"
+              className="w-full justify-between"
+              onClick={() => setIsCollectionsOpen(true)}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <FolderKanban size={15} />
+                <span className="truncate">
+                  {activeCollectionFilter === 'all'
+                    ? 'All collections'
+                    : collectionName(activeCollectionFilter, collections)}
+                </span>
+              </span>
+              <span className="shrink-0 tabular-nums opacity-70">{processedGames.length}</span>
+            </Button>
+          </div>
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip
             selected={activeCollectionFilter === 'all'}
@@ -346,6 +377,7 @@ export const DashboardView: React.FC = () => {
             );
           })}
         </div>
+        )}
 
         {/* Left-aligned on a phone, matching the platform and collection chip
             rows directly above it; pushed right once there is room to spare. */}
@@ -410,6 +442,11 @@ export const DashboardView: React.FC = () => {
           }
         />
       )}
+
+      <CollectionsSheet
+        isOpen={isCollectionsOpen}
+        onClose={() => setIsCollectionsOpen(false)}
+      />
     </div>
   );
 };
