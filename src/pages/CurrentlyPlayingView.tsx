@@ -4,18 +4,18 @@ import { TrophyPair } from '../components/TrophyBadge';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { comparePlatformOrder } from '../lib/constants';
-import { statusLabel } from '../lib/status';
+import { PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
 import { formatHours, sumHours } from '../lib/format';
 import { Badge, EmptyState, MetricCard } from '../components/ui';
 
 export const CurrentlyPlayingView: React.FC = () => {
-  const { games, profile } = useGame();
+  const { games, collections, profile } = useGame();
   const platformOrder = profile.platformOrder;
 
   const playingGames = useMemo(
     () =>
       games
-        .filter((g) => g.status === 'playing')
+        .filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID))
         .sort((a, b) => {
           const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
           return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
@@ -36,7 +36,7 @@ export const CurrentlyPlayingView: React.FC = () => {
               <Play size={18} />
             </div>
             <h1 className="text-600 font-bold tracking-tight text-gray-1000">
-              {statusLabel('playing', profile)}
+              {collectionName(PLAYING_COLLECTION_ID, collections)}
             </h1>
             <Badge tone="accent">{playingGames.length} active</Badge>
           </div>
@@ -73,7 +73,10 @@ export const CurrentlyPlayingView: React.FC = () => {
         <EmptyState
           icon={<Play size={24} />}
           title="Nothing in progress"
-          description={`Pick something from your library or backlog and set its status to "${statusLabel('playing', profile)}".`}
+          description={`Pick something from your library or backlog and put it on the "${collectionName(
+            PLAYING_COLLECTION_ID,
+            collections,
+          )}" shelf.`}
         />
       )}
     </div>

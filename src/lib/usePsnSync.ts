@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { UserGame } from '../types';
+import {
+  COMPLETE_COLLECTION_ID,
+  PLAYING_COLLECTION_ID,
+  fileInPermanent,
+  permanentOf,
+} from './collections';
 import { useGame } from '../context/GameContext';
 import {
   PsnError,
@@ -108,8 +114,16 @@ export function usePsnSync() {
           'Sparkles',
         );
 
-      if (game.collections.includes(collection.id)) return game.collections;
-      return [...game.collections, collection.id];
+      const listed = game.collections.includes(collection.id)
+        ? game.collections
+        : [...game.collections, collection.id];
+
+      // A game whose list has grown is no longer finished, so it comes off the
+      // 100% shelf and goes back to being played. Applied after the list is
+      // added, and shelf-first, so the New Achievements membership survives.
+      return permanentOf(listed) === COMPLETE_COLLECTION_ID
+        ? fileInPermanent(listed, PLAYING_COLLECTION_ID)
+        : listed;
     },
     [collections, createCollection],
   );

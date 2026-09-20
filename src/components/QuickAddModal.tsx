@@ -12,7 +12,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { GameStatus, UserGame } from '../types';
+import { UserGame } from '../types';
 import {
   CATALOG_SOURCE_LABELS,
   CatalogError,
@@ -33,20 +33,20 @@ import { EditGameModal } from './EditGameModal';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
 import { cn } from '../lib/cn';
-
-const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered'];
+import { PLAYING_COLLECTION_ID } from '../lib/collections';
 
 const EMPTY_GAME: GameDetailsValues = {
   title: '',
   platform: 'steam',
-  status: 'playing',
   coverImage: '',
   hoursPlayed: 0,
   rating: 0,
   achievementRating: 0,
   achievementsUnlocked: 0,
   achievementsTotal: 0,
-  collections: [],
+  // A game you are adding is one you are about to play, which is the shelf
+  // the form opens on. Re-clicking it in the picker takes it back off.
+  collections: [PLAYING_COLLECTION_ID],
   notes: '',
   completedAt: '',
 };
@@ -58,7 +58,6 @@ export const QuickAddModal: React.FC = () => {
     addGame,
     games,
     collections,
-    profile,
     platformAccounts,
   } = useGame();
   const { syncGame } = useSync();
@@ -250,7 +249,6 @@ export const QuickAddModal: React.FC = () => {
       rawgId,
       title: values.title.trim(),
       platform: values.platform,
-      status: values.status,
       coverImage: values.coverImage.trim() || undefined,
       releaseDate,
       genres,
@@ -397,9 +395,7 @@ export const QuickAddModal: React.FC = () => {
           onSubmit={handleSubmit}
           values={values}
           onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
-          statuses={STATUS_CHOICES}
           collections={collections}
-          profile={profile}
         >
           <p className="flex items-center gap-1.5 text-50 text-gray-600">
             {fetchingDetails ? (

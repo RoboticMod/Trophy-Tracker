@@ -7,6 +7,7 @@ import {
   DEFAULT_COLLECTION_COLOR,
   comparePlatformOrder,
 } from '../lib/constants';
+import { isPermanentCollection } from '../lib/collections';
 import { Badge, Button, Card, EmptyState, Field, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
@@ -68,6 +69,7 @@ export const CollectionsView: React.FC = () => {
   const activeCollection =
     collections.find((c) => c.id === activeCollectionId) ?? collections[0] ?? null;
   const isEditing = activeCollection !== null && editingId === activeCollection.id;
+  const isPermanent = activeCollection !== null && isPermanentCollection(activeCollection.id);
   const platformOrder = profile.platformOrder;
 
   const collectionGames = useMemo(() => {
@@ -212,7 +214,7 @@ export const CollectionsView: React.FC = () => {
                 <h2 className="text-200 font-bold tracking-tight text-gray-1000">
                   {activeCollection.name}
                 </h2>
-                {activeCollection.isSystem && <Badge>Default</Badge>}
+                {isPermanent && <Badge>Permanent</Badge>}
               </div>
               {activeCollection.description && (
                 <p className="text-75 text-gray-600">{activeCollection.description}</p>
@@ -234,7 +236,7 @@ export const CollectionsView: React.FC = () => {
                 <span>{isEditing ? 'Done' : 'Edit'}</span>
               </Button>
 
-              {!activeCollection.isSystem && (
+              {!isPermanent && (
                 <Button
                   variant="negative"
                   buttonStyle="outline"
@@ -292,10 +294,11 @@ export const CollectionsView: React.FC = () => {
                 </Field>
               </div>
 
-              {activeCollection.isSystem ? (
+              {isPermanent ? (
                 <p className="text-50 text-gray-600">
-                  A default collection keeps the app&rsquo;s own colour, so it stays recognisable
-                  everywhere it appears. Its name and description are yours to change.
+                  A permanent collection keeps the app&rsquo;s own colour, so it stays
+                  recognisable everywhere it appears, and it cannot be deleted — it is where
+                  your games live. Its name and description are yours to change.
                 </p>
               ) : (
                 <ColourSwatches

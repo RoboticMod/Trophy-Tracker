@@ -25,8 +25,12 @@ export const NEW_ACHIEVEMENTS_COLLECTION = 'New Achievements';
 export const NEW_ACHIEVEMENTS_DESCRIPTION =
   'Finished games that have gained achievements since you completed them';
 
-/** Trophy gold, matching the 100% treatment these games have just left. */
-export const NEW_ACHIEVEMENTS_COLOR = '#f2c14e';
+/**
+ * Deliberately not trophy gold. That gold is now the 100% Complete shelf's own
+ * colour, and a list of games that have just *lost* their 100% wearing the
+ * badge of the shelf they left reads as a contradiction.
+ */
+export const NEW_ACHIEVEMENTS_COLOR = '#edaa30';
 
 /** What a platform says about one game, in this app's own units. */
 export interface PlatformProgress {
@@ -94,18 +98,17 @@ export function reconcile(game: UserGame, incoming: PlatformProgress): Reconcili
    * A finished game whose list has grown.
    *
    * The completion was real and its date stays: you did earn every achievement
-   * that existed at the time. What changes is that there is more to do now, so
-   * the game comes off the finished shelf and goes back to being played. The
-   * status is stated explicitly rather than left for the ordinary "lost its
-   * 100%" rule to withdraw, because that rule also clears the completion date —
-   * right when an unlock is taken back by hand, wrong when a developer adds a
-   * DLC years later.
+   * that existed at the time. What changes is that there is more to do now. The
+   * date is restated explicitly rather than left for the ordinary "lost its
+   * 100%" rule to withdraw, because that rule also clears it — right when an
+   * unlock is taken back by hand, wrong when a developer adds a DLC years later.
+   *
+   * Moving the game back onto the Playing shelf is the caller's job: this
+   * module deliberately knows no collection ids, so that the rules it holds
+   * stay readable without a second file open beside them.
    */
   const grewList = wasPerfect && !nowPerfect && incoming.total > game.achievementsTotal;
-  if (grewList && game.status === 'mastered') {
-    updates.status = 'playing';
-    updates.completedAt = game.completedAt;
-  }
+  if (grewList) updates.completedAt = game.completedAt;
 
   // The most recent unlock, as the platform dates it. Only ever moves forward:
   // a list that loses its times (a privacy change, a PS3 title) keeps the last

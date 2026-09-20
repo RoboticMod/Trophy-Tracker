@@ -29,7 +29,7 @@ import {
 } from '../lib/catalog';
 import { Platform, PLATFORM_IDS, UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
-import { statusLabel } from '../lib/status';
+import { BACKLOG_COLLECTION_ID, PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
 import { syncFieldsFor } from '../lib/sync';
 import { EASE_OUT } from '../lib/motion';
 import { cn } from '../lib/cn';
@@ -41,7 +41,7 @@ import { Button, EmptyState, FilterChip, OverlayBadge, TextInput } from '../comp
 import { ResultPlatforms, VersionToggle } from '../components/CatalogVersions';
 
 export const SearchView: React.FC = () => {
-  const { games, addGame, profile, platformAccounts } = useGame();
+  const { games, addGame, collections, platformAccounts } = useGame();
   const { syncGame } = useSync();
   const { source, rawgKey } = useCatalogSettings();
   const steamId = platformAccounts?.steamId;
@@ -105,7 +105,6 @@ export const SearchView: React.FC = () => {
         steamAppId: game.steamAppId,
         title: game.title,
         platform,
-        status: toBacklog ? 'backlog' : 'playing',
         coverImage: cover,
         releaseDate: game.releaseDate ?? details?.releaseDate,
         genres: game.genres.length ? game.genres : (details?.genres ?? []),
@@ -113,7 +112,7 @@ export const SearchView: React.FC = () => {
         achievementsUnlocked: 0,
         achievementsTotal: details?.achievementsTotal ?? 0,
         rating: game.rating,
-        collections: toBacklog ? ['col-backlog'] : [],
+        collections: [toBacklog ? BACKLOG_COLLECTION_ID : PLAYING_COLLECTION_ID],
         ...syncFieldsFor({ platform, steamAppId: game.steamAppId }),
       },
       // Adding from here is a run of games — the card says "in your library"
@@ -327,17 +326,17 @@ export const SearchView: React.FC = () => {
                       onClick={() => void handleQuickAdd(game, false)}
                     >
                       {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                      {statusLabel('playing', profile)}
+                      {collectionName(PLAYING_COLLECTION_ID, collections)}
                     </Button>
                     <Button
                       variant="secondary"
                       size="s"
                       disabled={adding}
                       onClick={() => void handleQuickAdd(game, true)}
-                      title={`Add to ${statusLabel('backlog', profile)}`}
+                      title={`Add to ${collectionName(BACKLOG_COLLECTION_ID, collections)}`}
                     >
                       <Bookmark size={14} />
-                      {statusLabel('backlog', profile)}
+                      {collectionName(BACKLOG_COLLECTION_ID, collections)}
                     </Button>
                   </>
                 )}

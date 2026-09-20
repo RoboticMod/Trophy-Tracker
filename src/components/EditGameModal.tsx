@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { UserGame, GameStatus } from '../types';
+import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { fromDateInput, toDateInput } from '../lib/format';
 import { syncFieldsFor } from '../lib/sync';
@@ -12,8 +12,6 @@ import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { PsnSyncStatus } from './PsnSyncStatus';
 import { SteamSyncStatus } from './SteamSyncStatus';
 import { Button, Dialog } from './ui';
-
-const STATUS_CHOICES: GameStatus[] = ['playing', 'backlog', 'completed', 'mastered', 'dropped'];
 
 interface EditGameModalProps {
   game: UserGame | null;
@@ -36,13 +34,12 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
   isOpen,
   onClose,
 }) => {
-  const { updateGame, deleteGame, collections, profile } = useGame();
+  const { updateGame, deleteGame, collections } = useGame();
   const { syncGame } = useSync();
 
   const [values, setValues] = useState<GameDetailsValues>({
     title: game.title,
     platform: game.platform,
-    status: game.status,
     coverImage: game.coverImage || '',
     hoursPlayed: game.hoursPlayed || 0,
     rating: game.rating || 0,
@@ -63,7 +60,6 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     const patch = {
       title: values.title.trim(),
       platform: values.platform,
-      status: values.status,
       coverImage: values.coverImage.trim() || undefined,
       hoursPlayed: values.hoursPlayed,
       rating: values.rating || undefined,
@@ -152,9 +148,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
         onSubmit={handleSubmit}
         values={values}
         onChange={patch => setValues(v => ({ ...v, ...patch }))}
-        statuses={STATUS_CHOICES}
         collections={collections}
-        profile={profile}
         // Keyed on the platform being edited rather than the saved one, so
         // switching a game across in this dialog shows the panel that belongs
         // to the platform the Save is about to put it on.

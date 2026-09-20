@@ -22,7 +22,6 @@ import {
   Library,
   RotateCcw,
   LogOut,
-  Tags,
   Palette,
   X,
   CloudOff,
@@ -35,13 +34,7 @@ import {
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import { clearUserCache } from '../lib/localCache';
-import {
-  SidebarConfig,
-  GameStatus,
-  HighlightStyle,
-  Platform,
-  GAME_STATUSES,
-} from '../types';
+import { SidebarConfig, HighlightStyle, Platform } from '../types';
 import { SUPABASE_SCHEMA_SQL } from '../lib/db';
 import { getRawgCacheCount, clearRawgCache, hasRawgKey } from '../lib/rawg';
 import { clearSteamCache, getSteamCacheCount } from '../lib/steam';
@@ -53,14 +46,13 @@ import {
   usesRawg,
 } from '../lib/catalog';
 import {
-  DEFAULT_STATUS_NAMES,
   DEFAULT_PLATFORM_SORT_ORDER,
   DEFAULT_START_PATH,
   PLATFORMS,
   describePlatformOrder,
   normalizePlatform,
 } from '../lib/constants';
-import { validateStatusName, MAX_STATUS_NAME_LENGTH } from '../lib/status';
+import { migrateLegacySnapshot } from '../lib/migrateLegacyGames';
 import { fileToAvatarDataUrl } from '../lib/image';
 import {
   VOLUME_PREF_KEY,
@@ -303,7 +295,6 @@ export const SettingsView: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
-  const [statusErrors, setStatusErrors] = useState<Partial<Record<GameStatus, string>>>({});
   // Mirrors the stored level so the slider and the preview stay in step; the
   // sound module remains the source of truth for playback, and tells this back
   // whenever the level changes.
@@ -339,25 +330,6 @@ export const SettingsView: React.FC = () => {
   const handleSignOut = async () => {
     if (user?.id) clearUserCache(user.id);
     await signOut();
-  };
-
-  /* -- Status names ------------------------------------------------------- */
-
-  const handleStatusNameChange = (status: GameStatus, value: string) => {
-    const error = validateStatusName(value);
-    setStatusErrors((prev) => ({ ...prev, [status]: error ?? undefined }));
-    if (error) return;
-
-    updateProfile({
-      statusNames: { ...(profile.statusNames || {}), [status]: value.trim() },
-    });
-  };
-
-  const resetStatusName = (status: GameStatus) => {
-    const next = { ...(profile.statusNames || {}) };
-    delete next[status];
-    setStatusErrors((prev) => ({ ...prev, [status]: undefined }));
-    updateProfile({ statusNames: next });
   };
 
   /* -- Platform order ----------------------------------------------------- */
@@ -421,7 +393,9 @@ export const SettingsView: React.FC = () => {
       collections,
       games,
       exportedAt: new Date().toISOString(),
-      version: '3.0.0',
+      // 4: games carry their shelf as collection membership and no longer have
+      // a `status` field. An import checks this to know whether to translate.
+      version: '4.0.0',
     };
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
@@ -460,9 +434,17 @@ export const SettingsView: React.FC = () => {
 
         const dropped = json.games.length - kept.length;
 
+        // A 3.x backup files every game by a `status` field this app no longer
+        // has. Restoring one untranslated would leave the whole library
+        // unshelved, so it is moved onto collections on the way in.
+        const migrated = migrateLegacySnapshot(
+          kept,
+          Array.isArray(json.collections) ? json.collections : collections,
+        );
+
         await replaceAll({
-          games: kept,
-          collections: Array.isArray(json.collections) ? json.collections : collections,
+          games: migrated.games,
+          collections: migrated.collections,
           profile: json.profile,
         });
 
@@ -558,53 +540,6 @@ export const SettingsView: React.FC = () => {
             {savedProfile ? 'Saved' : 'Save name'}
           </Button>
         </form>
-      </Card>
-
-      {/* Status names -------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Tags size={18} />}
-          title="Status names"
-          description="Rename any status — the new name appears everywhere at once"
-          iconClassName="bg-trophy-700/16 text-trophy-900"
-        />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {GAME_STATUSES.map((status) => {
-            const custom = profile.statusNames?.[status];
-            return (
-              <Field
-                key={status}
-                label={DEFAULT_STATUS_NAMES[status]}
-                error={statusErrors[status]}
-                description={
-                  statusErrors[status] ? undefined : `Up to ${MAX_STATUS_NAME_LENGTH} characters`
-                }
-                action={
-                  custom ? (
-                    <button
-                      type="button"
-                      onClick={() => resetStatusName(status)}
-                      className="rounded-sm text-50 text-gray-600 hover:text-gray-900"
-                    >
-                      Reset
-                    </button>
-                  ) : null
-                }
-              >
-                {(props) => (
-                  <TextInput
-                    {...props}
-                    defaultValue={custom ?? DEFAULT_STATUS_NAMES[status]}
-                    maxLength={MAX_STATUS_NAME_LENGTH + 8}
-                    onChange={(e) => handleStatusNameChange(status, e.target.value)}
-                    placeholder={DEFAULT_STATUS_NAMES[status]}
-                  />
-                )}
-              </Field>
-            );
-          })}
-        </div>
       </Card>
 
       {/* Card highlight ------------------------------------------------------ */}

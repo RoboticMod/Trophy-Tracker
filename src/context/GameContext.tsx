@@ -812,13 +812,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const replaceAll = useCallback(
     async (snapshot: { games: UserGame[]; collections: Collection[]; profile?: UserProfile }) => {
       if (!userId) return;
-      setGames(snapshot.games);
-      setCollections(snapshot.collections);
+
+      // The same choke point every other write goes through: a restored backup
+      // is the likeliest source of an illegal array, since it may have been
+      // written by any past version of the app.
+      const games = snapshot.games.map((game) => ({
+        ...game,
+        collections: normalizeCollections(game.collections),
+      }));
+      const collections = withPermanentColors(withPermanentCollections(snapshot.collections));
+
+      setGames(games);
+      setCollections(collections);
+      latest.current.games = games;
+      latest.current.collections = collections;
       if (snapshot.profile) setProfile({ ...snapshot.profile, id: userId });
 
       try {
-        await db.upsertGames(snapshot.games, userId);
-        await db.upsertCollections(snapshot.collections, userId);
+        await db.upsertGames(games, userId);
+        await db.upsertCollections(collections, userId);
         if (snapshot.profile) await db.saveProfile({ ...snapshot.profile, id: userId }, userId);
         setLastSyncedAt(new Date().toISOString());
       } catch (err) {

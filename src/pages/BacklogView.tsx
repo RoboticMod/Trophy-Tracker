@@ -5,15 +5,23 @@ import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
-import { statusLabel } from '../lib/status';
+import {
+  BACKLOG_COLLECTION_ID,
+  PLAYING_COLLECTION_ID,
+  collectionName,
+  fileInPermanent,
+} from '../lib/collections';
 import { Button, EmptyState, FilterChip, StatTile } from '../components/ui';
 
 export const BacklogView: React.FC = () => {
-  const { games, setIsQuickAddOpen, updateGame, profile } = useGame();
+  const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
   const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
   const platformOrder = profile.platformOrder;
 
-  const backlogGames = useMemo(() => games.filter((g) => g.status === 'backlog'), [games]);
+  const backlogGames = useMemo(
+    () => games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)),
+    [games],
+  );
 
   const sorted = useMemo(
     () =>
@@ -28,7 +36,7 @@ export const BacklogView: React.FC = () => {
 
   const potentialAchievements = backlogGames.reduce((acc, g) => acc + (g.achievementsTotal || 0), 0);
 
-  const startLabel = `Start ${statusLabel('playing', profile).toLowerCase()}`;
+  const startLabel = `Start ${collectionName(PLAYING_COLLECTION_ID, collections).toLowerCase()}`;
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
@@ -40,7 +48,7 @@ export const BacklogView: React.FC = () => {
             <Hourglass size={18} />
           </div>
           <h1 className="text-600 font-bold tracking-tight text-gray-1000">
-            {statusLabel('backlog', profile)}
+            {collectionName(BACKLOG_COLLECTION_ID, collections)}
           </h1>
         </div>
         <p className="text-75 text-gray-600">
@@ -97,7 +105,11 @@ export const BacklogView: React.FC = () => {
             variant="positive"
             size="s"
             className="w-full"
-            onClick={() => updateGame(game.id, { status: 'playing' })}
+            onClick={() =>
+              updateGame(game.id, {
+                collections: fileInPermanent(game.collections, PLAYING_COLLECTION_ID),
+              })
+            }
           >
             <Play size={14} />
             {startLabel}

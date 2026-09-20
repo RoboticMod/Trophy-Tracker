@@ -11,11 +11,20 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
-import { statusLabel, STATUS_COLOR, STATUS_TONE } from '../lib/status';
+import {
+  BACKLOG_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
+  PERMANENT_COLOR,
+  PERMANENT_COLLECTION_IDS,
+  PERMANENT_TONE,
+  PLAYING_COLLECTION_ID,
+  collectionName,
+  permanentOf,
+} from '../lib/collections';
 import { aggregateCompletion, completionPercent, isPerfect } from '../lib/completion';
 import { backlogLabel, completionColor } from '../lib/rating';
 import { formatCount, formatHours, relativeTime, sumHours } from '../lib/format';
-import { GameStatus, PLATFORM_IDS } from '../types';
+import { PLATFORM_IDS } from '../types';
 import { CoverArt } from '../components/CoverArt';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { PlatformSectionHeader } from '../components/PlatformSectionHeader';
@@ -35,23 +44,22 @@ import {
 } from '../components/ui';
 
 /**
- * Every status, dropped included — the ring is a share of the whole library, so
- * leaving one out would quietly shrink the total it is dividing up.
+ * The three shelves plus everything on none of them. That last slice is what
+ * keeps the ring honest: a game can now sit in the library without being filed
+ * anywhere, and the donut's whole premise is that its segments add up to the
+ * library total.
  */
-const STATUS_BREAKDOWN: GameStatus[] = [
-  'playing',
-  'backlog',
-  'completed',
-  'mastered',
-  'dropped',
-];
+const UNSHELVED = 'unshelved';
+
+const SHELF_BREAKDOWN = [...PERMANENT_COLLECTION_IDS, UNSHELVED] as const;
 
 /** The sections of this page, in the order they appear until you change it. */
 const SECTIONS = [
   { id: 'headline', name: 'Overview' },
   { id: 'platforms', name: 'Platform breakdown' },
   { id: 'showcase', name: '100% showcase' },
-  { id: 'distribution', name: 'Status distribution' },
+  // The id stays 'distribution' so saved statsOrder arrays keep working.
+  { id: 'distribution', name: 'Shelf distribution' },
   { id: 'activity', name: 'Recent activity' },
 ] as const;
 
@@ -60,7 +68,7 @@ const DEFAULT_STATS_ORDER = SECTIONS.map((s) => s.id) as string[];
 const sectionName = (id: string) => SECTIONS.find((s) => s.id === id)?.name ?? id;
 
 export const StatsView: React.FC = () => {
-  const { games, profile, sidebarConfig, updateSidebarConfig } = useGame();
+  const { games, collections, profile, sidebarConfig, updateSidebarConfig } = useGame();
   const platformOrder = profile.platformOrder;
 
   const [isReordering, setIsReordering] = useState(false);
@@ -92,11 +100,13 @@ export const StatsView: React.FC = () => {
     unlockable: totalMaxAchievements,
     percent: overallCompletionRate,
   } = aggregateCompletion(games);
-  const completedGames = games.filter((g) => g.status === 'completed' || g.status === 'mastered');
+  const completedGames = games.filter(
+    (g) => isPerfect(g) || g.collections?.includes(COMPLETE_COLLECTION_ID),
+  );
   const perfectGames = games.filter(isPerfect);
-  const activePlaying = games.filter((g) => g.status === 'playing');
+  const activePlaying = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID));
 
-  const backlogCount = games.filter((g) => g.status === 'backlog').length;
+  const backlogCount = games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)).length;
   // An empty library is 0% cleared rather than 100%: nothing has been worked
   // through, and a full arc would congratulate you for owning no games.
   const backlogCleared =
@@ -134,23 +144,27 @@ export const StatsView: React.FC = () => {
   );
 
   /**
-   * The status split, as segments of the whole library.
+   * The shelf split, as segments of the whole library.
    *
-   * These are the games' actual statuses, so the segments add up to the library
-   * total. The tiles this replaced counted "mastered" as every game at 100%
-   * regardless of its status, which meant a game filed as Completed and finished
-   * to the last unlock was counted twice — fine for four separate figures, but
-   * it would make a ring that claims more games than you own.
+   * Every game lands in exactly one segment, because a game is on at most one
+   * shelf and anything on none falls into "Unshelved" — which is what lets the
+   * segments add up to the library total rather than claiming more games than
+   * you own.
    */
-  const statusSlices = useMemo(
+  const shelfSlices = useMemo(
     () =>
-      STATUS_BREAKDOWN.map((status) => ({
-        key: status,
-        label: statusLabel(status, profile),
-        value: games.filter((g) => g.status === status).length,
-        color: STATUS_COLOR[status],
-      })).filter((slice) => slice.value > 0),
-    [games, profile],
+      SHELF_BREAKDOWN.map((shelf) => {
+        const isUnshelved = shelf === UNSHELVED;
+        return {
+          key: shelf,
+          label: isUnshelved ? 'Unshelved' : collectionName(shelf, collections),
+          value: games.filter((g) =>
+            isUnshelved ? permanentOf(g.collections) === null : g.collections?.includes(shelf),
+          ).length,
+          color: isUnshelved ? 'var(--color-gray-400)' : PERMANENT_COLOR[shelf],
+        };
+      }).filter((slice) => slice.value > 0),
+    [games, collections],
   );
 
   /** The showcase, split into platform sections in the user's own order. */
@@ -366,13 +380,13 @@ export const StatsView: React.FC = () => {
         <SectionHeader
           icon={<TrendingUp size={16} />}
           iconClassName="bg-positive-700/16 text-positive-900"
-          title="Status distribution"
+          title="Shelf distribution"
           description="Where your library currently sits"
         />
 
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
-          <DonutChart slices={statusSlices} total={totalGames} totalLabel="Games" size={150} />
-          <DonutLegend slices={statusSlices} />
+          <DonutChart slices={shelfSlices} total={totalGames} totalLabel="Games" size={150} />
+          <DonutLegend slices={shelfSlices} />
         </div>
       </Card>
     ),
@@ -391,6 +405,7 @@ export const StatsView: React.FC = () => {
           <ol className="space-y-1.5">
             {recentGames.map((g) => {
               const progress = completionPercent(g);
+              const shelf = permanentOf(g.collections);
 
               return (
                 <li
@@ -425,7 +440,9 @@ export const StatsView: React.FC = () => {
                     {g.rating ? (
                       <RatingValue value={g.rating} size="xs" label="Game rated" />
                     ) : null}
-                    <Badge tone={STATUS_TONE[g.status]}>{statusLabel(g.status, profile)}</Badge>
+                    {shelf && (
+                      <Badge tone={PERMANENT_TONE[shelf]}>{collectionName(shelf, collections)}</Badge>
+                    )}
                   </div>
                 </li>
               );

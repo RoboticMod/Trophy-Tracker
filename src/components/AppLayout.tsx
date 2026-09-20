@@ -26,7 +26,12 @@ import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
 import { useSync } from '../context/SyncContext';
 import { relativeTime } from '../lib/format';
-import { statusLabel } from '../lib/status';
+import {
+  BACKLOG_COLLECTION_ID,
+  PLAYING_COLLECTION_ID,
+  collectionName,
+  permanentOf,
+} from '../lib/collections';
 import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
 import { Wordmark } from './Wordmark';
@@ -54,9 +59,14 @@ const FOLLOW_LOOKUP_MS = 300;
  */
 const shelfFor = (game: UserGame): string => {
   if (isPerfect(game)) return '/achievements';
-  if (game.status === 'playing') return '/playing';
-  if (game.status === 'backlog') return '/backlog';
-  return '/';
+  switch (permanentOf(game.collections)) {
+    case PLAYING_COLLECTION_ID:
+      return '/playing';
+    case BACKLOG_COLLECTION_ID:
+      return '/backlog';
+    default:
+      return '/';
+  }
 };
 
 interface NavItem {
@@ -79,6 +89,7 @@ export const AppLayout: React.FC = () => {
     sidebarConfig,
     setIsQuickAddOpen,
     games,
+    collections,
     profile,
     isOnline,
     pendingWrites,
@@ -88,14 +99,14 @@ export const AppLayout: React.FC = () => {
     follow,
   } = useGame();
 
-  const playingCount = games.filter((g) => g.status === 'playing').length;
-  const backlogCount = games.filter((g) => g.status === 'backlog').length;
+  const playingCount = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID)).length;
+  const backlogCount = games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)).length;
   const perfectCount = games.filter(isPerfect).length;
 
   const rawNavItems: NavItem[] = [
     { name: 'Dashboard', short: 'Library', path: '/', icon: Library, enabled: true },
     {
-      name: statusLabel('playing', profile),
+      name: collectionName(PLAYING_COLLECTION_ID, collections),
       short: 'Playing',
       path: '/playing',
       icon: Play,
@@ -121,14 +132,14 @@ export const AppLayout: React.FC = () => {
       enabled: sidebarConfig?.showSearch ?? true,
     },
     {
-      name: statusLabel('backlog', profile),
+      name: collectionName(BACKLOG_COLLECTION_ID, collections),
       short: 'Backlog',
       path: '/backlog',
       icon: Gamepad2,
       badge: backlogCount || undefined,
       // Neutral, not gold: gold is what a finished game earns, and a queue of
       // games you have not started yet has earned nothing. This matches how the
-      // backlog status is toned everywhere else in the app.
+      // backlog shelf is toned everywhere else in the app.
       badgeTone: 'neutral',
       enabled: sidebarConfig?.showBacklog ?? true,
     },

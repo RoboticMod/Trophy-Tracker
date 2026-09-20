@@ -15,13 +15,13 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { UserGame } from '../types';
-import { PLATFORMS } from '../lib/constants';
+import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import { useGame } from '../context/GameContext';
 import { useSync } from '../context/SyncContext';
 import { syncFieldsFor } from '../lib/sync';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { formatCount, formatHours, relativeTime } from '../lib/format';
-import { statusLabel, STATUS_TONE } from '../lib/status';
+import { PERMANENT_TONE, collectionName, isPermanentCollection, permanentOf } from '../lib/collections';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import {
@@ -107,7 +107,7 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
   isOpen,
   onClose,
 }) => {
-  const { profile, updateGame } = useGame();
+  const { collections, updateGame } = useGame();
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
 
   const [info, setInfo] = useState<SteamAppInfo | null>(null);
@@ -223,13 +223,25 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
   const progress = completionPercent(game);
   const perfect = isPerfect(game);
 
+  /** The shelf this game is on, or null when it is only in the library. */
+  const shelf = permanentOf(game.collections);
+
+  /**
+   * The game's own lists, which this dialog has never shown — the only place
+   * they were visible was the library filter row, which says which games are in
+   * a collection rather than which collections a game is in.
+   */
+  const memberships = collections.filter(
+    (c) => !isPermanentCollection(c.id) && game.collections?.includes(c.id),
+  );
+
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
       size="l"
       title={game.title}
-      description={`${platform.name} • ${statusLabel(game.status, profile)}`}
+      description={shelf ? `${platform.name} • ${collectionName(shelf, collections)}` : platform.name}
       icon={<PlatformIcon platform={game.platform} size={18} />}
       footer={
         <>
@@ -278,10 +290,36 @@ const GameInfo: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => void 
 
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={STATUS_TONE[game.status]}>{statusLabel(game.status, profile)}</Badge>
+              {shelf && (
+                <Badge tone={PERMANENT_TONE[shelf]}>{collectionName(shelf, collections)}</Badge>
+              )}
               {perfect ? <Badge tone="trophy">100%</Badge> : null}
               {game.rating ? <RatingValue value={game.rating} size="xs" label="Game rated" /> : null}
             </div>
+
+            {/* The lists this game is on, in each list's own colour — the same
+                identity the library filter chips carry. */}
+            {memberships.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {memberships.map((collection) => {
+                  const color = collection.color || DEFAULT_COLLECTION_COLOR;
+                  return (
+                    <span
+                      key={collection.id}
+                      className="flex items-center gap-1.5 rounded-full border border-gray-300 px-2 py-0.5 text-50 text-gray-800"
+                      title={collection.description || collection.name}
+                    >
+                      <span
+                        aria-hidden
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                      {collection.name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             {info?.description ? (
               <p className="line-clamp-3 text-75 leading-relaxed text-gray-700">

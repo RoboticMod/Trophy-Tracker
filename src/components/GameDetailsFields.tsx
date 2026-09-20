@@ -1,8 +1,16 @@
 import React from 'react';
 import { CalendarCheck, Clock, Minus, Plus } from 'lucide-react';
-import { Collection, GameStatus, Platform, PLATFORM_IDS, UserProfile } from '../types';
+import { Collection, Platform, PLATFORM_IDS } from '../types';
 import { PLATFORMS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
-import { statusLabel, STATUS_SELECTED_CLASS } from '../lib/status';
+import {
+  COMPLETE_COLLECTION_ID,
+  PERMANENT_COLLECTION_IDS,
+  PERMANENT_SELECTED_CLASS,
+  collectionName,
+  isPermanentCollection,
+  permanentOf,
+  toggleCollection,
+} from '../lib/collections';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
 import { Button, Field, MarqueeText, TextArea, TextInput } from './ui';
@@ -18,7 +26,6 @@ import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/rati
 export interface GameDetailsValues {
   title: string;
   platform: Platform;
-  status: GameStatus;
   coverImage: string;
   hoursPlayed: number;
   rating: number;
@@ -39,9 +46,7 @@ interface GameDetailsFieldsProps {
   /** Ties the form to a submit button living in the dialog footer. */
   formId: string;
   onSubmit: (e: React.FormEvent) => void;
-  statuses: GameStatus[];
   collections: Collection[];
-  profile: UserProfile;
   /**
    * Shown in the platform panel — the saved game's sync status, whichever
    * platform it is on. Only the edit dialog has one; a game being added has not
@@ -96,16 +101,13 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
   onChange,
   formId,
   onSubmit,
-  statuses,
   collections,
-  profile,
   syncStatus,
   children,
 }) => {
   const {
     title,
     platform,
-    status,
     coverImage,
     hoursPlayed,
     rating,
@@ -117,9 +119,14 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
     completedAt,
   } = values;
 
+  /** The shelf this game is on, or null when it is only in the library. */
+  const shelf = permanentOf(selectedCollections);
+
+  const listCollections = collections.filter((c) => !isPermanentCollection(c.id));
+
   // The date is only asked for once there is a completion to date — either
-  // every award earned, or the game filed on the finished shelf by hand.
-  const finished = isPerfect(values) || status === 'mastered' || status === 'completed';
+  // every award earned, or the game filed on the 100% shelf by hand.
+  const finished = isPerfect(values) || shelf === COMPLETE_COLLECTION_ID;
 
   // Follows the platform picker above, so switching a game to PS5 relabels this
   // section to trophies straight away.
@@ -197,30 +204,33 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
       </div>
 
       <div className="space-y-4">
+        {/* The shelf: one of three, or none. Re-clicking the current one takes
+            the game off it, which is how a game goes back to being just a game
+            in the library. Exclusivity lives in toggleCollection rather than
+            here, so the picker and every other write path agree. */}
         <fieldset>
-          <legend className="eyebrow mb-1.5 text-gray-700">Status</legend>
-          <div
-            className={cn(
-              'grid grid-cols-2 gap-2',
-              statuses.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
-            )}
-          >
-            {statuses.map((s) => (
+          <legend className="eyebrow mb-1.5 text-gray-700">Shelf</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {PERMANENT_COLLECTION_IDS.map((id) => (
               <button
-                key={s}
+                key={id}
                 type="button"
-                onClick={() => onChange({ status: s })}
-                aria-pressed={status === s}
+                onClick={() =>
+                  onChange({ collections: toggleCollection(selectedCollections, id) })
+                }
+                aria-pressed={shelf === id}
                 className={cn(
                   'flex h-9 items-center justify-center rounded-sm border px-3 text-75 font-semibold transition-colors',
-                  status === s
-                    ? STATUS_SELECTED_CLASS[s]
+                  shelf === id
+                    ? PERMANENT_SELECTED_CLASS[id]
                     : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400 hover:text-gray-900',
                 )}
               >
                 {/* One line that scrolls, rather than a long custom name
                     wrapping to two and throwing the row out of line. */}
-                <MarqueeText className="w-full text-center">{statusLabel(s, profile)}</MarqueeText>
+                <MarqueeText className="w-full text-center">
+                  {collectionName(id, collections)}
+                </MarqueeText>
               </button>
             ))}
           </div>
@@ -447,22 +457,20 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
         </div>
       )}
 
-      {collections.length > 0 && (
+      {/* Ordinary lists only: the three shelves are the fieldset above, where
+          they behave as one choice rather than as chips you can stack. */}
+      {listCollections.length > 0 && (
         <fieldset>
           <legend className="eyebrow mb-1.5 text-gray-700">Collections</legend>
           <div className="flex flex-wrap gap-2">
-            {collections.map((col) => {
+            {listCollections.map((col) => {
               const selected = selectedCollections.includes(col.id);
               return (
                 <button
                   key={col.id}
                   type="button"
                   onClick={() =>
-                    onChange({
-                      collections: selected
-                        ? selectedCollections.filter((c) => c !== col.id)
-                        : [...selectedCollections, col.id],
-                    })
+                    onChange({ collections: toggleCollection(selectedCollections, col.id) })
                   }
                   aria-pressed={selected}
                   className={cn(

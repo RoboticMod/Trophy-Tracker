@@ -5,7 +5,7 @@ import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { formatHours } from '../lib/format';
-import { statusLabel, STATUS_OVERLAY_CLASS } from '../lib/status';
+import { PERMANENT_OVERLAY_CLASS, collectionName, permanentOf } from '../lib/collections';
 import { useCelebration } from '../lib/useCelebration';
 import { Celebration } from './Celebration';
 import { CoverArt } from './CoverArt';
@@ -29,7 +29,7 @@ import { cn } from '../lib/cn';
  * finished, since the card that would otherwise do it is behind this dialog.
  */
 export const GameAddedDialog: React.FC = () => {
-  const { added, dismissAdded, goToGame, games, profile } = useGame();
+  const { added, dismissAdded, goToGame, games, collections } = useGame();
 
   // By id rather than by value: the game keeps changing while this is open —
   // a sync fills in its achievement count moments after it is added — and the
@@ -53,13 +53,14 @@ export const GameAddedDialog: React.FC = () => {
   const perfect = isPerfect(game);
   const progress = completionPercent(game);
   const awardLabel = awardProgressLabel(game.platform, perfect);
+  const shelf = permanentOf(game.collections);
 
   return (
     <Dialog
       isOpen={Boolean(announced)}
       onClose={dismissAdded}
       title="Game added"
-      description={`${platform.name} • ${statusLabel(game.status, profile)}`}
+      description={shelf ? `${platform.name} • ${collectionName(shelf, collections)}` : platform.name}
       icon={<Check size={18} />}
       footer={
         <>
@@ -100,10 +101,12 @@ export const GameAddedDialog: React.FC = () => {
               <OverlayBadge square tint={platform.tint} title={platform.name}>
                 <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
               </OverlayBadge>
-              <OverlayBadge className={STATUS_OVERLAY_CLASS[game.status]}>
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                {statusLabel(game.status, profile)}
-              </OverlayBadge>
+              {shelf && (
+                <OverlayBadge className={PERMANENT_OVERLAY_CLASS[shelf]}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {collectionName(shelf, collections)}
+                </OverlayBadge>
+              )}
             </div>
 
             {perfect && (

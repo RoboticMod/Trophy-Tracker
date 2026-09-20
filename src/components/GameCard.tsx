@@ -3,7 +3,13 @@ import { motion } from 'motion/react';
 import { Clock, Pencil } from 'lucide-react';
 import { UserGame } from '../types';
 import { PLATFORMS } from '../lib/constants';
-import { statusLabel, STATUS_OVERLAY_CLASS } from '../lib/status';
+import {
+  BACKLOG_COLLECTION_ID,
+  PERMANENT_OVERLAY_CLASS,
+  PLAYING_COLLECTION_ID,
+  collectionName,
+  permanentOf,
+} from '../lib/collections';
 import { useGame } from '../context/GameContext';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
@@ -67,7 +73,7 @@ interface GameCardProps {
 }
 
 export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform = false }) => {
-  const { profile, added, follow } = useGame();
+  const { profile, collections, added, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
 
@@ -146,6 +152,9 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
   const progress = completionPercent(game);
 
+  /** The shelf this game is on, or null when it is only in the library. */
+  const shelf = permanentOf(game.collections);
+
   // Earned, not declared: the gold treatment follows the unlock counts alone.
   // It used to accept the "mastered" status as proof on its own, which meant a
   // card kept its rim and its emblem after an unlock was taken back, while the
@@ -156,7 +165,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   // own completion announcement.
   const awardLabel = awardProgressLabel(game.platform, isMastered);
 
-  // Stroke draws the status as a coloured edge; fill tints the whole surface.
+  // Stroke draws the shelf as a coloured edge; fill tints the whole surface.
   // A finished game is handled by the turning gold rim below instead of a
   // border, so its stroke variant asks only for the glow.
   const filled = profile.highlightStyle === 'fill';
@@ -164,7 +173,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
     ? filled
       ? 'trophy-glow border-transparent bg-trophy-100'
       : 'trophy-glow border-transparent bg-gradient-to-b from-trophy-100/45 to-gray-100/70'
-    : game.status === 'playing'
+    : shelf === PLAYING_COLLECTION_ID
       ? filled
         ? 'glow-ring border-accent-700/50 bg-accent-100'
         : 'glow-ring border-accent-700/40 bg-gray-100/70 hover:border-accent-700'
@@ -231,7 +240,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             className={[
               'h-full w-full object-cover object-center transition-all duration-500',
               'group-hover:scale-105',
-              game.status === 'backlog'
+              shelf === BACKLOG_COLLECTION_ID
                 ? 'opacity-80 grayscale group-hover:opacity-100 group-hover:grayscale-0'
                 : '',
             ].join(' ')}
@@ -244,7 +253,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           {isMastered && <div aria-hidden className="trophy-sweep" />}
         </div>
 
-        {/* Identity + status indicators. Every chip is the same height. */}
+        {/* Identity + shelf indicators. Every chip is the same height. */}
         <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
           {!hidePlatform && (
             <OverlayBadge square tint={platform.tint} title={platform.name}>
@@ -252,17 +261,20 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             </OverlayBadge>
           )}
 
-          {/* Every game states its status here, in that status's own colour.
-              Only an in-progress game pulses. */}
-          <OverlayBadge className={STATUS_OVERLAY_CLASS[game.status]}>
-            <span
-              className={cn(
-                'h-1.5 w-1.5 rounded-full bg-current',
-                game.status === 'playing' && 'animate-pulse',
-              )}
-            />
-            {statusLabel(game.status, profile)}
-          </OverlayBadge>
+          {/* A game on a shelf says so here, in that shelf's own colour. A game
+              on none shows just the platform, rather than a chip claiming a
+              status it does not have. Only an in-progress game pulses. */}
+          {shelf && (
+            <OverlayBadge className={PERMANENT_OVERLAY_CLASS[shelf]}>
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full bg-current',
+                  shelf === PLAYING_COLLECTION_ID && 'animate-pulse',
+                )}
+              />
+              {collectionName(shelf, collections)}
+            </OverlayBadge>
+          )}
         </div>
 
         {/* Completion emblem: a round disc carrying the platform's own trophy

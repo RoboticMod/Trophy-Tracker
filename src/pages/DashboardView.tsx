@@ -8,7 +8,6 @@ import {
   Flame,
   Star,
   ArrowUpDown,
-  ListFilter,
   Loader2,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
@@ -19,8 +18,13 @@ import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
 import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import { aggregateCompletion, isPerfect } from '../lib/completion';
 import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
-import { statusLabel } from '../lib/status';
-import { GameStatus, Platform, PLATFORM_IDS } from '../types';
+import {
+  BACKLOG_COLLECTION_ID,
+  PLAYING_COLLECTION_ID,
+  collectionName,
+  isPermanentCollection,
+} from '../lib/collections';
+import { Platform, PLATFORM_IDS } from '../types';
 import {
   Button,
   Card,
@@ -47,7 +51,6 @@ type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 const SORT_OPTIONS = [
   'title-asc',
   'recent',
-  'rating-desc',
   'achievement-rating-desc',
   'hours-desc',
   'completion-desc',
@@ -64,14 +67,6 @@ const RATING_FILTER_OPTIONS = [
 
 const RATING_FILTERS = RATING_FILTER_OPTIONS.map((option) => option.value);
 
-const STATUS_FILTERS: (GameStatus | 'all')[] = [
-  'all',
-  'playing',
-  'backlog',
-  'completed',
-  'mastered',
-];
-
 export const DashboardView: React.FC = () => {
   const {
     games,
@@ -80,8 +75,6 @@ export const DashboardView: React.FC = () => {
     loading,
     activePlatformFilter,
     setActivePlatformFilter,
-    activeStatusFilter,
-    setActiveStatusFilter,
     activeCollectionFilter,
     setActiveCollectionFilter,
     setIsQuickAddOpen,
@@ -101,8 +94,8 @@ export const DashboardView: React.FC = () => {
     oneOf(RATING_FILTERS),
   );
 
-  const backlogGames = games.filter((g) => g.status === 'backlog');
-  const currentlyPlaying = games.filter((g) => g.status === 'playing');
+  const backlogGames = games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID));
+  const currentlyPlaying = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID));
   const perfectGames = games.filter(isPerfect);
 
   /** Per-platform counts shown beside each headline number. */
@@ -116,18 +109,33 @@ export const DashboardView: React.FC = () => {
 
   const platformOrder = profile.platformOrder;
 
+  // Permanent shelves first: they are the ones people filter by most, and the
+  // chip row is now the only status control on the page.
+  const orderedCollections = useMemo(
+    () => [
+      ...collections.filter((c) => isPermanentCollection(c.id)),
+      ...collections.filter((c) => !isPermanentCollection(c.id)),
+    ],
+    [collections],
+  );
+
   /**
    * The gauge measures what you are actually working through: the queue, the
    * games in progress, and the ones already finished.
    *
-   * What it leaves out is everything you have walked away from — a dropped
-   * game, or one filed as done at the story rather than the last unlock. Those
+   * What it leaves out is everything you have walked away from — a game on no
+   * shelf, or on a list of your own for something you stopped playing. Those
    * are not progress waiting to be made, and averaging them in only ever drags
    * the arc down.
    */
   const gaugeGames = useMemo(
     () =>
-      games.filter((g) => g.status === 'backlog' || g.status === 'playing' || isPerfect(g)),
+      games.filter(
+        (g) =>
+          g.collections?.includes(BACKLOG_COLLECTION_ID) ||
+          g.collections?.includes(PLAYING_COLLECTION_ID) ||
+          isPerfect(g),
+      ),
     [games],
   );
   const { unlocked, unlockable, percent: completion } = aggregateCompletion(gaugeGames);
@@ -135,7 +143,6 @@ export const DashboardView: React.FC = () => {
   const processedGames = useMemo(() => {
     const result = games.filter((g) => {
       if (activePlatformFilter !== 'all' && g.platform !== activePlatformFilter) return false;
-      if (activeStatusFilter !== 'all' && g.status !== activeStatusFilter) return false;
       if (activeCollectionFilter !== 'all' && !g.collections?.includes(activeCollectionFilter)) {
         return false;
       }
@@ -164,7 +171,6 @@ export const DashboardView: React.FC = () => {
   }, [
     games,
     activePlatformFilter,
-    activeStatusFilter,
     activeCollectionFilter,
     ratingFilter,
     localSearch,
@@ -215,7 +221,7 @@ export const DashboardView: React.FC = () => {
           icon={<Play size={24} />}
           tone="bg-accent-700/16 text-accent-900"
           value={String(currentlyPlaying.length)}
-          label={statusLabel('playing', profile)}
+          label={collectionName(PLAYING_COLLECTION_ID, collections)}
           breakdown={splitByPlatform(currentlyPlaying, (p) => (
             <PlatformIcon platform={p} size={15} className="text-gray-700" />
           ))}
@@ -224,7 +230,7 @@ export const DashboardView: React.FC = () => {
           icon={<Hourglass size={24} />}
           tone="bg-gray-300 text-gray-800"
           value={String(backlogGames.length)}
-          label={statusLabel('backlog', profile)}
+          label={collectionName(BACKLOG_COLLECTION_ID, collections)}
           breakdown={splitByPlatform(backlogGames, (p) => (
             <PlatformIcon platform={p} size={15} className="text-gray-700" />
           ))}
@@ -244,7 +250,7 @@ export const DashboardView: React.FC = () => {
           >
             <span className="flex items-center gap-2">
               <Flame className="text-trophy-900" size={13} />
-              {statusLabel('playing', profile)}
+              {collectionName(PLAYING_COLLECTION_ID, collections)}
             </span>
           </SectionTitle>
 
@@ -314,7 +320,7 @@ export const DashboardView: React.FC = () => {
             All collections ({games.length})
           </FilterChip>
 
-          {collections.map((collection) => {
+          {orderedCollections.map((collection) => {
             const count = games.filter((g) => g.collections?.includes(collection.id)).length;
             const color = collection.color || DEFAULT_COLLECTION_COLOR;
             return (
@@ -337,23 +343,9 @@ export const DashboardView: React.FC = () => {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-3">
-          <div className="flex items-center gap-2">
-            <label htmlFor="library-status" className="eyebrow flex items-center gap-1 text-gray-600">
-              <ListFilter size={12} className="text-accent-900" />
-              Status
-            </label>
-            <Select
-              id="library-status"
-              value={activeStatusFilter}
-              onChange={setActiveStatusFilter}
-              options={STATUS_FILTERS.map((status) => ({
-                value: status,
-                label: status === 'all' ? 'All statuses' : statusLabel(status, profile),
-              }))}
-            />
-          </div>
-
+        {/* Left-aligned on a phone, matching the platform and collection chip
+            rows directly above it; pushed right once there is room to spare. */}
+        <div className="flex flex-wrap items-center justify-start gap-3 border-t border-gray-200 pt-3 md:justify-end">
           <div className="flex items-center gap-2">
             <label htmlFor="library-rating" className="eyebrow flex items-center gap-1 text-gray-600">
               <Star size={12} className="text-trophy-900" />
