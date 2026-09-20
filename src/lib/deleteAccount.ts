@@ -41,8 +41,10 @@ export async function deleteAccount(): Promise<DeleteAccountError | null> {
     if (response.ok) return null;
 
     // 'not-configured' here means the function is deployed but has no service
-    // role key, which is a deployment step the UI has to say out loud rather
-    // than reporting as a generic failure.
+    // role key. Supabase injects that into every function itself and refreshes
+    // it on each deploy, so this is not a setup step anyone forgot — it means
+    // something is wrong with the deployment, and saying so beats a generic
+    // failure.
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     if (body.error === 'not-configured') return 'not-configured';
     if (body.error === 'could-not-delete') return 'could-not-delete';
@@ -55,7 +57,7 @@ export async function deleteAccount(): Promise<DeleteAccountError | null> {
 /** What each reason means to the person who pressed the button. */
 export const DELETE_ACCOUNT_MESSAGES: Record<DeleteAccountError, string> = {
   'not-configured':
-    'Deleting an account needs SUPABASE_SERVICE_ROLE_KEY set as a secret on the game-data function. See the README.',
+    'The server is missing its service-role key, which Supabase normally provides on its own. Re-deploy the game-data function and try again.',
   'not-signed-in': 'Your session has expired. Sign in again and retry.',
   'could-not-delete': 'Supabase refused the delete. Nothing was removed.',
   'request-failed': 'Could not reach the server. Nothing was removed.',

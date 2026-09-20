@@ -151,8 +151,11 @@ Function secrets (`supabase secrets set …`):
 
 ```
 STEAM_API_KEY                # Steam search, achievements, playtime
-SUPABASE_SERVICE_ROLE_KEY    # only for POST /me/delete
 ```
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into every edge
+function by Supabase itself and cannot be set by hand — the `SUPABASE_` prefix is reserved. The
+delete-account route reads the third of those, so it needs no setup of its own.
 
 The schema lives in [`supabase/schema.sql`](supabase/schema.sql) and is imported
 raw by `lib/schema.ts`, so the "Copy schema SQL" button and the file cannot drift.
