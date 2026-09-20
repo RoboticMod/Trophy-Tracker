@@ -45,7 +45,3 @@ export const PSN_TROPHY_SCOPE_LABELS: Record<PsnTrophyScope, string> = {
   all: 'Base game and add-ons',
 };
 
-export const PSN_TROPHY_SCOPE_HINTS: Record<PsnTrophyScope, string> = {
-  base: 'What a platinum is measured against. A finished game reads 100% even when DLC packs exist.',
-  all: 'Every trophy there is. A game with unbought DLC will sit below 100% until you own and finish it.',
-};

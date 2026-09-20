@@ -305,11 +305,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
                 {membership.name}
               </OverlayBadge>
             ) : (
-              <OverlayBadge key={membership.id} className="text-gray-900">
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: membership.color }}
-                />
+              // The list's own colour on the text as well as the dot. A grey
+              // label beside a coloured dot made the colour look like
+              // decoration rather than the thing identifying the list, which
+              // is how it reads everywhere else in the app.
+              <OverlayBadge key={membership.id} style={{ color: membership.color }}>
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 {membership.name}
               </OverlayBadge>
             ),

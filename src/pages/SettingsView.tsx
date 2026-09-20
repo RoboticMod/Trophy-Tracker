@@ -48,7 +48,6 @@ import {
 } from '../lib/constants';
 import { DELETE_ACCOUNT_MESSAGES, deleteAccount } from '../lib/deleteAccount';
 import {
-  PSN_TROPHY_SCOPE_HINTS,
   PSN_TROPHY_SCOPE_LABELS,
   PsnTrophyScope,
   usePsnTrophyScope,
@@ -668,24 +667,12 @@ export const SettingsView: React.FC = () => {
               >
                 <span className="block text-100 font-semibold text-gray-1000">
                   {PSN_TROPHY_SCOPE_LABELS[option]}
-                  {option === 'base' ? (
-                    <span className="ml-2 text-50 font-bold uppercase tracking-wide text-gray-600">
-                      Default
-                    </span>
-                  ) : null}
-                </span>
-                <span className="mt-0.5 block text-50 text-gray-700">
-                  {PSN_TROPHY_SCOPE_HINTS[option]}
                 </span>
               </button>
             );
           })}
         </div>
 
-        <p className="text-50 text-gray-600">
-          Counts are re-read on the next sync. Steam games are unaffected — Steam has no
-          separate add-on achievement lists.
-        </p>
       </Card>
       </SettingsGroup>
 
