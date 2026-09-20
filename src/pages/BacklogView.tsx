@@ -47,7 +47,8 @@ export const BacklogView: React.FC = () => {
       />
 
       <IntroNotice id="backlog">
-        Games queued and waiting to be played — start any of them from its card.
+        Games queued and waiting to be played. Starting one from its card moves it to
+        “{collectionName(PLAYING_COLLECTION_ID, collections)}”.
       </IntroNotice>
 
       <div className="grid-metrics">

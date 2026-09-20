@@ -204,12 +204,19 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
       </div>
 
       <div className="space-y-4">
-        {/* The shelf: one of three, or none. Re-clicking the current one takes
-            the game off it, which is how a game goes back to being just a game
-            in the library. Exclusivity lives in toggleCollection rather than
-            here, so the picker and every other write path agree. */}
+        {/* One control for where a game is filed.
+
+            The three permanent collections lead and behave as a single choice —
+            a game is on at most one, and re-clicking the current one takes it
+            off. Your own lists follow and stack freely. Exclusivity lives in
+            toggleCollection rather than here, so this picker and every other
+            write path agree.
+
+            One fieldset rather than two: they were labelled "Shelf" and
+            "Collections", which made the first sound like something other than
+            a collection when it is exactly that. */}
         <fieldset>
-          <legend className="eyebrow mb-1.5 text-gray-700">Shelf</legend>
+          <legend className="eyebrow mb-1.5 text-gray-700">Collections</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PERMANENT_COLLECTION_IDS.map((id) => (
               <button
@@ -234,6 +241,36 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
               </button>
             ))}
           </div>
+
+          {listCollections.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {listCollections.map((col) => {
+                const selected = selectedCollections.includes(col.id);
+                return (
+                  <button
+                    key={col.id}
+                    type="button"
+                    onClick={() =>
+                      onChange({ collections: toggleCollection(selectedCollections, col.id) })
+                    }
+                    aria-pressed={selected}
+                    className={cn(
+                      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-medium transition-colors',
+                      selected
+                        ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
+                        : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400',
+                    )}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: col.color || DEFAULT_COLLECTION_COLOR }}
+                    />
+                    {col.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </fieldset>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -420,15 +457,23 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           </div>
         ) : null}
 
-        <div className="border-t border-gray-200 pt-4">
-          <GuidedRating
-            label={`${noun} rating`}
-            questions={ACHIEVEMENT_RATING_QUESTIONS}
-            value={achievementRating}
-            onChange={(next) => onChange({ achievementRating: next })}
-            description={awardRatingHint}
-          />
-        </div>
+{/* Asked for only once the list is finished.
+
+            Rating how good a trophy list was to earn is a verdict on the whole
+            list, and it cannot honestly be given part-way through — the grind
+            you have not reached yet is exactly the part that decides it. Before
+            then the field was an invitation to score something unseen. */}
+        {finished ? (
+          <div className="border-t border-gray-200 pt-4">
+            <GuidedRating
+              label={`${noun} rating`}
+              questions={ACHIEVEMENT_RATING_QUESTIONS}
+              value={achievementRating}
+              onChange={(next) => onChange({ achievementRating: next })}
+              description={awardRatingHint}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Only Steam games can be linked to a Steam app. PlayStation progress
@@ -455,41 +500,6 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           </div>
           {syncStatus ? <div className="border-t border-gray-200 pt-3">{syncStatus}</div> : null}
         </div>
-      )}
-
-      {/* Ordinary lists only: the three shelves are the fieldset above, where
-          they behave as one choice rather than as chips you can stack. */}
-      {listCollections.length > 0 && (
-        <fieldset>
-          <legend className="eyebrow mb-1.5 text-gray-700">Collections</legend>
-          <div className="flex flex-wrap gap-2">
-            {listCollections.map((col) => {
-              const selected = selectedCollections.includes(col.id);
-              return (
-                <button
-                  key={col.id}
-                  type="button"
-                  onClick={() =>
-                    onChange({ collections: toggleCollection(selectedCollections, col.id) })
-                  }
-                  aria-pressed={selected}
-                  className={cn(
-                    'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-75 font-medium transition-colors',
-                    selected
-                      ? 'border-accent-700/60 bg-accent-700/16 text-accent-900'
-                      : 'border-gray-300 bg-black/25 text-gray-700 hover:border-gray-400',
-                  )}
-                >
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: col.color || DEFAULT_COLLECTION_COLOR }}
-                  />
-                  {col.name}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
       )}
 
       <Field label="Notes" description="Optional">

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Gamepad2,
   Hourglass,
-  Library,
+  Home,
   Play,
   Plus,
   Search,
@@ -184,9 +184,9 @@ export const DashboardView: React.FC = () => {
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       <PageHeader
-        icon={<Library size={18} />}
+        icon={<Home size={18} />}
         iconClassName="bg-accent-700/16 text-accent-900"
-        title="Library"
+        title="Home"
       />
 
       <IntroNotice id="library">

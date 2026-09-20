@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Library,
+  Home,
   BarChart3,
   Settings,
   Search,
@@ -21,7 +21,7 @@ import { GameAddedDialog } from './GameAddedDialog';
 import { QuickAddModal } from './QuickAddModal';
 import { SessionProgressDialog } from './SessionProgressDialog';
 import { UserGame } from '../types';
-import { DEFAULT_START_PATH } from '../lib/constants';
+import { APP_NAME, DEFAULT_START_PATH } from '../lib/constants';
 import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
 import { useSync } from '../context/SyncContext';
@@ -105,7 +105,7 @@ export const AppLayout: React.FC = () => {
   const perfectCount = games.filter(isPerfect).length;
 
   const rawNavItems: NavItem[] = [
-    { name: 'Dashboard', short: 'Library', path: '/', icon: Library, enabled: true },
+    { name: 'Home', short: 'Home', path: '/', icon: Home, enabled: true },
     {
       name: collectionName(PLAYING_COLLECTION_ID, collections),
       short: 'Playing',
@@ -286,7 +286,14 @@ export const AppLayout: React.FC = () => {
           destinations stay as icons so seven of them still fit beside the
           brand and the actions. */}
       <header className="relative z-20 hidden shrink-0 items-center gap-3 border-b border-gray-200 bg-gray-100/70 px-4 backdrop-blur-xl md:flex 2xl:px-8">
-        <Wordmark className="shrink-0 py-2.5" />
+        {/* The lockup is the way home, as it is on most sites. */}
+        <NavLink
+          to="/"
+          aria-label={`${APP_NAME} home`}
+          className="shrink-0 rounded-md py-2.5 transition-opacity hover:opacity-80"
+        >
+          <Wordmark />
+        </NavLink>
 
         <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
           {navItems.map((item) => {
@@ -412,7 +419,13 @@ export const AppLayout: React.FC = () => {
 
       {/* Mobile header ------------------------------------------------------ */}
       <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-gray-100/85 px-4 py-3 backdrop-blur-xl md:hidden">
-        <Wordmark size="sm" />
+        <NavLink
+          to="/"
+          aria-label={`${APP_NAME} home`}
+          className="rounded-md transition-opacity hover:opacity-80"
+        >
+          <Wordmark size="sm" />
+        </NavLink>
         <div className="flex items-center gap-2">
           <Button
             buttonStyle="outline"

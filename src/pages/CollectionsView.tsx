@@ -108,18 +108,21 @@ export const CollectionsView: React.FC = () => {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(DEFAULT_COLLECTION_COLOR);
 
-  // Permanent shelves first. They are where games actually live, so they are
-  // what the tab strip should open on rather than whatever sorted first.
-  const orderedCollections = useMemo(
-    () => [
-      ...collections.filter((c) => isPermanentCollection(c.id)),
-      ...collections.filter((c) => !isPermanentCollection(c.id)),
-    ],
+  /**
+   * This page is about the lists you made yourself.
+   *
+   * The three permanent shelves each already have a page of their own —
+   * /playing, /backlog and /achievements — so listing them here too was a
+   * second way to the same three places, taking up the front of a tab strip
+   * that is otherwise entirely yours.
+   */
+  const customCollections = useMemo(
+    () => collections.filter((c) => !isPermanentCollection(c.id)),
     [collections],
   );
 
   const activeCollection =
-    collections.find((c) => c.id === activeCollectionId) ?? orderedCollections[0] ?? null;
+    customCollections.find((c) => c.id === activeCollectionId) ?? customCollections[0] ?? null;
   const isEditing = activeCollection !== null && editingId === activeCollection.id;
   const isPermanent = activeCollection !== null && isPermanentCollection(activeCollection.id);
   const platformOrder = profile.platformOrder;
@@ -154,7 +157,7 @@ export const CollectionsView: React.FC = () => {
     setConfirmDeleteId(null);
     setEditingId(null);
     setActiveCollectionId(
-      orderedCollections.find((c) => c.id !== activeCollection.id)?.id ?? '',
+      customCollections.find((c) => c.id !== activeCollection.id)?.id ?? '',
     );
   };
 
@@ -235,7 +238,7 @@ export const CollectionsView: React.FC = () => {
 
       {/* Tabs -------------------------------------------------------------- */}
       <div className="flex flex-wrap items-center gap-2">
-        {orderedCollections.map((col) => {
+        {customCollections.map((col) => {
           const isSelected = activeCollection?.id === col.id;
           const count = games.filter((g) => g.collections?.includes(col.id)).length;
           return (

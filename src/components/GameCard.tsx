@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock, Pencil } from 'lucide-react';
 import { UserGame } from '../types';
-import { PLATFORMS } from '../lib/constants';
+import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import {
   BACKLOG_COLLECTION_ID,
   PERMANENT_OVERLAY_CLASS,
   PLAYING_COLLECTION_ID,
   collectionName,
+  isPermanentCollection,
   permanentOf,
 } from '../lib/collections';
 import { useGame } from '../context/GameContext';
@@ -155,6 +156,27 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   /** The shelf this game is on, or null when it is only in the library. */
   const shelf = permanentOf(game.collections);
 
+  /**
+   * Every collection this game is in, shelf first.
+   *
+   * Ordered rather than filtered: the shelf is the headline, and a card that
+   * listed "Soulsborne" before "Playing" would bury the thing you scan for.
+   */
+  const memberships = useMemo(() => {
+    const ids = game.collections ?? [];
+    return [...ids]
+      .sort((a, b) => Number(isPermanentCollection(b)) - Number(isPermanentCollection(a)))
+      .map((id) => ({
+        id,
+        permanent: isPermanentCollection(id) ? id : null,
+        name: collectionName(id, collections),
+        color: collections.find((c) => c.id === id)?.color ?? DEFAULT_COLLECTION_COLOR,
+      }))
+      // A membership naming a collection that no longer exists is not worth a
+      // chip reading back its raw id.
+      .filter((m) => m.permanent !== null || collections.some((c) => c.id === m.id));
+  }, [game.collections, collections]);
+
   // Earned, not declared: the gold treatment follows the unlock counts alone.
   // It used to accept the "mastered" status as proof on its own, which meant a
   // card kept its rim and its emblem after an unlock was taken back, while the
@@ -261,19 +283,36 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             </OverlayBadge>
           )}
 
-          {/* A game on a shelf says so here, in that shelf's own colour. A game
-              on none shows just the platform, rather than a chip claiming a
-              status it does not have. Only an in-progress game pulses. */}
-          {shelf && (
-            <OverlayBadge className={PERMANENT_OVERLAY_CLASS[shelf]}>
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 rounded-full bg-current',
-                  shelf === PLAYING_COLLECTION_ID && 'animate-pulse',
-                )}
-              />
-              {collectionName(shelf, collections)}
-            </OverlayBadge>
+          {/* Every collection this game is in, permanent or not — the card is
+              where you look to know where a game is filed, and showing only
+              the shelf meant a game's own lists were invisible everywhere
+              except the library filter row.
+
+              A permanent shelf keeps its own colour and leads; a custom list
+              wears its own dot. Only an in-progress game pulses. */}
+          {memberships.map((membership) =>
+            membership.permanent ? (
+              <OverlayBadge
+                key={membership.id}
+                className={PERMANENT_OVERLAY_CLASS[membership.permanent]}
+              >
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full bg-current',
+                    membership.permanent === PLAYING_COLLECTION_ID && 'animate-pulse',
+                  )}
+                />
+                {membership.name}
+              </OverlayBadge>
+            ) : (
+              <OverlayBadge key={membership.id} className="text-gray-900">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: membership.color }}
+                />
+                {membership.name}
+              </OverlayBadge>
+            ),
           )}
         </div>
 
@@ -380,7 +419,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         </div>
 
         <div className="flex h-4 items-center gap-1.5 text-75 font-bold tabular-nums text-gray-900">
-          {game.achievementRating ? (
+          {/* Only once the list is finished, mirroring where it can be set. A
+              score shown on a game still in progress is one from an earlier
+              completion, or from before this rule, and either way it is a
+              verdict on a list this game is no longer done with. */}
+          {isMastered && game.achievementRating ? (
             <RatingValue
               value={game.achievementRating}
               size="xs"

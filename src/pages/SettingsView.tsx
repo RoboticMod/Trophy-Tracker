@@ -18,7 +18,7 @@ import {
   Code,
   ChevronDown,
   ChevronUp,
-  Library,
+  Home,
   RotateCcw,
   LogOut,
   GripVertical,
@@ -31,7 +31,6 @@ import {
   Volume2,
   Volume1,
   VolumeX,
-  Home,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
@@ -174,8 +173,8 @@ const ALL_NAV_ITEMS = [
   {
     id: 'dashboard',
     path: '/',
-    name: 'Library',
-    icon: Library,
+    name: 'Home',
+    icon: Home,
     configKey: null,
     tone: 'bg-accent-700/16 text-accent-900',
   },

@@ -7,15 +7,13 @@ import { SessionProgress, useSessionProgress } from '../lib/useSessionProgress';
 import { CELEBRATION_DELAY_MS, CELEBRATION_MS, Celebration } from './Celebration';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
-import { TrophyBadge, awardNoun } from './TrophyBadge';
+import { TrophyBadge, awardNoun, awardNounFor } from './TrophyBadge';
 import { Button, Dialog, Meter } from './ui';
 import { cn } from '../lib/cn';
 
 /** "+3 trophies" — what a game picked up while you were away. */
-const gainedLabel = (entry: SessionProgress) => {
-  const noun = awardNoun(entry.game.platform).toLowerCase();
-  return `+${entry.gained} ${entry.gained === 1 ? noun.replace(/s$/, '') : noun}`;
-};
+const gainedLabel = (entry: SessionProgress) =>
+  `+${entry.gained} ${awardNounFor(entry.game.platform, entry.gained).toLowerCase()}`;
 
 /**
  * One game's row: what it was, what it is now, and how far that leaves it.

@@ -20,6 +20,11 @@ interface TrophyArt {
    * is known, the interface uses that platform's word rather than a generic one.
    */
   noun: string;
+  /**
+   * The same word for one of them. Stated rather than derived: stripping a
+   * trailing "s" turns "Trophies" into "Trophie".
+   */
+  nounSingular: string;
   /** Announcement shown once every one of them has been earned. */
   completeLabel: string;
   /**
@@ -38,6 +43,7 @@ const TROPHY_ART: Record<Platform, TrophyArt> = {
     label: 'Perfect Game',
     title: 'Steam — every achievement unlocked (Perfect Game)',
     noun: 'Achievements',
+    nounSingular: 'Achievement',
     completeLabel: 'All Achievements Unlocked',
     width: 147,
     height: 192,
@@ -48,6 +54,7 @@ const TROPHY_ART: Record<Platform, TrophyArt> = {
     label: 'Platinum',
     title: 'PlayStation 5 — Platinum Trophy unlocked',
     noun: 'Trophies',
+    nounSingular: 'Trophy',
     completeLabel: 'Platinum Trophy Unlocked',
     width: 119,
     height: 192,
@@ -120,6 +127,12 @@ export const trophyLabel = (platform: Platform | string): string =>
 /** What this platform's games collect: "Achievements" on Steam, "Trophies" on PS5. */
 export const awardNoun = (platform: Platform | string): string =>
   TROPHY_ART[normalizePlatform(platform) ?? 'steam'].noun;
+
+/** The same word for exactly one: "Achievement", "Trophy". */
+export const awardNounFor = (platform: Platform | string, count: number): string =>
+  count === 1
+    ? TROPHY_ART[normalizePlatform(platform) ?? 'steam'].nounSingular
+    : TROPHY_ART[normalizePlatform(platform) ?? 'steam'].noun;
 
 /**
  * The label for a game's progress row: the platform's completion announcement

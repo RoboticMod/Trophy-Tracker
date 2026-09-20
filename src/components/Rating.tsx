@@ -84,6 +84,18 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
   const ratingField = useNumericField(clamped, (n) => onChange(snapRating(n)));
   const fillPercent = (clamped / MAX_RATING) * 100;
 
+  /**
+   * A tick at every whole point, so the track is a scale rather than a smear.
+   *
+   * Layered into the input's own background rather than added as elements: a
+   * range input's track cannot hold children, and a sibling overlay would have
+   * to be kept in step with the thumb's inset by hand.
+   */
+  const tickSpacing = 100 / MAX_RATING;
+  const ticks =
+    `repeating-linear-gradient(90deg, transparent 0, transparent calc(${tickSpacing}% - 1px), ` +
+    `var(--color-gray-100) calc(${tickSpacing}% - 1px), var(--color-gray-100) ${tickSpacing}%)`;
+
   return (
     // The height of a text input, so this lines up with the field beside it.
     <div className="flex h-9 items-center gap-3">
@@ -100,7 +112,7 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
         className="h-1.5 min-w-24 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300 accent-current"
         style={{
           color,
-          background: `linear-gradient(90deg, ${color} ${fillPercent}%, var(--color-gray-300) ${fillPercent}%)`,
+          background: `${ticks}, linear-gradient(90deg, ${color} ${fillPercent}%, var(--color-gray-300) ${fillPercent}%)`,
         }}
       />
 
