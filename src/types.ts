@@ -23,7 +23,19 @@ export interface UserGame {
   rawgId?: number;
   title: string;
   platform: Platform;
+  /** Landscape key art, as the catalog supplies it. */
   coverImage?: string;
+  /**
+   * Tall box art, for the places that draw a poster rather than a banner.
+   *
+   * Held apart from `logoImage` so the two can be chosen independently — the
+   * same split Steam makes, and the reason a phone tile can show a clean
+   * picture with the name laid over it rather than whatever the storefront
+   * happened to bake in.
+   */
+  coverPortrait?: string;
+  /** The game's name as artwork, usually transparent, drawn over the cover. */
+  logoImage?: string;
   releaseDate?: string;
   genres: string[];
   hoursPlayed: number;

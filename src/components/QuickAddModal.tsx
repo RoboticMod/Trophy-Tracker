@@ -255,6 +255,8 @@ export const QuickAddModal: React.FC = () => {
       title: values.title.trim(),
       platform: values.platform,
       coverImage: values.coverImage.trim() || undefined,
+      coverPortrait: values.coverPortrait,
+      logoImage: values.logoImage,
       releaseDate,
       genres,
       hoursPlayed: values.hoursPlayed,

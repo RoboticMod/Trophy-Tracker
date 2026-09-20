@@ -11,7 +11,7 @@ import {
   collectionName,
   isPermanentCollection,
 } from '../lib/collections';
-import { portraitCoverUrl } from '../lib/image';
+import { posterSources } from '../lib/image';
 import { CoverArt } from './CoverArt';
 import { Button, Dialog } from './ui';
 import { cn } from '../lib/cn';
@@ -160,7 +160,7 @@ const CollectionRow: React.FC<{
         {preview.map((game) => (
           <CoverArt
             key={game.id}
-            src={[portraitCoverUrl(game), game.coverImage]}
+            src={posterSources(game)}
             title={game.title}
             className="h-16 w-[2.6rem] shrink-0 rounded-sm object-cover object-center"
           />

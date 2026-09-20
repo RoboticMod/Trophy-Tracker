@@ -10,6 +10,8 @@ create table if not exists public.games (
   title                 text not null,
   platform              text not null check (platform in ('steam', 'ps5')),
   cover_image           text,
+  cover_portrait        text,
+  logo_image            text,
   release_date          text,
   genres                text[] not null default '{}',
   hours_played          numeric not null default 0,
@@ -108,6 +110,8 @@ alter table public.platform_accounts
 alter table public.games
   add column if not exists rawg_id               integer,
   add column if not exists cover_image           text,
+  add column if not exists cover_portrait        text,
+  add column if not exists logo_image            text,
   add column if not exists release_date          text,
   add column if not exists genres                text[] not null default '{}',
   add column if not exists hours_played          numeric not null default 0,

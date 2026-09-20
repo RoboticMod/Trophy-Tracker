@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { UserGame } from '../types';
 import { PERMANENT_COLOR, PLAYING_COLLECTION_ID, permanentOf } from '../lib/collections';
 import { useGame } from '../context/GameContext';
-import { portraitCoverUrl } from '../lib/image';
+import { logoOverlay, posterSources } from '../lib/image';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardProgressLabel } from './TrophyBadge';
@@ -71,6 +71,7 @@ export const GamePosterCard: React.FC<GamePosterCardProps> = ({
   // as a tile this size has for it. A named chip would cover the logo the tile
   // exists to let you read.
   const shelfColor = shelf ? PERMANENT_COLOR[shelf] : null;
+  const logo = logoOverlay(game);
 
   return (
     <>
@@ -106,10 +107,21 @@ export const GamePosterCard: React.FC<GamePosterCardProps> = ({
               loads, so a PlayStation game, which has no such capsule, simply
               falls through to its cover cropped. */}
           <CoverArt
-            src={[portraitCoverUrl(game), game.coverImage]}
+            src={posterSources(game)}
             title={game.title}
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
+
+          {/* The name as artwork, where one has been set. A logo only goes
+              over a poster chosen by hand, since a storefront capsule already
+              has the lettering baked in and this would print it twice. */}
+          {logo ? (
+            <img
+              src={logo}
+              alt={game.title}
+              className="pointer-events-none absolute inset-x-2 top-3 max-h-[38%] w-[calc(100%-1rem)] object-contain object-top drop-shadow-[0_2px_6px_rgb(0_0_0/0.7)]"
+            />
+          ) : null}
 
           {/* One scrim, at the foot.
 

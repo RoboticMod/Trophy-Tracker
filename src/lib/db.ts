@@ -23,6 +23,8 @@ interface GameRow {
   title: string;
   platform: string;
   cover_image: string | null;
+  cover_portrait: string | null;
+  logo_image: string | null;
   release_date: string | null;
   genres: string[] | null;
   hours_played: number | string | null;
@@ -59,6 +61,8 @@ function toGame(row: GameRow): UserGame | null {
     title: row.title,
     platform,
     coverImage: row.cover_image ?? undefined,
+    coverPortrait: row.cover_portrait ?? undefined,
+    logoImage: row.logo_image ?? undefined,
     releaseDate: row.release_date ?? undefined,
     genres: row.genres ?? [],
     hoursPlayed: Number(row.hours_played) || 0,
@@ -94,6 +98,8 @@ function fromGame(game: UserGame, userId: string) {
     title: game.title,
     platform: game.platform,
     cover_image: game.coverImage ?? null,
+    cover_portrait: game.coverPortrait ?? null,
+    logo_image: game.logoImage ?? null,
     release_date: game.releaseDate ?? null,
     genres: game.genres ?? [],
     hours_played: game.hoursPlayed ?? 0,
@@ -198,6 +204,11 @@ const fromProfile = (profile: UserProfile, userId: string) => ({
  * reloaded. Linking is lost, saving is not.
  */
 const LINK_COLUMNS = [
+  // Not only the link columns any more: this is every column added after the
+  // original schema, and dropping the lot on a 42703 is what keeps a library
+  // writable on a project whose owner has not re-run the SQL.
+  'cover_portrait',
+  'logo_image',
   'steam_appid',
   'psn_communication_id',
   'psn_title_id',

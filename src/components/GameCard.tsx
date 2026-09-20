@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Clock, Pencil } from 'lucide-react';
 import { UserGame } from '../types';
 import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
+import { logoOverlay } from '../lib/image';
 import {
   BACKLOG_COLLECTION_ID,
   PERMANENT_OVERLAY_CLASS,
@@ -182,6 +183,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   // card kept its rim and its emblem after an unlock was taken back, while the
   // meter underneath honestly read 95%.
   const isMastered = isPerfect(game);
+  const logo = logoOverlay(game);
 
   // "Achievements"/"Trophies" while there is more to unlock, then the platform's
   // own completion announcement.
@@ -380,16 +382,28 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             isMastered && 'pr-12',
           )}
         >
-          {/* A long name gets a second line before it gets any movement:
+          {/* The name as artwork where one has been set, and as type where it
+              has not. A logo is the game's own lettering and says the title
+              better than the title does; printing both would say it twice.
+
+              A long name gets a second line before it gets any movement:
               reading a wrapped title takes no time at all, where reading a
               scrolling one takes as long as the scroll. Only a name too long
               for even two lines scrolls, on hover, to show the rest. The block
               is anchored to the bottom of the artwork, so the extra line grows
               up into the scrim rather than changing the card's height. */}
           <h3 className="text-200 font-bold tracking-tight text-gray-1000">
+            {logo ? (
+              <img
+                src={logo}
+                alt={game.title}
+                className="max-h-12 w-auto max-w-full object-contain object-left drop-shadow-[0_2px_6px_rgb(0_0_0/0.7)]"
+              />
+            ) : (
             <MarqueeText trigger="hover" lines={2}>
               {game.title}
             </MarqueeText>
+            )}
           </h3>
           <div className="mt-1 flex items-center gap-2 text-75 text-gray-700">
             <span className="flex items-center gap-1">
