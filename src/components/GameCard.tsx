@@ -184,10 +184,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   // meter underneath honestly read 95%.
   const isMastered = isPerfect(game);
 
-  // A card half a phone screen wide fits one chip beside the platform badge.
-  // Anything past that becomes a count, so the row stays on one line.
+  // No collection chips at all on a phone. The card is half a screen wide
+  // there, one chip already crowded the title, and where a game is filed is a
+  // tap away in the details dialog. The platform badge stays: it is the one
+  // thing the cover art cannot tell you.
   const phone = useIsPhone();
-  const chipLimit = phone ? 1 : memberships.length;
+  const chipLimit = phone ? 0 : memberships.length;
   const shownMemberships = memberships.slice(0, chipLimit);
   const hiddenMemberships = memberships.length - shownMemberships.length;
   const extraNames = memberships
@@ -335,7 +337,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           {/* The rest as a count. Two chips wrapped to a second line on a card
               half a phone screen wide, and the second line landed on the
               title. */}
-          {hiddenMemberships > 0 ? (
+          {!phone && hiddenMemberships > 0 ? (
             <OverlayBadge className="text-gray-800" title={extraNames}>
               +{hiddenMemberships}
             </OverlayBadge>
@@ -449,6 +451,15 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         </div>
 
         <div className="flex h-4 items-center gap-1.5 text-75 font-bold tabular-nums text-gray-900">
+          {/* The badge rides this row on a phone, where the labelled line above
+              is hidden — so the count still says which awards it is counting. */}
+          <TrophyBadge
+            platform={game.platform}
+            size={14}
+            muted={!isMastered}
+            className="sm:hidden"
+          />
+
           {/* Only once the list is finished, mirroring where it can be set. A
               score shown on a game still in progress is one from an earlier
               completion, or from before this rule, and either way it is a

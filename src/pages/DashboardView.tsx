@@ -221,7 +221,7 @@ export const DashboardView: React.FC = () => {
 
         <div className="grid-metrics">
         <MetricCard
-          icon={<TrophyPair size={22} />}
+          icon={<TrophyPair size={16} />}
           tone="bg-trophy-700/16"
           value={String(perfectGames.length)}
           label="100% completed"
@@ -230,7 +230,7 @@ export const DashboardView: React.FC = () => {
           ))}
         />
         <MetricCard
-          icon={<Play size={24} />}
+          icon={<Play size={16} />}
           tone="bg-accent-700/16 text-accent-900"
           value={String(currentlyPlaying.length)}
           label={collectionName(PLAYING_COLLECTION_ID, collections)}
@@ -239,7 +239,7 @@ export const DashboardView: React.FC = () => {
           ))}
         />
         <MetricCard
-          icon={<Hourglass size={24} />}
+          icon={<Hourglass size={16} />}
           tone="bg-gray-300 text-gray-800"
           value={String(backlogGames.length)}
           label={collectionName(BACKLOG_COLLECTION_ID, collections)}

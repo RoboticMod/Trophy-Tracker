@@ -277,11 +277,12 @@
   gap: --spacing(3);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
 
-  /* Two across on a phone rather than one. Stacked, four metric cards were a
-     whole screen to scroll past before reaching a single game. */
+  /* One per row on a phone, so each box gets the full content width and its
+     label has room to be read rather than clipped. The icon shrinking into the
+     corner is what keeps them from becoming a screen of their own. */
   @media (width < 48rem) {
     gap: --spacing(2);
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+    grid-template-columns: 1fr;
   }
 }
 

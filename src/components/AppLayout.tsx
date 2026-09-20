@@ -464,7 +464,7 @@ export const AppLayout: React.FC = () => {
             aria-label={`${APP_NAME} home`}
             className="min-w-0 rounded-md transition-opacity hover:opacity-80"
           >
-            <Wordmark size="sm" markOnly />
+            <Wordmark size="sm" />
           </NavLink>
         </div>
         <div className="flex items-center gap-2">
@@ -483,9 +483,17 @@ export const AppLayout: React.FC = () => {
               <CloudOff size={15} className="text-notice-900" />
             )}
           </Button>
-          <Button variant="accent" size="s" onClick={() => setIsQuickAddOpen(true)}>
+          {/* The label goes below sm. A phone header carries a back control,
+              the lockup, a sync button and this, and the lockup's name is worth
+              more of that row than four letters repeating a plus. */}
+          <Button
+            variant="accent"
+            size="s"
+            onClick={() => setIsQuickAddOpen(true)}
+            aria-label="Add game"
+          >
             <Plus size={15} />
-            <span>Add</span>
+            <span className="hidden sm:inline">Add</span>
           </Button>
         </div>
       </header>

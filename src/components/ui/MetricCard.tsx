@@ -44,36 +44,37 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   label,
   breakdown,
 }) => (
-  <Card className="flex items-center justify-between gap-2 p-3 sm:gap-4 sm:p-4">
-    <div className="flex min-w-0 flex-col gap-1.5 sm:gap-2">
-      {/* Wrapped on a phone, truncated once there is room to truncate to.
-          Two of these across a 375px screen leaves about seventy pixels beside
-          the emblem, and "Active unlocks (64%)" truncated there read as
-          "Active unl…" — a label that has been cut down to nothing tells you
-          less than a label on two lines. */}
-      <div className="eyebrow min-w-0 text-gray-600 line-clamp-2 sm:truncate">{label}</div>
+  <Card className="relative flex flex-col gap-1 p-3 sm:gap-2 sm:p-4">
+    {/* The emblem sits in the corner rather than in a column of its own.
+        Centred against the card's full height it claimed a share of the width
+        at every size, which on a phone left the label about seventy pixels to
+        live in — "Active unlocks (64%)" came out as "Active unl…". Out of the
+        flow, the text gets the whole card and only has to keep clear of one
+        corner. */}
+    <div className="eyebrow min-w-0 pr-10 text-gray-600 line-clamp-2 sm:truncate sm:pr-12">
+      {label}
+    </div>
 
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-3">
-        <span className="text-500 font-bold leading-none tabular-nums text-gray-1000 sm:text-700">
-          {value}
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-3">
+      <span className="text-500 font-bold leading-none tabular-nums text-gray-1000 sm:text-700">
+        {value}
+      </span>
+
+      {breakdown?.length ? (
+        <span className="flex items-center gap-3">
+          {breakdown.map((entry) => (
+            <span key={entry.key} className="flex items-center gap-1.5" title={entry.title}>
+              {entry.icon}
+              <span className="text-75 font-bold tabular-nums text-gray-700">{entry.count}</span>
+            </span>
+          ))}
         </span>
-
-        {breakdown?.length ? (
-          <span className="flex items-center gap-3">
-            {breakdown.map((entry) => (
-              <span key={entry.key} className="flex items-center gap-1.5" title={entry.title}>
-                {entry.icon}
-                <span className="text-75 font-bold tabular-nums text-gray-700">{entry.count}</span>
-              </span>
-            ))}
-          </span>
-        ) : null}
-      </div>
+      ) : null}
     </div>
 
     <div
       className={cn(
-        'flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-lg sm:h-12 sm:w-12',
+        'absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-md sm:h-9 sm:w-9 sm:rounded-lg',
         tone,
       )}
     >
