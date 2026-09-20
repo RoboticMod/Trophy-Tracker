@@ -174,7 +174,16 @@ export function useSteamSync() {
       };
       if (grewList) patch.collections = fileAsGrown(current);
 
-      updateGame(game.id, patch);
+      // Flagged automatic so a shelf change here is announced: a trophy list
+
+
+      // growing under a finished game moves it, and that should not happen
+
+
+      // silently behind you.
+
+
+      updateGame(game.id, patch, { automatic: true });
       recordOutcome(game.id, {
         state: changed ? 'synced' : 'unchanged',
         at: now(),
@@ -259,7 +268,16 @@ export function useSteamSync() {
             report.grown.push(game.title);
           }
 
-          updateGame(game.id, patch);
+          // Flagged automatic so a shelf change here is announced: a trophy list
+
+
+          // growing under a finished game moves it, and that should not happen
+
+
+          // silently behind you.
+
+
+          updateGame(game.id, patch, { automatic: true });
           if (changed) report.updated += 1;
           outcome.state = changed ? 'synced' : 'unchanged';
         }

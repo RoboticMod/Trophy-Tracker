@@ -117,7 +117,7 @@ interface GameContextType {
     game: Omit<UserGame, 'id' | 'addedAt' | 'updatedAt'>,
     options?: { announce?: boolean },
   ) => UserGame;
-  updateGame: (id: string, updates: Partial<UserGame>) => void;
+  updateGame: (id: string, updates: Partial<UserGame>, options?: UpdateGameOptions) => void;
   deleteGame: (id: string) => void;
   /** Returns the created collection, so a caller can file a game into it. */
   createCollection: (
@@ -162,6 +162,15 @@ interface GameContextType {
   added: { gameId: string; token: number } | null;
   dismissAdded: () => void;
   /**
+   * A game the app itself re-filed, waiting to be announced.
+   *
+   * Only ever the app's own doing — unlocking the last achievement, or a
+   * trophy list growing under a finished game. A move you made by hand needs no
+   * announcement, because you are the one who made it.
+   */
+  moved: { gameId: string; collectionId: string; token: number } | null;
+  dismissMoved: () => void;
+  /**
    * Take me to this game: opens the page it is on, if it is not this one, and
    * scrolls its card into view.
    */
@@ -172,6 +181,16 @@ interface GameContextType {
    * without it, a game moved twice over would only ever be followed once.
    */
   follow: { gameId: string; token: number } | null;
+}
+
+/** How a caller describes a write, where the difference changes what is said. */
+export interface UpdateGameOptions {
+  /**
+   * This edit was the app's idea, not the user's — a sync moving a game whose
+   * trophy list grew. A move it causes is announced; a move you made by hand is
+   * not, because you are the one who made it.
+   */
+  automatic?: boolean;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -236,6 +255,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [celebration, setCelebration] = useState<{ gameId: string; token: number } | null>(null);
   const celebrationTimers = useRef<number[]>([]);
   const [added, setAdded] = useState<{ gameId: string; token: number } | null>(null);
+  const [moved, setMoved] = useState<{
+    gameId: string;
+    collectionId: string;
+    token: number;
+  } | null>(null);
   const [follow, setFollow] = useState<{ gameId: string; token: number } | null>(null);
   const followTimer = useRef<number | null>(null);
 
@@ -259,11 +283,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const dismissAdded = useCallback(() => setAdded(null), []);
+  const dismissMoved = useCallback(() => setMoved(null), []);
 
   /** The "go to game" the announcement offers: put the dialog away, then go. */
   const goToGame = useCallback(
     (gameId: string) => {
       setAdded(null);
+      setMoved(null);
       followGame(gameId);
     },
     [followGame],
@@ -607,7 +633,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const updateGame = useCallback(
-    (id: string, updates: Partial<UserGame>) => {
+    (id: string, updates: Partial<UserGame>, options: UpdateGameOptions = {}) => {
       // Derived from the latest ref rather than inside the setGames updater:
       // React decides when that updater runs, so reading a flag set inside it
       // is a race — one that silently skipped the completion celebration.
@@ -632,8 +658,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
        * the app itself decided. So moving a game by hand is never argued with,
        * while unlocking the last award — or taking one back — re-files it.
        */
+      // Whether this particular move was the app's doing, which is the only
+      // kind worth announcing.
+      let refiled = options.automatic === true;
       if (updates.collections === undefined && nowPerfect !== wasPerfect) {
         merged.collections = shelfForCompletion(merged.collections, wasPerfect, nowPerfect);
+        refiled = true;
       }
 
       // The last unlock is a completion in its own right, whatever shelf the
@@ -652,7 +682,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Moving shelf re-files a game: out of the backlog, into another section,
       // sometimes off the current view entirely. Follow it so the move is
       // something you watch rather than something you go looking for.
-      if (permanentOf(merged.collections) !== shelfBefore) followGame(id);
+      const shelfAfter = permanentOf(merged.collections);
+      if (shelfAfter !== shelfBefore) {
+        followGame(id);
+
+        // Moved by the app rather than by you: say so, the same way adding a
+        // game does, rather than letting it change shelf behind your back.
+        if (refiled && shelfAfter) {
+          setMoved({ gameId: id, collectionId: shelfAfter, token: Date.now() });
+        }
+      }
 
       // The ref as well as state, so a second write to this game before the
       // next render — a sync walking the library — builds on this one.
@@ -889,6 +928,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       celebrationPlayed,
       added,
       dismissAdded,
+      moved,
+      dismissMoved,
       goToGame,
       follow,
     }),
@@ -927,6 +968,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       celebrationPlayed,
       added,
       dismissAdded,
+      moved,
+      dismissMoved,
       goToGame,
       follow,
     ],

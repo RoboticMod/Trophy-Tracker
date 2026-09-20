@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
+import { GameMovedDialog } from './GameMovedDialog';
 import { QuickAddModal } from './QuickAddModal';
 import { SessionProgressDialog } from './SessionProgressDialog';
 import { UserGame } from '../types';
@@ -598,6 +599,7 @@ export const AppLayout: React.FC = () => {
           added from more than one place and the announcement outlives the form
           that produced it. */}
       <GameAddedDialog />
+      <GameMovedDialog />
 
       {/* What the opening sync brought back that this device had not seen. Shows
           itself once a session, and only when there is something to say. */}
