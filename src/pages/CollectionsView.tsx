@@ -166,6 +166,7 @@ export const CollectionsView: React.FC = () => {
             </div>
             <h1 className="text-600 font-bold tracking-tight text-gray-1000">Collections</h1>
           </div>
+          <p className="text-75 text-gray-600">Custom lists across your library</p>
         </div>
 
         <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>

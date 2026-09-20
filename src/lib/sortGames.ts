@@ -10,7 +10,6 @@ import { completionRatio } from './completion';
 export type GameSortOption =
   | 'platform'
   | 'recent'
-  | 'rating-desc'
   | 'achievement-rating-desc'
   | 'hours-desc'
   | 'completion-desc'
@@ -23,7 +22,6 @@ export type GameSortOption =
 export const SORT_LABELS: Record<GameSortOption, string> = {
   platform: 'Platform',
   recent: 'Recently played',
-  'rating-desc': 'Game rating: highest first',
   'achievement-rating-desc': 'Achievement rating: highest first',
   'hours-desc': 'Playtime: most hours',
   'completion-desc': 'Completion: highest',
@@ -77,8 +75,6 @@ export function compareGames(
       const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
       return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
     }
-    case 'rating-desc':
-      return (b.rating || 0) - (a.rating || 0);
     case 'achievement-rating-desc':
       return (b.achievementRating || 0) - (a.achievementRating || 0);
     case 'hours-desc':

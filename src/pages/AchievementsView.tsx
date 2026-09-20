@@ -22,7 +22,6 @@ const SORT_OPTIONS = [
   'platform',
   'recent',
   'unlocked-desc',
-  'rating-desc',
   'achievement-rating-desc',
   'hours-desc',
   'title-asc',
