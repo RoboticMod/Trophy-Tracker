@@ -18,7 +18,6 @@ import { cn } from '../lib/cn';
 import { useNumericField } from '../lib/useNumericField';
 import { GuidedRating } from './GuidedRating';
 import { SteamLinkField } from './SteamLinkField';
-import { ArtworkField } from './ArtworkField';
 import { isPerfect } from '../lib/completion';
 import { roundHours, today } from '../lib/format';
 import { ACHIEVEMENT_RATING_QUESTIONS, GAME_RATING_QUESTIONS } from '../lib/ratingQuestions';
@@ -28,8 +27,6 @@ export interface GameDetailsValues {
   title: string;
   platform: Platform;
   coverImage: string;
-  coverPortrait?: string;
-  logoImage?: string;
   hoursPlayed: number;
   rating: number;
   achievementRating: number;
@@ -205,41 +202,6 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           </Field>
         </div>
       </div>
-
-      {/* Artwork -----------------------------------------------------------
-          Poster and logo kept apart, the same split Steam makes. A catalog has
-          one picture per game and no say in which; anyone who cares what their
-          library looks like ends up wanting a particular poster for a
-          particular game. Setting a poster is also what lets the logo be drawn
-          over it — the app cannot tell from a URL whether a picture already has
-          the name across it, so choosing one is how you say it does not. */}
-      <fieldset className="space-y-3 rounded-md border border-gray-200 bg-black/25 p-4">
-        <legend className="eyebrow px-1 text-gray-700">Artwork</legend>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <ArtworkField
-            label="Poster"
-            hint="Tall art, shown on phones."
-            value={values.coverPortrait}
-            onChange={(coverPortrait) => onChange({ coverPortrait })}
-            aspect="portrait"
-            maxDimension={600}
-          />
-          <ArtworkField
-            label="Logo"
-            hint={
-              values.coverPortrait
-                ? 'Drawn over the poster.'
-                : 'Filled in from Steam where there is one.'
-            }
-            value={values.logoImage}
-            onChange={(logoImage) => onChange({ logoImage })}
-            aspect="wide"
-            checkered
-            maxDimension={512}
-            maxBytes={160 * 1024}
-          />
-        </div>
-      </fieldset>
 
       <div className="space-y-4">
         {/* One control for where a game is filed.

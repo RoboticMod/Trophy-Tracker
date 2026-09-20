@@ -25,6 +25,7 @@ import { completionPercent, isPerfect } from '../lib/completion';
 import { formatHours } from '../lib/format';
 import { useCelebration } from '../lib/useCelebration';
 import { useInView } from '../lib/useInView';
+import { useIsPhone } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
 
@@ -183,6 +184,17 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
   // meter underneath honestly read 95%.
   const isMastered = isPerfect(game);
 
+  // A card half a phone screen wide fits one chip beside the platform badge.
+  // Anything past that becomes a count, so the row stays on one line.
+  const phone = useIsPhone();
+  const chipLimit = phone ? 1 : memberships.length;
+  const shownMemberships = memberships.slice(0, chipLimit);
+  const hiddenMemberships = memberships.length - shownMemberships.length;
+  const extraNames = memberships
+    .slice(chipLimit)
+    .map((m) => m.name)
+    .join(', ');
+
   // "Achievements"/"Trophies" while there is more to unlock, then the platform's
   // own completion announcement.
   const awardLabel = awardProgressLabel(game.platform, isMastered);
@@ -276,7 +288,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         </div>
 
         {/* Identity + shelf indicators. Every chip is the same height. */}
-        <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5">
+        {/* Wraps, and stops short of the rating and edit controls opposite.
+            A game can be in several collections and half a phone screen is not
+            wide enough for a row of them — left to run the full width they
+            slid underneath those two buttons and were clipped mid-word. */}
+        <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%_-_2.75rem)] flex-wrap items-center gap-1 sm:left-3 sm:top-3 sm:max-w-[calc(100%_-_5.5rem)] sm:gap-1.5">
           {!hidePlatform && (
             <OverlayBadge square tint={platform.tint} title={platform.name}>
               <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
@@ -290,7 +306,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
 
               A permanent shelf keeps its own colour and leads; a custom list
               wears its own dot. Only an in-progress game pulses. */}
-          {memberships.map((membership) =>
+          {shownMemberships.map((membership) =>
             membership.permanent ? (
               <OverlayBadge
                 key={membership.id}
@@ -302,7 +318,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
                     membership.permanent === PLAYING_COLLECTION_ID && 'animate-pulse',
                   )}
                 />
-                {membership.name}
+                <span className="truncate">{membership.name}</span>
               </OverlayBadge>
             ) : (
               // The list's own colour on the text as well as the dot. A grey
@@ -311,10 +327,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
               // is how it reads everywhere else in the app.
               <OverlayBadge key={membership.id} style={{ color: membership.color }}>
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                {membership.name}
+                <span className="truncate">{membership.name}</span>
               </OverlayBadge>
             ),
           )}
+
+          {/* The rest as a count. Two chips wrapped to a second line on a card
+              half a phone screen wide, and the second line landed on the
+              title. */}
+          {hiddenMemberships > 0 ? (
+            <OverlayBadge className="text-gray-800" title={extraNames}>
+              +{hiddenMemberships}
+            </OverlayBadge>
+          ) : null}
         </div>
 
         {/* Completion emblem: a round disc carrying the platform's own trophy
@@ -340,7 +365,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         {/* Options ----------------------------------------------------------- */}
         {/* Status, collections and deletion all live in the edit dialog, so the
             control opens it directly rather than repeating a subset in a menu. */}
-        <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5">
+        <div className="absolute right-2 top-2 z-30 flex items-center gap-1.5 sm:right-3 sm:top-3">
           {/* A disc ringed in the score's own colour, so the verdict is legible
               from across the grid before the digits are. Bare inside it: the
               scrim is already the box, and a second outline nested within the
@@ -359,12 +384,16 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             </OverlayBadge>
           ) : null}
 
+          {/* Hidden on a phone, where the card is half a screen wide and this
+              button cost more than it was worth: tapping the card opens the
+              details dialog, which has an Edit of its own. The room it frees
+              is what lets a collection chip fit on one line. */}
           <button
             type="button"
             onClick={() => setIsEditOpen(true)}
             aria-label={`Edit ${game.title}`}
             title="Edit game details"
-            className="overlay-scrim flex h-7 w-7 items-center justify-center rounded-sm text-gray-900 transition-colors hover:text-gray-1000"
+            className="overlay-scrim hidden h-7 w-7 items-center justify-center rounded-sm text-gray-900 transition-colors hover:text-gray-1000 sm:flex"
           >
             <Pencil size={14} />
           </button>
@@ -376,7 +405,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             underneath. */}
         <div
           className={cn(
-            'pointer-events-none absolute inset-x-3.5 bottom-2.5 z-10',
+            'pointer-events-none absolute inset-x-2.5 bottom-2 z-10 sm:inset-x-3.5 sm:bottom-2.5',
             isMastered && 'pr-12',
           )}
         >
@@ -386,7 +415,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
               for even two lines scrolls, on hover, to show the rest. The block
               is anchored to the bottom of the artwork, so the extra line grows
               up into the scrim rather than changing the card's height. */}
-          <h3 className="text-200 font-bold tracking-tight text-gray-1000">
+          <h3 className="text-100 font-bold tracking-tight text-gray-1000 sm:text-200">
             <MarqueeText trigger="hover" lines={2}>
               {game.title}
             </MarqueeText>
@@ -405,7 +434,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           state. The count used to share the label's line and wrap below it only
           when the long completion announcement needed the room, so finished
           cards stood taller than the rest of their row. */}
-      <div className="mt-auto space-y-2 p-4">
+      <div className="mt-auto space-y-1.5 p-2.5 sm:space-y-2 sm:p-4">
         <div
           className={cn(
             'eyebrow flex min-w-0 items-center gap-1.5',
@@ -453,7 +482,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
       {burst !== null && <Celebration key={burst} platform={game.platform} />}
 
       <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
-      <GameInfoModal game={game} isOpen={isInfoOpen} onClose={() => setIsInfoOpen(false)} />
+      <GameInfoModal
+        game={game}
+        isOpen={isInfoOpen}
+        onClose={() => setIsInfoOpen(false)}
+        onEdit={() => setIsEditOpen(true)}
+      />
     </motion.div>
   );
 };

@@ -262,15 +262,14 @@
   /* Stretched, so every card in a row is the same height. */
   align-items: stretch;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
-}
 
-/* Portrait tiles, for a phone. Three across at 375px and four by the time the
-   wide cards take over, so a screenful is a dozen games rather than one. */
-@utility grid-posters {
-  display: grid;
-  gap: --spacing(2.5);
-  align-items: start;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.5rem), 1fr));
+  /* Two across on a phone. One card per row turns a library into a scroll,
+     and the card survives half a 375px screen — it only has to give up some
+     padding and a type step to do it. */
+  @media (width < 48rem) {
+    gap: --spacing(2.5);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @utility grid-metrics {

@@ -11,7 +11,7 @@ import {
   collectionName,
   isPermanentCollection,
 } from '../lib/collections';
-import { PosterArt } from './PosterArt';
+import { CoverArt } from './CoverArt';
 import { CollectionIcon } from './CollectionIcon';
 
 /**
@@ -127,10 +127,11 @@ const CollectionListRow: React.FC<{
     {games.length > 0 ? (
       <div className="mt-3 flex gap-2 overflow-hidden">
         {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <PosterArt
+          <CoverArt
             key={game.id}
-            game={game}
-            className="aspect-[2/3] w-[4.25rem] shrink-0 rounded-sm border border-gray-300/60"
+            src={game.coverImage}
+            title={game.title}
+            className="aspect-video w-24 shrink-0 rounded-sm border border-gray-300/60 object-cover object-center"
           />
         ))}
       </div>

@@ -5,7 +5,7 @@ import { SYNC_INTERVAL_MS, SyncReport, SyncState, useSteamSync } from '../lib/us
 import { PsnSyncReport, PsnSyncState, usePsnSync } from '../lib/usePsnSync';
 import { PsnError, PsnTitle } from '../lib/psn';
 import { isSyncLinked } from '../lib/sync';
-import { useCoverArt, useSteamLogos } from '../lib/useCoverArt';
+import { useCoverArt } from '../lib/useCoverArt';
 
 interface SyncContextType {
   steam: { isLinked: boolean; state: SyncState };
@@ -47,7 +47,6 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // either platform, so it has no account to hang off — but it is the same
   // "keep the library current on its own" job.
   useCoverArt();
-  useSteamLogos();
 
   const [reloading, setReloading] = useState(false);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);

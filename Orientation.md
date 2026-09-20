@@ -67,11 +67,11 @@ perm-backlog  ·  perm-playing  ·  perm-complete
 
 Everything else is an ordinary list: deletable, colourable, joinable in any number.
 
-On a phone the same library draws as portrait tiles — `GamePosterCard` rather
-than `GameCard`, chosen by `useIsPhone` rather than by CSS, because two elements
-with the same `data-game-id` is what the follow lookup searches for. Their art is
-Steam’s 600×900 library capsule (`portraitCoverUrl`), falling back through the
-stored landscape cover to a lettered tile.
+One card everywhere: `GameCard`, two across on a phone and as many as fit above
+it. A portrait-tile variant was tried and removed — most games here have only
+16:9 key art, so a tall tile meant either cropping the picture in half or
+letterboxing it, and the logo overlay it needed was Steam-only and doubled up
+whenever the art already had lettering.
 
 **100% has exactly one definition**: `isPerfect` in
 [`lib/completion.ts`](src/lib/completion.ts) — every award earned, counts only.
@@ -187,13 +187,12 @@ Then a second pass, on what the first one left rough:
 - PS5 trophy counts can include add-on groups (`usePsnTrophyScope`).
 - `GameMovedDialog`: when the app re-files a game itself, it says so.
 - Home replaced Library; the wordmark links to it; the rating track has ticks.
-- Phones get portrait tiles and a single collections sheet in place of the chip
-  row; the metrics grid goes two across.
+- Phones get a single collections sheet in place of the chip row, and the
+  metrics grid goes two across.
 
-A third pass: posters and logos are separate fields with drag-and-drop editors
-(`ArtworkField`), a logo replaces the typed title on a card, phones fold the
-three shelves into Collections (`CollectionsList`), and the metric cards wrap
-their labels instead of clipping them.
+A third pass: phones fold the three shelves into Collections (`CollectionsList`),
+the metric cards wrap their labels instead of clipping them, and the library is
+two `GameCard`s per row rather than four portrait tiles.
 
 ### Known gaps
 
@@ -203,15 +202,10 @@ their labels instead of clipping them.
   the dev server renders, but the signed-in flows have not been driven end to end.
   The phone layouts were checked against a static harness of the built CSS rather
   than the real page.
-- **No automatic logo-free poster.** `posterSources` falls back to Steam's
-  library capsule, which has the name baked in, so the separate logo is only
-  drawn over a poster set by hand (`logoOverlay`). Steam publishes no clean
-  portrait and PSN publishes no portrait at all — SteamGridDB has both, keyed,
-  and is the way to make this automatic.
-- **PlayStation games have no portrait art at all**, so a PS5 tile crops its
-  landscape cover to 2:3 unless someone sets a poster.
-- **`?groups=all` needs the edge function redeployed** before the PlayStation
-  trophy scope can do anything.
+- **Cover art is one landscape image per game**, from RAWG, shared by every
+  surface. There is no separate poster or logo: that was tried and removed. If
+  per-game artwork comes back, SteamGridDB is the source that actually has
+  clean portraits and logos keyed by title, for both platforms.
 - `deleteCollection` fans out one write per affected game. Pre-existing, but far
   more reachable now that everything except the three shelves is deletable. A
   batched `{ kind: 'games'; op: 'upsert' }` queue variant would fix it;
