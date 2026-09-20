@@ -56,19 +56,30 @@ const SAVE_DEBOUNCE_MS = 400;
 
 function useDebouncedSave<T>(save: (value: T) => void) {
   const timer = useRef<number | null>(null);
+  const pending = useRef<{ value: T } | null>(null);
   const latest = useRef(save);
   latest.current = save;
 
-  useEffect(
-    () => () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-    },
-    [],
-  );
+  const flush = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+    if (pending.current) {
+      latest.current(pending.current.value);
+      pending.current = null;
+    }
+  };
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+
+  // Flushed rather than cancelled on the way out. Navigating away within the
+  // debounce window is the ordinary way to leave this page, and losing the
+  // rename you just typed because of it would be worse than an extra write.
+  useEffect(() => () => flushRef.current(), []);
 
   return useCallback((value: T) => {
+    pending.current = { value };
     if (timer.current !== null) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => latest.current(value), SAVE_DEBOUNCE_MS);
+    timer.current = window.setTimeout(() => flushRef.current(), SAVE_DEBOUNCE_MS);
   }, []);
 }
 
