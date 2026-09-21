@@ -7,7 +7,6 @@ import {
   Plus,
   Search,
   Flame,
-  FolderKanban,
   ListFilter,
   ArrowUpDown,
   Loader2,
@@ -45,7 +44,6 @@ import { formatCount } from '../lib/format';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone } from '../lib/useMediaQuery';
-import { CollectionsSheet } from '../components/CollectionsSheet';
 
 type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 
@@ -82,10 +80,10 @@ export const DashboardView: React.FC = () => {
   } = useGame();
 
   const [localSearch, setLocalSearch] = useState('');
-  const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
 
-  // The collection filter is a wrapped chip row on a wide screen and a single
-  // button on a phone, which are different controls rather than one restyled.
+  // The collection filter is a wrapped chip row on a wide screen and nothing at
+  // all on a phone, where Collections is its own page — so this is a question of
+  // whether the control exists, not of how it is drawn.
   const phone = useIsPhone();
   // Sort and rating filter persist: they describe how you like the library laid
   // out, and re-picking them after every reload was busywork.
@@ -311,32 +309,13 @@ export const DashboardView: React.FC = () => {
           })}
         </div>
 
-        {/* One button on a phone, the whole row from md up.
+        {/* The whole row from md up, and nothing at all on a phone.
 
-            Wrapped to four or five lines of small targets, the chip row was
-            the tallest thing on this page and you had to read all of it to
-            find the collection you wanted. The sheet gives each one a line and
-            a strip of its covers instead. */}
-        {phone ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              buttonStyle="outline"
-              className="w-full justify-between"
-              onClick={() => setIsCollectionsOpen(true)}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <FolderKanban size={15} />
-                <span className="truncate">
-                  {activeCollectionFilter === 'all'
-                    ? 'All collections'
-                    : collectionName(activeCollectionFilter, collections)}
-                </span>
-              </span>
-              <span className="shrink-0 tabular-nums opacity-70">{processedGames.length}</span>
-            </Button>
-          </div>
-        ) : (
+            The chip row wrapped to four or five lines of small targets there,
+            so it became a single button opening a sheet — and that was still a
+            control for filtering a page you reach by scrolling. Collections has
+            a page of its own, which on a phone is where this is done. */}
+        {phone ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip
             selected={activeCollectionFilter === 'all'}
@@ -432,11 +411,6 @@ export const DashboardView: React.FC = () => {
           }
         />
       )}
-
-      <CollectionsSheet
-        isOpen={isCollectionsOpen}
-        onClose={() => setIsCollectionsOpen(false)}
-      />
     </div>
   );
 };

@@ -31,6 +31,8 @@ interface SelectProps<T extends string> {
 const MAX_LIST_HEIGHT = 288;
 /** Gap between the trigger and the list. */
 const OFFSET = 6;
+/** How close to the viewport's edge the list is allowed to sit. */
+const MARGIN = 8;
 /** Rough row height, used only to decide whether the list should flip upward. */
 const ROW_HEIGHT = 34;
 
@@ -73,7 +75,20 @@ export function Select<T extends string>({
   const [activeIndex, setActiveIndex] = useState(Math.max(0, selectedIndex));
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
 
-  /** Anchors the list to the trigger, flipping above when the room is below. */
+  /**
+   * Anchors the list to the trigger, flipping above when the room is below and
+   * pulling it back in when it would run off the side.
+   *
+   * The list is only `minWidth: trigger`, so a long option makes it wider than
+   * the control it hangs from. Left-anchored and left alone, a trigger near the
+   * right edge — which is where a sort control usually sits — opened a list
+   * that ran off the screen and was cut in half.
+   *
+   * The width is read from the list itself once it exists, because it is the
+   * content that decides it. On the first pass it does not exist yet, which is
+   * what `holdList` below is for; the trigger's own width stands in until then,
+   * and a list no wider than its trigger never needed clamping anyway.
+   */
   const place = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -82,12 +97,39 @@ export function Select<T extends string>({
     const height = Math.min(MAX_LIST_HEIGHT, options.length * ROW_HEIGHT + 8);
     const flip = below < height && rect.top > below;
 
+    const width = listRef.current?.offsetWidth ?? rect.width;
+    const rightMost = window.innerWidth - width - MARGIN;
+
     setPosition({
       top: flip ? Math.max(8, rect.top - OFFSET - height) : rect.bottom + OFFSET,
-      left: rect.left,
+      // Never past the right edge, and never pushed off the left one either —
+      // a list wider than the whole viewport would otherwise land at a negative
+      // offset, trading one clipped edge for the other.
+      left: Math.max(MARGIN, Math.min(rect.left, rightMost)),
       width: rect.width,
     });
   }, [options.length]);
+
+  /**
+   * Holds the list, and measures it the moment it exists.
+   *
+   * The second pass has to hang off the node itself. Scheduling it — even to
+   * the next animation frame — runs it before React has committed the list, so
+   * there is still nothing to measure and the clamp reads the trigger's width
+   * instead of the list's. A ref callback fires in the commit, with the element
+   * in the document and before anything is painted.
+   *
+   * Stable by `useCallback`, or an inline arrow would be a new ref on every
+   * render: React would detach and reattach it each time, and each reattach
+   * would place again, which is a loop rather than a measurement.
+   */
+  const holdList = useCallback(
+    (node: HTMLUListElement | null) => {
+      listRef.current = node;
+      if (node) place();
+    },
+    [place],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -242,7 +284,7 @@ export function Select<T extends string>({
         <AnimatePresence>
           {open && position ? (
             <motion.ul
-              ref={listRef}
+              ref={holdList}
               id={listId}
               role="listbox"
               aria-label={ariaLabel}
@@ -254,6 +296,11 @@ export function Select<T extends string>({
                 top: position.top,
                 left: position.left,
                 minWidth: position.width,
+                // The clamp above can only pull a list back to the edge; one
+                // wider than the screen would still overhang. This is what
+                // stops that, and it is why the rows truncate rather than the
+                // panel being cut.
+                maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
                 maxHeight: MAX_LIST_HEIGHT,
               }}
               // Opaque rather than glass: a list can open over cover art, and a

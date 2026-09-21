@@ -336,12 +336,26 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           {/* Kept on a phone even inside a platform section: that heading is
               the only other thing saying which platform a game is on, and on a
               phone it has scrolled off the top long before the cards below it
-              have. */}
-          {(!hidePlatform || phone) && (
+              have.
+
+              The mark stands on the artwork there rather than in a chip. A
+              phone card is down to four things, and a tinted box around a
+              logo that is already a recognisable silhouette was chrome around
+              chrome. It keeps a shadow, which is what the box's scrim was
+              really for — legibility over a bright picture. */}
+          {phone ? (
+            // No `title`: a phone has no hover to show one, and the mark
+            // already carries its platform as an aria-label.
+            <PlatformIcon
+              platform={game.platform}
+              size={17}
+              className="text-white drop-shadow-[0_1px_3px_rgb(3_5_10/0.95)]"
+            />
+          ) : !hidePlatform ? (
             <OverlayBadge square tint={platform.tint} title={platform.name}>
               <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
             </OverlayBadge>
-          )}
+          ) : null}
 
           {/* Every collection this game is in, permanent or not — the card is
               where you look to know where a game is filed, and showing only
