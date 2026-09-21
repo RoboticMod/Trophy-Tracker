@@ -326,11 +326,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             wide enough for a row of them — left to run the full width they
             slid underneath those two buttons and were clipped mid-word. */}
         <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%_-_2.75rem)] flex-wrap items-center gap-1 sm:left-3 sm:top-3 sm:max-w-[calc(100%_-_5.5rem)] sm:gap-1.5">
-          {/* Kept on a phone even inside a platform section: that heading is
-              the only other thing saying which platform a game is on, and on a
-              phone it has scrolled off the top long before the cards below it
-              have. */}
-          {(!hidePlatform || phone) && (
+          {/* Not on a phone at all now. The card there is down to the artwork,
+              a score and the progress, and the platform is the one thing on it
+              you can also get from the section heading, the shelf page you are
+              on, or the details dialog a tap away. */}
+          {!hidePlatform && !phone && (
             <OverlayBadge square tint={platform.tint} title={platform.name}>
               <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
             </OverlayBadge>
@@ -449,9 +449,40 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           </button>
         </div>
 
+        {/* The game's own lettering, in the middle of the card ---------------- */}
+        {/* One box for every game, and the logo contained inside it. The
+            artwork these come from ranges from a wide thin wordmark to a
+            near-square crest — left to their own dimensions each would claim a
+            different share of the card, which is the opposite of the point.
+
+            The box stops short of the progress block rather than filling the
+            card, so the two never sit on top of each other, and it is centred
+            in what is left.
+
+            A pool of shade under it rather than a scrim over the whole picture:
+            key art usually has the title burned into it already, and this is
+            what keeps the two sets of lettering from competing — the logo has
+            its own ground and whatever is painted behind it falls back.
+
+            Nothing at all where there is no logo. An empty slot in the middle
+            of a card is worse than a card that never had one. */}
+        {phone && game.logoImage ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-14 top-0 z-10 flex items-center justify-center p-2">
+            <span aria-hidden className="absolute inset-x-4 inset-y-0 rounded-full bg-gray-25/50 blur-lg" />
+            <img
+              src={game.logoImage}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className="relative h-full w-full object-contain drop-shadow-[0_2px_6px_rgb(3_5_10/0.85)]"
+            />
+          </div>
+        ) : null}
+
         {/* Progress, on a phone ---------------------------------------------- */}
-        {/* The name, then what is being counted and how much of it, then the
-            meter — all on the artwork's own scrim, with no panel behind them.
+        {/* What is being counted and how much of it, then the meter — on the
+            artwork's own scrim, with no panel behind them.
 
             The count needs the word beside it: on its own, `23 / 44` in the
             corner of a picture does not say what was counted, and the two
@@ -463,10 +494,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
           // Its own shadow, so the scrim behind it can be lighter than the one
           // that used to carry this text on its own.
           <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]">
-            <h3 className="truncate text-75 font-bold tracking-tight text-gray-1000">
-              {game.title}
-            </h3>
-
             <div className="flex items-center gap-1.5 text-50 font-semibold text-gray-800">
               <TrophyBadge platform={game.platform} size={12} muted={!isMastered} />
               <span className="min-w-0 truncate">{awardNoun(game.platform)}:</span>

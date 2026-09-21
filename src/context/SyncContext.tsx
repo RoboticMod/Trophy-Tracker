@@ -6,6 +6,7 @@ import { PsnSyncReport, PsnSyncState, usePsnSync } from '../lib/usePsnSync';
 import { PsnError, PsnTitle } from '../lib/psn';
 import { isSyncLinked } from '../lib/sync';
 import { useCoverArt } from '../lib/useCoverArt';
+import { useGameLogos } from '../lib/useGameLogos';
 
 interface SyncContextType {
   steam: { isLinked: boolean; state: SyncState };
@@ -47,6 +48,10 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // either platform, so it has no account to hang off — but it is the same
   // "keep the library current on its own" job.
   useCoverArt();
+
+  // And each game's own lettering, for the middle of its card. Same job, same
+  // shape; a different upstream behind the same edge function.
+  useGameLogos();
 
   const [reloading, setReloading] = useState(false);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);

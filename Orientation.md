@@ -70,8 +70,15 @@ Everything else is an ordinary list: deletable, colourable, joinable in any numb
 One card everywhere: `GameCard`, two across on a phone and as many as fit above
 it. A portrait-tile variant was tried and removed — most games here have only
 16:9 key art, so a tall tile meant either cropping the picture in half or
-letterboxing it, and the logo overlay it needed was Steam-only and doubled up
-whenever the art already had lettering.
+letterboxing it.
+
+**Logos came back, differently.** The overlay that died with the portrait tile
+was Steam-only, cut off by the card's chips, and doubled up wherever the art had
+lettering. This one is centred not cornered, one box for every game
+(`object-contain`, so a wide wordmark and a square crest claim the same room),
+on a pool of shade that stops it competing with a baked-in title, on a phone
+only, replacing the typed name rather than joining it. `logo_image` on the row
+holds the answer so a card never looks one up as it draws.
 
 **100% has exactly one definition**: `isPerfect` in
 [`lib/completion.ts`](src/lib/completion.ts) — every award earned, counts only.
@@ -122,6 +129,12 @@ send CORS headers and the Steam key must not ship in the bundle.
   or every group including add-ons. The edge function takes `?groups=all`.
 - A sync passes `{ automatic: true }` to `updateGame`, which is what makes a shelf
   change it causes announce itself in `GameMovedDialog`.
+- Two backfills ride along, same shape, neither tied to a platform account:
+  [`useCoverArt`](src/lib/useCoverArt.ts) for RAWG art, and
+  [`useGameLogos`](src/lib/useGameLogos.ts) for logos — SteamGridDB by title,
+  Steam's CDN behind it. One pass per session, one title at a time. **A logo not
+  found is not an error**: it is recorded as a miss and left for a week, since
+  the upstream is community-uploaded and grows.
 
 ## Design system
 
@@ -155,6 +168,7 @@ Function secrets (`supabase secrets set …`):
 
 ```
 STEAM_API_KEY                # Steam search, achievements, playtime
+STEAMGRIDDB_API_KEY          # optional; game logos, keyed by title
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into every edge
@@ -168,17 +182,13 @@ failing.
 
 ## Current status
 
-Collections became the only shelf model in a batch that also cleared the UI
-papercuts grown around the old one. `status`, `GameStatus`, `statusNames`,
-`isSystem` and `lib/status.ts` are deleted and every surface reads
-`permanentOf(game.collections)`. The `collections` primary key is now
-`(user_id, id)`: as `id` alone the fixed starter ids could only be seeded once
-**across the whole project**, so every account after the first failed to seed
-and was told its library would not load. Also landed: `/setup` for a new
-account, delete-account through a service-role route, Settings grouped into
-five, a dragged sidebar order, page descriptions as dismissable `IntroNotice`
-banners — which is why a page's first rule can end up beside its second — and
-no more writing RAWG's community score in as your rating.
+Collections became the only shelf model (see **The data model**), and the
+`collections` primary key became `(user_id, id)` — as `id` alone the fixed
+starter ids could only be seeded once **across the whole project**, so every
+account after the first was told its library would not load. Also landed:
+`/setup`, delete-account through a service-role route, Settings in five groups,
+a dragged sidebar order, and page descriptions as dismissable `IntroNotice`
+banners — which is why a page's first rule can end up beside its second.
 
 Passes since then, each cutting a surface down to what it is read for. A card
 lists **every** collection a game is in, shelf first; the achievement rating is
@@ -196,18 +206,17 @@ shelves into Collections (`CollectionsList`) and lay the library out two
 - **Platform is no longer a sort.** `GameSortOption` has no `'platform'` and
   `compareGames` takes no `platformOrder`: every grid splits into platform
   sections already. The Settings card stays — it orders those sections.
-- **A phone card is the artwork**, in a 3:2 box rather than 16:9: platform mark,
-  a fixed-width score, and on the art's own scrim the name, the award mark
-  beside its own word (`awardNoun`), the count hard right, and the meter. No
-  panel, hours, emblem or percentage — the line fills a 166px card without it.
-- **The cover scrims are a share of the box, not a pixel height.** At `h-20` and
-  `h-24` they totalled 176px over a 94px phone cover — overlapping by 82px,
-  darkening every pixel of the art twice. The overlay text carries its own
-  shadow so they can stay light.
+- **A phone card is the artwork**, in a 3:2 box rather than 16:9: the logo
+  centred, a fixed-width score top right, and on the art's own scrim the award
+  mark beside its own word (`awardNoun`) with the count hard right, then the
+  meter. No panel, name, platform mark, hours, emblem or percentage — each was
+  said better by something already on the card or a tap away.
+- **The cover scrims are a share of the box, not a pixel height.** At `h-20`/
+  `h-24` they totalled 176px over a 94px phone cover, overlapping by 82px and
+  darkening every pixel twice. The overlay text has its own shadow instead.
 - **A phone reads its page title, and the tab's mark, from the fixed app
-  header**, where the lockup was. `PageHeader` draws no title below `md`, and
-  nothing at all without pills or controls; `CollectionsView` and `SettingsView`
-  hide their hand-rolled ones the same way.
+  header**, where the lockup was. `PageHeader` draws no title below `md`;
+  `CollectionsView` and `SettingsView` hide their hand-rolled ones too.
 - **One rule between sections, not two.** `PageHeader` ends in a border, so a
   filter row below it carries none — with the notice gone they sat a gap apart.
 - **A phone splits a game into two windows**: `GamePersonalModal` for what is
@@ -220,10 +229,9 @@ shelves into Collections (`CollectionsList`) and lay the library out two
 
 ### Conventions worth keeping
 
-- **No star or sparkle icon.** It was used for the achievements emblem and the
-  rating filter and read as decoration in both. `CollectionIcon` keeps
-  `Sparkles` only as a key aliased to `ListPlus`, so a row saved under the old
-  name still draws something sensible.
+- **No star or sparkle icon.** It read as decoration wherever it was used.
+  `CollectionIcon` keeps `Sparkles` only as a key aliased to `ListPlus`, so a
+  row saved under the old name still draws something.
 - **A page's headline figures go in `PageHeader`'s `badge`**, never in a strip
   under the title or a band of cards below it. Both were tried; both restated
   the title.
@@ -232,14 +240,16 @@ shelves into Collections (`CollectionsList`) and lay the library out two
 
 - **The SQL migration is one-way.** `status` is dropped in the same script that
   reads it. Take a Supabase backup before running it.
-- **Not exercised against a live account.** Every change typechecks and builds, and
-  the dev server renders, but the signed-in flows have not been driven end to end.
-  The phone layouts were checked against a static harness of the built CSS rather
-  than the real page.
+- **Not exercised against a live account.** Everything typechecks and builds and
+  the dev server renders, but the signed-in flows have never been driven. Phone
+  layouts are measured by mounting the real components in a throwaway Vite entry
+  (`harness.html` + `src/harness.tsx`, deleted after) — worth redoing that way:
+  it catches a `cn` collision, hand-written HTML cannot.
+- **The logo pipeline has never run against a real key.** The Steam CDN half is
+  verified; the SteamGridDB half needs `STEAMGRIDDB_API_KEY` set and the
+  function redeployed before it has ever answered.
 - **Cover art is one landscape image per game**, from RAWG, shared by every
-  surface. There is no separate poster or logo: that was tried and removed. If
-  per-game artwork comes back, SteamGridDB is the source that actually has
-  clean portraits and logos keyed by title, for both platforms.
+  surface. There is no separate poster; a portrait tile was tried and removed.
 - `deleteCollection` fans out one write per affected game — reachable now that
   everything except the three shelves is deletable. A batched
   `{ kind: 'games'; op: 'upsert' }` queue variant would fix it; `db.upsertGames`

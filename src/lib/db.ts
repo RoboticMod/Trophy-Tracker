@@ -23,6 +23,7 @@ interface GameRow {
   title: string;
   platform: string;
   cover_image: string | null;
+  logo_image: string | null;
   release_date: string | null;
   genres: string[] | null;
   hours_played: number | string | null;
@@ -59,6 +60,7 @@ function toGame(row: GameRow): UserGame | null {
     title: row.title,
     platform,
     coverImage: row.cover_image ?? undefined,
+    logoImage: row.logo_image ?? undefined,
     releaseDate: row.release_date ?? undefined,
     genres: row.genres ?? [],
     hoursPlayed: Number(row.hours_played) || 0,
@@ -94,6 +96,7 @@ function fromGame(game: UserGame, userId: string) {
     title: game.title,
     platform: game.platform,
     cover_image: game.coverImage ?? null,
+    logo_image: game.logoImage ?? null,
     release_date: game.releaseDate ?? null,
     genres: game.genres ?? [],
     hours_played: game.hoursPlayed ?? 0,
