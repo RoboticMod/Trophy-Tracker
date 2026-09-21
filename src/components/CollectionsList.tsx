@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { UserGame } from '../types';
 import { useGame } from '../context/GameContext';
@@ -150,47 +150,80 @@ const CollectionListRow: React.FC<{
 
     {/* Posters, each wearing the game's own lettering — and no figures: this
         is a glance at what is inside, and a count or a meter under each one
-        would turn it back into the list of rows the page is trying not to be.
-
-        The logo is the game's own mark rather than type, centred in a box every
-        cover shares, so a wide wordmark and a square crest claim the same room
-        (`object-contain`). A pool of shade under it keeps it off whatever the
-        artwork has painted there — key art often carries the title already, and
-        without the shade the two sets of lettering fight.
-
-        A game no source had a logo for shows its artwork and nothing else. An
-        empty slot would be worse than a plain poster. */}
+        would turn it back into the list of rows the page is trying not to be. */}
     {games.length > 0 ? (
       <div className="mt-3 flex gap-2 overflow-hidden">
         {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <span
-            key={game.id}
-            className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-sm border border-gray-300/60"
-          >
-            <CoverArt
-              src={game.coverImage}
-              title={game.title}
-              className="h-full w-full object-cover object-center"
-            />
-            {game.logoImage ? (
-              <span className="absolute inset-0 flex items-center justify-center p-1.5">
-                <span
-                  aria-hidden
-                  className="absolute inset-x-2 inset-y-1 rounded-full bg-gray-25/55 blur-md"
-                />
-                <img
-                  src={game.logoImage}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                  className="relative h-full w-full object-contain drop-shadow-[0_1px_4px_rgb(3_5_10/0.9)]"
-                />
-              </span>
-            ) : null}
-          </span>
+          <PreviewCover key={game.id} game={game} />
         ))}
       </div>
     ) : null}
   </button>
 );
+
+/**
+ * One cover in a row's preview strip, wearing the game's own lettering.
+ *
+ * Three states rather than two, because a logo that is *on its way* must not
+ * look like one that arrived. An `<img>` with a source it has not fetched yet
+ * draws the browser's own placeholder — a pale frame with a torn-page glyph —
+ * and over a 96px cover that reads as damage rather than as loading. So the
+ * mark and the shade under it stay hidden until the file is actually decoded,
+ * and a source that never arrives leaves the artwork exactly as it was.
+ *
+ * That last part is not hypothetical: a stored URL is only ever checked when it
+ * is resolved, and a logo can be withdrawn from its host long afterwards.
+ */
+const PreviewCover: React.FC<{ game: UserGame }> = ({ game }) => {
+  const [logo, setLogo] = useState<'loading' | 'ready' | 'failed'>('loading');
+
+  return (
+    <span className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-sm border border-gray-300/60">
+      <CoverArt
+        src={game.coverImage}
+        title={game.title}
+        className="h-full w-full object-cover object-center"
+      />
+
+      {game.logoImage && logo !== 'failed' ? (
+        <span
+          className={cn(
+            'absolute inset-0 flex items-center justify-center p-1.5 transition-opacity',
+            logo === 'ready' ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          {/* A pool of shade under the mark, so it is not read against whatever
+              the artwork has painted there — key art usually carries the title
+              already, and without this the two sets of lettering fight. */}
+          <span
+            aria-hidden
+            className="absolute inset-x-2 inset-y-1 rounded-full bg-gray-25/55 blur-md"
+          />
+
+          {/* Sized by height, not by box.
+ 
+              Filling the box with `object-contain` looks like it equalises
+              these and does the opposite: the box is 2.05 wide, so a logo
+              taller than that fits to height and fills it, while a wider one
+              fits to width and ends up short. Steam's own logo art runs from
+              1.78 to 6.53 — Spider-Man against Elden Ring — so the same box
+              drew one at 40px tall and the other at 13px.
+ 
+              A fixed height gives every mark the same cap height, which is how
+              a row of logos is normally set. `max-w-full` still catches the
+              extreme wordmarks, which have nowhere else to go in 96px. */}
+          <img
+            src={game.logoImage}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onLoad={() => setLogo('ready')}
+            onError={() => setLogo('failed')}
+            className="relative h-[65%] w-auto max-w-full object-contain drop-shadow-[0_1px_4px_rgb(3_5_10/0.9)]"
+          />
+        </span>
+      ) : null}
+    </span>
+  );
+};
