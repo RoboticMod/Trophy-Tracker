@@ -251,11 +251,11 @@ travelling `gold-ring`; `grid-metrics` is one per row there, which is what let
   that way: it catches a `cn` collision, hand-written HTML cannot.
 - **Cover art is one landscape image per game**, from RAWG, shared by every
   surface. There is no separate poster; a portrait tile was tried and removed.
-- **Logos need switching on.** Both SteamGridDB endpoints are verified against a
-  real key, including PlayStation exclusives, but the key is currently unset and
-  the deployed function has no `/logo` route: set `STEAMGRIDDB_API_KEY`, deploy,
-  and re-run the schema SQL for `logo_image`. Until then Steam's CDN answers for
-  linked apps and everything else shows plain art.
+- **Logos are live but undriven.** Both SteamGridDB endpoints are verified
+  against a real key, PlayStation exclusives included; the key is set, the route
+  deployed and `logo_image` is on the table. What has never run is the round
+  trip through the function with a signed-in session. A fresh project needs
+  `STEAMGRIDDB_API_KEY`, a deploy, and the schema SQL.
 - `deleteCollection` fans out one write per affected game — reachable now that
   everything except the three shelves is deletable. A batched
   `{ kind: 'games'; op: 'upsert' }` queue variant would fix it; `db.upsertGames`
