@@ -64,11 +64,19 @@ so the key has to live somewhere that is not the client.
 supabase login
 supabase link --project-ref <your-project-ref>
 supabase secrets set STEAM_API_KEY=<your-steam-web-api-key>   # steamcommunity.com/dev/apikey
+supabase secrets set STEAMGRIDDB_API_KEY=<key>                # optional — steamgriddb.com
 supabase functions deploy game-data
 ```
 
 Then re-run the schema SQL (Settings → Cloud storage → "Copy schema SQL") to add the
 `platform_accounts` table and the new columns on `games`.
+
+**Game logos** are the second key's whole job. The covers on a collection row carry the game's own
+lettering, centred over the artwork, and the only source that has that for a PlayStation title is
+SteamGridDB, which is keyed by name rather than by store id. It is optional: without the key,
+logos still come from Steam's own CDN, which answers for any game linked to a Steam app and needs
+no key at all. A game no source has a logo for simply shows its artwork, and is asked about again
+a week later.
 
 **Deleting an account** (Settings → Account → Delete account) needs no extra setup. Removing a
 row from `auth.users` is an admin operation, so the function uses the service role — which is

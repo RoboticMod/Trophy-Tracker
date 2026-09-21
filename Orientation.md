@@ -69,9 +69,14 @@ Everything else is an ordinary list: deletable, colourable, joinable in any numb
 
 One card everywhere: `GameCard`, two across on a phone and as many as fit above
 it. A portrait-tile variant was tried and removed — most games here have only
-16:9 key art, so a tall tile meant either cropping the picture in half or
-letterboxing it, and the logo overlay it needed was Steam-only and doubled up
-whenever the art already had lettering.
+16:9 key art, so a tall tile meant cropping the picture in half or letterboxing
+it.
+
+**Logos live on the collection previews, and nowhere else.** Twice they went on
+cards and twice that was undone — Steam-only, clipped by the card's own chips,
+doubled up wherever the art had lettering. What survives is one box per cover
+(`object-contain`, so a wide wordmark and a square crest claim the same room),
+centred, on a pool of shade that keeps it off a painted-in title.
 
 **100% has exactly one definition**: `isPerfect` in
 [`lib/completion.ts`](src/lib/completion.ts) — every award earned, counts only.
@@ -122,6 +127,11 @@ send CORS headers and the Steam key must not ship in the bundle.
   or every group including add-ons. The edge function takes `?groups=all`.
 - A sync passes `{ automatic: true }` to `updateGame`, which is what makes a shelf
   change it causes announce itself in `GameMovedDialog`.
+- Two backfills ride along, same shape: [`useCoverArt`](src/lib/useCoverArt.ts)
+  for RAWG art and [`useGameLogos`](src/lib/useGameLogos.ts) for logos —
+  SteamGridDB by title (a PlayStation game's only source), Steam's CDN behind
+  it, stored in `logo_image`. **A logo not found is not an error**: recorded as
+  a miss and left for a week.
 
 ## Design system
 
@@ -155,6 +165,7 @@ Function secrets (`supabase secrets set …`):
 
 ```
 STEAM_API_KEY                # Steam search, achievements, playtime
+STEAMGRIDDB_API_KEY          # optional; game logos, keyed by title
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into every edge
@@ -173,12 +184,11 @@ papercuts grown around the old one. `status`, `GameStatus`, `statusNames`,
 `isSystem` and `lib/status.ts` are deleted and every surface reads
 `permanentOf(game.collections)`. The `collections` primary key is now
 `(user_id, id)`: as `id` alone the fixed starter ids could only be seeded once
-**across the whole project**, so every account after the first failed to seed
-and was told its library would not load. Also landed: `/setup` for a new
-account, delete-account through a service-role route, Settings grouped into
-five, a dragged sidebar order, page descriptions as dismissable `IntroNotice`
-banners — which is why a page's first rule can end up beside its second — and
-no more writing RAWG's community score in as your rating.
+**across the whole project**, so every account after the first was told its
+library would not load. Also landed: `/setup`, delete-account through a
+service-role route, Settings in five groups, a dragged sidebar order, and page
+descriptions as dismissable `IntroNotice` banners — which is why a page's first
+rule can end up beside its second.
 
 Passes since then, each cutting a surface down to what it is read for. A card
 lists **every** collection a game is in, shelf first; the achievement rating is
@@ -236,12 +246,16 @@ travelling `gold-ring`; `grid-metrics` is one per row there, which is what let
   reads it. Take a Supabase backup before running it.
 - **Not exercised against a live account.** Every change typechecks and builds, and
   the dev server renders, but the signed-in flows have not been driven end to end.
-  The phone layouts were checked against a static harness of the built CSS rather
-  than the real page.
+  Phone layouts are measured by mounting the real components in a throwaway
+  Vite entry (`harness.html` + `src/harness.tsx`, deleted after) — worth redoing
+  that way: it catches a `cn` collision, hand-written HTML cannot.
 - **Cover art is one landscape image per game**, from RAWG, shared by every
-  surface. There is no separate poster or logo: that was tried and removed. If
-  per-game artwork comes back, SteamGridDB is the source that actually has
-  clean portraits and logos keyed by title, for both platforms.
+  surface. There is no separate poster; a portrait tile was tried and removed.
+- **Logos need switching on.** Both SteamGridDB endpoints are verified against a
+  real key, including PlayStation exclusives, but the key is currently unset and
+  the deployed function has no `/logo` route: set `STEAMGRIDDB_API_KEY`, deploy,
+  and re-run the schema SQL for `logo_image`. Until then Steam's CDN answers for
+  linked apps and everything else shows plain art.
 - `deleteCollection` fans out one write per affected game — reachable now that
   everything except the three shelves is deletable. A batched
   `{ kind: 'games'; op: 'upsert' }` queue variant would fix it; `db.upsertGames`

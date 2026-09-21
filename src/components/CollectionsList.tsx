@@ -148,18 +148,47 @@ const CollectionListRow: React.FC<{
       <ChevronRight size={18} className="shrink-0 text-gray-600" />
     </div>
 
-    {/* Posters only, no names and no figures: this is a glance at what is
-        inside, and anything written across them turns it back into the list of
-        rows the page is trying not to be. */}
+    {/* Posters, each wearing the game's own lettering — and no figures: this
+        is a glance at what is inside, and a count or a meter under each one
+        would turn it back into the list of rows the page is trying not to be.
+
+        The logo is the game's own mark rather than type, centred in a box every
+        cover shares, so a wide wordmark and a square crest claim the same room
+        (`object-contain`). A pool of shade under it keeps it off whatever the
+        artwork has painted there — key art often carries the title already, and
+        without the shade the two sets of lettering fight.
+
+        A game no source had a logo for shows its artwork and nothing else. An
+        empty slot would be worse than a plain poster. */}
     {games.length > 0 ? (
       <div className="mt-3 flex gap-2 overflow-hidden">
         {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <CoverArt
+          <span
             key={game.id}
-            src={game.coverImage}
-            title={game.title}
-            className="aspect-video w-24 shrink-0 rounded-sm border border-gray-300/60 object-cover object-center"
-          />
+            className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-sm border border-gray-300/60"
+          >
+            <CoverArt
+              src={game.coverImage}
+              title={game.title}
+              className="h-full w-full object-cover object-center"
+            />
+            {game.logoImage ? (
+              <span className="absolute inset-0 flex items-center justify-center p-1.5">
+                <span
+                  aria-hidden
+                  className="absolute inset-x-2 inset-y-1 rounded-full bg-gray-25/55 blur-md"
+                />
+                <img
+                  src={game.logoImage}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  className="relative h-full w-full object-contain drop-shadow-[0_1px_4px_rgb(3_5_10/0.9)]"
+                />
+              </span>
+            ) : null}
+          </span>
         ))}
       </div>
     ) : null}
