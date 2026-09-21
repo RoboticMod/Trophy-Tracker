@@ -131,7 +131,9 @@ send CORS headers and the Steam key must not ship in the bundle.
   for RAWG art and [`useGameLogos`](src/lib/useGameLogos.ts) for logos —
   SteamGridDB by title (a PlayStation game's only source), Steam's CDN behind
   it, stored in `logo_image`. **A logo not found is not an error**: recorded as
-  a miss and left for a week.
+  a miss and retried in a week. It **upgrades** too — a Steam-CDN logo is
+  provisional, and `isUpgrade` decides every write so a real answer is never
+  replaced, least of all by the fallback.
 
 ## Design system
 
