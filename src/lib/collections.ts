@@ -156,6 +156,23 @@ export const PERMANENT_COLOR: Record<PermanentCollectionId, string> = {
   [COMPLETE_COLLECTION_ID]: 'var(--color-trophy-700)',
 };
 
+/**
+ * How a shelf's own row is filled, where one is listed among ordinary lists.
+ *
+ * The values are lifted from `Badge`'s tone map rather than picked again, so a
+ * shelf's row and a shelf's badge are the same colour by construction. Written
+ * out per id, like every other map here: Tailwind scans source text, and a
+ * class assembled from parts is dropped at build time without an error.
+ *
+ * 100% carries no border of its own — the travelling gold rim draws that edge,
+ * and a border underneath it doubles up. A finished game card does the same.
+ */
+export const PERMANENT_ROW_CLASS: Record<PermanentCollectionId, string> = {
+  [PLAYING_COLLECTION_ID]: 'border-accent-700/45 bg-accent-700/12',
+  [BACKLOG_COLLECTION_ID]: 'border-gray-500/40 bg-gray-700/12',
+  [COMPLETE_COLLECTION_ID]: 'border-transparent bg-trophy-700/12',
+};
+
 /** Tone token used for a shelf wherever it is shown as a badge. */
 export const PERMANENT_TONE: Record<
   PermanentCollectionId,

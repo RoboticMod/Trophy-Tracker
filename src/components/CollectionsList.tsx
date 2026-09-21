@@ -7,12 +7,15 @@ import {
   BACKLOG_COLLECTION_ID,
   COMPLETE_COLLECTION_ID,
   PERMANENT_COLOR,
+  PERMANENT_ROW_CLASS,
   PLAYING_COLLECTION_ID,
+  PermanentCollectionId,
   collectionName,
   isPermanentCollection,
 } from '../lib/collections';
 import { CoverArt } from './CoverArt';
 import { CollectionIcon } from './CollectionIcon';
+import { cn } from '../lib/cn';
 
 /**
  * Where each permanent shelf already has a page of its own.
@@ -61,6 +64,10 @@ export const CollectionsList: React.FC<{
       id,
       name: collectionName(id, collections),
       icon: byId.get(id)?.icon,
+      // Which of the three shelves this is, or null for a list of your own.
+      // Worked out here, so the row itself never has to know which ids are
+      // special — it is handed the answer.
+      permanent: isPermanentCollection(id) ? id : null,
       color: isPermanentCollection(id)
         ? PERMANENT_COLOR[id]
         : (byId.get(id)?.color ?? DEFAULT_COLLECTION_COLOR),
@@ -77,6 +84,7 @@ export const CollectionsList: React.FC<{
           name={row.name}
           icon={row.icon}
           color={row.color}
+          permanent={row.permanent}
           games={row.games}
           onClick={() => onOpen(row.route ?? row.id)}
         />
@@ -89,14 +97,33 @@ const CollectionListRow: React.FC<{
   name: string;
   icon?: string;
   color: string;
+  /** Which shelf this row is, or null for an ordinary list. */
+  permanent: PermanentCollectionId | null;
   games: UserGame[];
   onClick: () => void;
-}> = ({ name, icon, color, games, onClick }) => (
+}> = ({ name, icon, color, permanent, games, onClick }) => (
+  // The three shelves wear their own colour here. On a phone this page is the
+  // only way to reach them, and in a plain list they were three rows among
+  // however many lists you have made, told apart only by their names.
   <button
     type="button"
     onClick={onClick}
-    className="w-full rounded-lg border border-gray-300/70 bg-gray-100/70 p-3 text-left transition-colors hover:border-gray-400"
+    className={cn(
+      'relative w-full rounded-lg border p-3 text-left transition-colors',
+      permanent
+        ? PERMANENT_ROW_CLASS[permanent]
+        : 'border-gray-300/70 bg-gray-100/70 hover:border-gray-400',
+    )}
   >
+    {/* The same band of gold light that turns around a finished game's card.
+        The utility is self-contained — it insets itself by a pixel, inherits
+        this button's radius, masks itself down to that rim, and carries its own
+        reduced-motion guard — so it needs nothing here but a positioned
+        parent, which is what `relative` above is for. */}
+    {permanent === COMPLETE_COLLECTION_ID ? (
+      <span aria-hidden className="gold-ring rounded-lg" />
+    ) : null}
+
     <div className="flex items-center gap-3">
       <span
         aria-hidden
@@ -121,31 +148,18 @@ const CollectionListRow: React.FC<{
       <ChevronRight size={18} className="shrink-0 text-gray-600" />
     </div>
 
-    {/* Posters and their names, no figures: this is a glance at what is
-        inside, and a count or a meter under each one would turn it back into
-        the list of rows the page is trying not to be. A name is not a figure —
-        it is what makes the glance answerable for art you do not already
-        recognise, which is most of it. */}
+    {/* Posters only, no names and no figures: this is a glance at what is
+        inside, and anything written across them turns it back into the list of
+        rows the page is trying not to be. */}
     {games.length > 0 ? (
       <div className="mt-3 flex gap-2 overflow-hidden">
         {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <span
+          <CoverArt
             key={game.id}
-            className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-sm border border-gray-300/60"
-          >
-            <CoverArt
-              src={game.coverImage}
-              title={game.title}
-              className="h-full w-full object-cover object-center"
-            />
-            <span
-              aria-hidden
-              className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-gray-25/95 via-gray-25/45 to-transparent"
-            />
-            <span className="absolute inset-x-1 bottom-0.5 block truncate text-50 font-semibold text-gray-1000 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]">
-              {game.title}
-            </span>
-          </span>
+            src={game.coverImage}
+            title={game.title}
+            className="aspect-video w-24 shrink-0 rounded-sm border border-gray-300/60 object-cover object-center"
+          />
         ))}
       </div>
     ) : null}

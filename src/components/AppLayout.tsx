@@ -474,7 +474,7 @@ export const AppLayout: React.FC = () => {
 
       {/* Mobile header ------------------------------------------------------ */}
       <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-100/85 px-3 py-3 backdrop-blur-xl md:hidden">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1.5">
           {/* A phone has no sidebar to show where you are, and screens here go
               two and three deep — a collection, then a game. The platform back
               gesture exists but is not visible, and a control you can see is
@@ -488,7 +488,12 @@ export const AppLayout: React.FC = () => {
             aria-label="Go back"
             disabled={!canGoBack}
             onClick={() => navigate(-1)}
-            className={cn('shrink-0', !canGoBack && 'opacity-30')}
+            // Pulled a little closer to what follows it. An icon button is a
+            // 28px box around an 18px glyph, so it already carries 5px of its
+            // own padding — spaced to its box like everything else, the gap
+            // after it reads 5px wider than the gap before the title, which is
+            // what made this row look off even once the gaps were equal.
+            className={cn('-mr-1 shrink-0', !canGoBack && 'opacity-30')}
           >
             <ChevronLeft size={18} />
           </Button>
@@ -498,11 +503,13 @@ export const AppLayout: React.FC = () => {
               the one thing you already know — which app you are in — while the
               thing you do not, the page you are on, scrolled away with the
               content. Home is still a tap away in the bar along the bottom. */}
-          {/* No padding of its own — the row's gap is the spacing, and every
-              pixel here comes off the title, which is already truncating on the
-              longest of them. */}
+          {/* No margin of its own: the row's gap is the only spacing, so the
+              mark sits the same distance from the control before it as from the
+              title after it. It carried an `ml-1` to buy the title a few
+              pixels, which took them from one side of the mark and not the
+              other — 8px before it and 4px after, which is what read as off. */}
           {pageMark ? (
-            <span className="ml-1 flex shrink-0 items-center text-accent-900">{pageMark}</span>
+            <span className="flex shrink-0 items-center text-accent-900">{pageMark}</span>
           ) : null}
           <h1 className="min-w-0 truncate text-200 font-bold tracking-tight text-gray-1000">
             {pageTitle}

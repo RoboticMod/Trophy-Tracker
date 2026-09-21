@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Clock, Pencil } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { UserGame } from '../types';
 import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import {
@@ -321,11 +321,18 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
         </div>
 
         {/* Identity + shelf indicators. Every chip is the same height. */}
-        {/* Wraps, and stops short of the rating and edit controls opposite.
-            A game can be in several collections and half a phone screen is not
-            wide enough for a row of them — left to run the full width they
-            slid underneath those two buttons and were clipped mid-word. */}
-        <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%_-_2.75rem)] flex-wrap items-center gap-1 sm:left-3 sm:top-3 sm:max-w-[calc(100%_-_5.5rem)] sm:gap-1.5">
+        {/* Wraps, and stops short of the score opposite. A game can be in
+            several collections and half a phone screen is not wide enough for a
+            row of them — left to run the full width they slid underneath it and
+            were clipped mid-word.
+
+            The wide-screen reservation used to clear two controls, the score
+            and an edit pencil; the pencil is gone, so it clears one.
+
+            Underscores, not spaces: `calc` needs spaces around its operator and
+            Tailwind drops a class it cannot parse — written the obvious way
+            this one compiled to nothing at all. */}
+        <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%_-_2.75rem)] flex-wrap items-center gap-1 sm:left-3 sm:top-3 sm:max-w-[calc(100%_-_3.5rem)] sm:gap-1.5">
           {/* Kept on a phone even inside a platform section: that heading is
               the only other thing saying which platform a game is on, and on a
               phone it has scrolled off the top long before the cards below it
@@ -434,19 +441,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game, action, hidePlatform =
             </OverlayBadge>
           ) : null}
 
-          {/* Hidden on a phone, where the card is half a screen wide and this
-              button cost more than it was worth: tapping the card opens the
-              details dialog, which has an Edit of its own. The room it frees
-              is what lets a collection chip fit on one line. */}
-          <button
-            type="button"
-            onClick={() => setIsEditOpen(true)}
-            aria-label={`Edit ${game.title}`}
-            title="Edit game details"
-            className="overlay-scrim hidden h-7 w-7 items-center justify-center rounded-sm text-gray-900 transition-colors hover:text-gray-1000 sm:flex"
-          >
-            <Pencil size={14} />
-          </button>
         </div>
 
         {/* Progress, on a phone ---------------------------------------------- */}

@@ -183,8 +183,9 @@ no more writing RAWG's community score in as your rating.
 Passes since then, each cutting a surface down to what it is read for. A card
 lists **every** collection a game is in, shelf first; the achievement rating is
 asked for only at 100%, being a verdict on a whole list; phones fold the three
-shelves into Collections (`CollectionsList`) and lay the library out two
-`GameCard`s per row; `grid-metrics` is one per row there, which is what let
+shelves into Collections (`CollectionsList`), where each wears its own colour
+(`PERMANENT_ROW_CLASS`, lifted from `Badge`'s tones) and 100% takes the card's
+travelling `gold-ring`; `grid-metrics` is one per row there, which is what let
 `MetricCard` give its emblem a column. The star is retired: see below. And:
 
 - **Figures count games, not unlocks**, and live as `Badge` pills beside the
@@ -198,22 +199,23 @@ shelves into Collections (`CollectionsList`) and lay the library out two
   sections already. The Settings card stays — it orders those sections.
 - **A phone card is the artwork**, in a 3:2 box rather than 16:9: platform mark,
   a fixed-width score, and on the art's own scrim the name, the award mark
-  beside its own word (`awardNoun`), the count hard right, and the meter. No
-  panel, hours, emblem or percentage — the line fills a 166px card without it.
+  beside its word (`awardNoun`), the count hard right, then the meter. No panel,
+  hours, emblem or percentage — the line fills a 166px card without it.
 - **The cover scrims are a share of the box, not a pixel height.** At `h-20` and
-  `h-24` they totalled 176px over a 94px phone cover — overlapping by 82px,
-  darkening every pixel of the art twice. The overlay text carries its own
-  shadow so they can stay light.
+  `h-24` they totalled 176px over a 94px phone cover, overlapping by 82px and
+  darkening every pixel twice. The overlay text has its own shadow instead.
 - **A phone reads its page title, and the tab's mark, from the fixed app
-  header**, where the lockup was. `PageHeader` draws no title below `md`, and
-  nothing at all without pills or controls; `CollectionsView` and `SettingsView`
-  hide their hand-rolled ones the same way.
+  header**, where the lockup was. `PageHeader` draws no title below `md`;
+  `CollectionsView` and `SettingsView` hide their hand-rolled ones too. Space
+  that row to the glyphs, not the boxes — an icon button carries 5px of its own
+  padding, so even gaps read uneven beside one.
 - **One rule between sections, not two.** `PageHeader` ends in a border, so a
   filter row below it carries none — with the notice gone they sat a gap apart.
 - **A phone splits a game into two windows**: `GamePersonalModal` for what is
   yours — hours, the last unlock, both ratings, and `notes`, which nothing had
   ever read back — with a button stepping through to `GameInfoModal` for the
-  store page. A wide screen scrolls one column through both, as before.
+  store page. A wide screen scrolls one column through both, as before. **The
+  dialog is the only way to edit a game**; the card's pencil is gone.
 - **`Dialog`'s scroll lock is reference-counted.** Saving and restoring
   `body.overflow` per dialog meant the first of two to close handed the page
   back its scroll — and the exit animation makes "first" a matter of timing.
