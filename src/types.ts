@@ -24,12 +24,6 @@ export interface UserGame {
   title: string;
   platform: Platform;
   coverImage?: string;
-  /**
-   * The game's own lettering, on a transparent background, laid over the art
-   * on a card. Resolved once from SteamGridDB — or Steam's CDN for a linked
-   * app — and stored, because a card cannot go looking for one as it draws.
-   */
-  logoImage?: string;
   releaseDate?: string;
   genres: string[];
   hoursPlayed: number;

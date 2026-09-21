@@ -23,7 +23,6 @@ interface GameRow {
   title: string;
   platform: string;
   cover_image: string | null;
-  logo_image: string | null;
   release_date: string | null;
   genres: string[] | null;
   hours_played: number | string | null;
@@ -60,7 +59,6 @@ function toGame(row: GameRow): UserGame | null {
     title: row.title,
     platform,
     coverImage: row.cover_image ?? undefined,
-    logoImage: row.logo_image ?? undefined,
     releaseDate: row.release_date ?? undefined,
     genres: row.genres ?? [],
     hoursPlayed: Number(row.hours_played) || 0,
@@ -96,7 +94,6 @@ function fromGame(game: UserGame, userId: string) {
     title: game.title,
     platform: game.platform,
     cover_image: game.coverImage ?? null,
-    logo_image: game.logoImage ?? null,
     release_date: game.releaseDate ?? null,
     genres: game.genres ?? [],
     hours_played: game.hoursPlayed ?? 0,
@@ -213,21 +210,6 @@ const LINK_COLUMNS = [
 let schemaHasLinkColumns = true;
 
 /**
- * Columns added since the link columns, under exactly the same rule.
- *
- * Kept as their own list rather than folded into `LINK_COLUMNS`, because that
- * list answers a question someone is asked in the interface — `hasLinkColumns`
- * drives the notice in Connected accounts — and a project missing only a logo
- * column has nothing wrong with its linking.
- *
- * Dropped first when a write comes back 42703: these are the newest columns and
- * so the likeliest to be the missing one.
- */
-const LATER_COLUMNS = ['logo_image'] as const;
-
-let schemaHasLaterColumns = true;
-
-/**
  * Whether this project still has the dropped `status` column, left `not null`.
  *
  * `status` was replaced by collection membership, so writes no longer name it.
@@ -279,19 +261,15 @@ type GameInsert = ReturnType<typeof fromGame>;
 /** A row on the way out: link columns optional, plus the legacy status filler. */
 type GameWriteRow = Partial<GameInsert> & { status?: string };
 
-const withoutColumns = (
-  row: GameWriteRow,
-  columns: readonly (keyof GameWriteRow)[],
-): GameWriteRow => {
+const withoutLinkColumns = (row: GameWriteRow): GameWriteRow => {
   const stripped: GameWriteRow = { ...row };
-  columns.forEach((column) => delete stripped[column]);
+  LINK_COLUMNS.forEach((column) => delete stripped[column]);
   return stripped;
 };
 
 const gameRows = (games: UserGame[], userId: string) => {
   let rows: GameWriteRow[] = games.map((game) => fromGame(game, userId));
-  if (!schemaHasLaterColumns) rows = rows.map((row) => withoutColumns(row, LATER_COLUMNS));
-  if (!schemaHasLinkColumns) rows = rows.map((row) => withoutColumns(row, LINK_COLUMNS));
+  if (!schemaHasLinkColumns) rows = rows.map(withoutLinkColumns);
   if (schemaHasLegacyStatus) rows = rows.map((row) => ({ ...row, status: LEGACY_STATUS_FILLER }));
   return rows;
 };
@@ -309,34 +287,20 @@ export async function listGames(userId: string): Promise<UserGame[]> {
 }
 
 /**
- * Writes games, repairing the three ways this project's schema can be behind.
+ * Writes games, repairing the two ways this project's schema can be behind.
  *
  * Each failure mode is diagnosed once, from a real refusal rather than a probe,
- * and remembered for the rest of the page: a missing column (42703) drops the
- * newest columns and then, if that was not it, the link columns; a `status`
- * column still left not-null (23502) means the collections migration never ran,
- * so the write carries a filler. One retry per mode, because a second failure
- * of the same kind is a different problem and belongs to the caller.
- *
- * The rule behind all three: **a library never becomes read-only over a column
- * its owner has not added yet.** A feature is lost until they re-run the SQL;
- * their saves are not.
+ * and remembered for the rest of the page: a missing link column (42703) drops
+ * those columns, and a `status` column still left not-null (23502) means the
+ * collections migration never ran, so the write carries a filler. One retry per
+ * mode, because a second failure is a different problem and belongs to the
+ * caller.
  */
 async function upsertGameRows(games: UserGame[], userId: string): Promise<void> {
   const write = () => supabase.from('games').upsert(gameRows(games, userId));
 
   let { error } = await write();
   if (!error) return;
-
-  // Newest columns first: a project one schema run behind is missing those and
-  // nothing else, and dropping the link columns for it would cost it its
-  // platform links to fix a problem it does not have.
-  if (isUnknownColumn(error) && schemaHasLaterColumns) {
-    schemaHasLaterColumns = false;
-    schemaOutOfDate = true;
-    ({ error } = await write());
-    if (!error) return;
-  }
 
   if (isUnknownColumn(error) && schemaHasLinkColumns) {
     schemaHasLinkColumns = false;

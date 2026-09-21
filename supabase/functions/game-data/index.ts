@@ -10,7 +10,6 @@
  *
  * Deploy:
  *   supabase secrets set STEAM_API_KEY=...
- *   supabase secrets set STEAMGRIDDB_API_KEY=...   # optional; logos
  *   supabase functions deploy game-data
  *
  * Every route requires the caller's Supabase session, so this is a proxy for
@@ -30,8 +29,6 @@ import {
 } from 'npm:psn-api@2';
 
 const STEAM_API_KEY = Deno.env.get('STEAM_API_KEY') ?? '';
-/** Optional. Without it the logo route falls back to Steam's CDN alone. */
-const STEAMGRIDDB_API_KEY = Deno.env.get('STEAMGRIDDB_API_KEY') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
@@ -41,9 +38,6 @@ const USER_AGENT = 'TrophyTracker/1.0 (+https://github.com/RoboticMod/Trophy-Tra
 const STEAMRAW = 'https://steamraw.com/api';
 const STORE = 'https://store.steampowered.com/api';
 const WEB_API = 'https://api.steampowered.com';
-const STEAMGRIDDB = 'https://www.steamgriddb.com/api/v2';
-/** Steam's own library logo, which exists for most apps and needs no key. */
-const STEAM_CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -60,12 +54,6 @@ const CACHE = {
   search: 60 * 60,
   /** Your own progress. Short, because seeing it update is the point. */
   me: 60,
-  /**
-   * A logo, which is answered once per game and then stored on the row. A long
-   * window because the artwork for a released game effectively never changes,
-   * and because SteamGridDB asks callers to go easy on it.
-   */
-  logo: 60 * 60 * 24 * 7,
 };
 
 const json = (body: unknown, status = 200, maxAge = 0) =>
@@ -85,73 +73,6 @@ async function getJson<T>(url: string): Promise<T | null> {
     const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
     if (!response.ok) return null;
     return (await response.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Logos                                                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * SteamGridDB's logo for a title, or null.
- *
- * Two calls: autocomplete the name to an id, then ask for that game's logos.
- * The search is by name on purpose — SteamGridDB can also be keyed by store id,
- * but only Steam games have one here, and a PlayStation game is exactly the
- * case this source exists to cover.
- *
- * `official` first, then `white`: an official logo is the game's real lettering,
- * and a white one is the fallback that still reads on any artwork. Anything
- * flagged NSFW or humour is skipped — this is a library, not a joke shelf.
- */
-async function steamGridLogo(title: string): Promise<string | null> {
-  if (!STEAMGRIDDB_API_KEY) return null;
-
-  const headers = {
-    Authorization: `Bearer ${STEAMGRIDDB_API_KEY}`,
-    'User-Agent': USER_AGENT,
-  };
-
-  try {
-    const found = await fetch(
-      `${STEAMGRIDDB}/search/autocomplete/${encodeURIComponent(title)}`,
-      { headers },
-    );
-    if (!found.ok) return null;
-
-    const search = (await found.json()) as { data?: { id: number; name: string }[] };
-    const id = search.data?.[0]?.id;
-    if (!id) return null;
-
-    const logos = await fetch(
-      `${STEAMGRIDDB}/logos/game/${id}?styles=official,white&nsfw=false&humor=false`,
-      { headers },
-    );
-    if (!logos.ok) return null;
-
-    const body = (await logos.json()) as { data?: { url?: string; style?: string }[] };
-    const options = body.data ?? [];
-    const official = options.find((o) => o.style === 'official' && o.url);
-    return (official ?? options.find((o) => o.url))?.url ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Steam's own library logo for an app, if the file is actually there.
- *
- * Built from the app id rather than looked up, so it costs one HEAD request.
- * Most apps have one; the ones that do not answer 404, and a URL that 404s
- * would be stored and then draw a broken image on every card.
- */
-async function steamCdnLogo(appid: number): Promise<string | null> {
-  const url = `${STEAM_CDN}/${appid}/logo.png`;
-  try {
-    const response = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': USER_AGENT } });
-    return response.ok ? url : null;
   } catch {
     return null;
   }
@@ -607,32 +528,6 @@ Deno.serve(async (request) => {
 
       const results = await getJson<unknown[]>(`${STEAMRAW}/search?q=${encodeURIComponent(query)}`);
       return json({ results: results ?? [] }, 200, CACHE.search);
-    }
-
-    /**
-     * A game's own lettering, for the middle of a card.
-     *
-     * Two sources, because neither covers the library on its own. SteamGridDB
-     * is keyed by title rather than by store id, which is the only reason a
-     * PlayStation game can have a logo at all; Steam's CDN needs no key and no
-     * search, so a linked app gets an answer even when SteamGridDB has nothing
-     * or no key is set.
-     *
-     * Answers `{ logo: string | null }` either way. A game with no logo is a
-     * normal outcome, not a failure — the card simply draws none — so this
-     * never returns an error status for "nothing found", which would otherwise
-     * be retried on every sync.
-     */
-    if (segments[0] === 'logo') {
-      const title = url.searchParams.get('title')?.trim();
-      const appid = Number(url.searchParams.get('appid') ?? '');
-      const hasApp = Number.isFinite(appid) && appid > 0;
-      if (!title && !hasApp) return fail(400, 'missing-query');
-
-      const logo = (title ? await steamGridLogo(title) : null) ??
-        (hasApp ? await steamCdnLogo(appid) : null);
-
-      return json({ logo }, 200, CACHE.logo);
     }
 
     if (segments[0] === 'app') {

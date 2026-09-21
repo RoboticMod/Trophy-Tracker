@@ -281,22 +281,6 @@ export async function getSteamApp(appid: number): Promise<SteamResult<SteamAppIn
   return result;
 }
 
-/**
- * The game's own lettering, for the middle of a card.
- *
- * `null` is an answer, not a failure: plenty of games have no logo anywhere,
- * and a caller that treated "none" as an error would ask again every sync.
- * Only an unreachable function comes back as an error.
- */
-export async function getGameLogo(
-  title: string,
-  appid?: number,
-): Promise<SteamResult<{ logo: string | null }>> {
-  const params = new URLSearchParams({ title });
-  if (appid) params.set('appid', String(appid));
-  return call<{ logo: string | null }>(`/logo?${params.toString()}`);
-}
-
 export async function getPlayerSeries(
   appid: number,
   range: PlayerRange,
