@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Reorder, useDragControls } from 'motion/react';
 import {
-  Settings,
+  ChevronRight,
   Database,
   Download,
   Upload,
@@ -69,25 +69,106 @@ import { PLATFORM_IDS } from '../types';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { ConnectedAccounts } from '../components/ConnectedAccounts';
 import { TrophyBadge, TrophyPair, awardNoun } from '../components/TrophyBadge';
-import { Button, Card, Field, SectionHeader, Select, Switch, TextInput } from '../components/ui';
+import {
+  Button,
+  Card,
+  Field,
+  PageHeader,
+  SectionHeader,
+  Select,
+  Switch,
+  TextInput,
+} from '../components/ui';
 import { cn } from '../lib/cn';
+import { relativeTime } from '../lib/format';
+import { useIsPhone, useMediaQuery } from '../lib/useMediaQuery';
+
+/** The groups the page is split into, in order — and the wide screen's nav. */
+const SETTINGS_GROUPS = [
+  { id: 'account', title: 'Account' },
+  { id: 'connected', title: 'Connected accounts' },
+  { id: 'customization', title: 'Customization' },
+  { id: 'appearance', title: 'Appearance' },
+  { id: 'data', title: 'Data' },
+] as const;
+
+type SettingsGroupId = (typeof SETTINGS_GROUPS)[number]['id'];
+
+/**
+ * Which group a wide screen is showing. Null below 1280, where every group is
+ * on the page at once.
+ */
+const ActiveGroupContext = createContext<SettingsGroupId | null>(null);
 
 /**
  * A titled run of related cards.
  *
  * The page was one flat column of eleven cards, so finding the one you wanted
  * meant reading all of them. These are the same cards — only the heading above
- * each run is new.
+ * each run is new. From 1280 a group is a page of its own, chosen from the
+ * list beside it, and the nav names it instead of an eyebrow above it.
  */
-const SettingsGroup: React.FC<{ title: string; children: React.ReactNode }> = ({
-  title,
+const SettingsGroup: React.FC<{ id: SettingsGroupId; children: React.ReactNode }> = ({
+  id,
   children,
-}) => (
-  <section className="space-y-3">
-    <h2 className="eyebrow px-0.5 text-gray-600">{title}</h2>
-    <div className="space-y-6">{children}</div>
-  </section>
-);
+}) => {
+  const active = useContext(ActiveGroupContext);
+  if (active !== null && active !== id) return null;
+
+  return (
+    <section className="space-y-3">
+      {active === null ? (
+        <h2 className="eyebrow px-0.5 text-gray-600">
+          {SETTINGS_GROUPS.find((group) => group.id === id)?.title}
+        </h2>
+      ) : null}
+      <div className={active === null ? 'space-y-6' : 'space-y-4'}>{children}</div>
+    </section>
+  );
+};
+
+/**
+ * The groups, either stacked in one column or — from 1280 — as a 260px list of
+ * their names beside the one that is open. Two columns only there: below it the
+ * panels would be squeezed to make room for a list that a scroll already is.
+ */
+const SettingsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const wide = useMediaQuery('(min-width: 80rem)');
+  const [active, setActive] = useState<SettingsGroupId>('account');
+
+  if (!wide) return <div className="space-y-8">{children}</div>;
+
+  return (
+    <div className="grid grid-cols-[16.25rem_minmax(0,1fr)] items-start gap-6">
+      <nav aria-label="Settings sections" className="flex flex-col gap-0.5">
+        {SETTINGS_GROUPS.map((group) => {
+          const selected = group.id === active;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => setActive(group.id)}
+              aria-current={selected ? 'page' : undefined}
+              className={cn(
+                'flex h-11 items-center gap-2.5 rounded-md px-3.5 text-left text-90 font-bold transition-colors',
+                selected
+                  ? 'bg-accent-700/14 text-accent-900'
+                  : 'text-gray-800 hover:bg-white/5 hover:text-gray-1000',
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{group.title}</span>
+              {selected ? <ChevronRight size={16} className="shrink-0" /> : null}
+            </button>
+          );
+        })}
+      </nav>
+
+      <ActiveGroupContext.Provider value={active}>
+        <div className="min-w-0">{children}</div>
+      </ActiveGroupContext.Provider>
+    </div>
+  );
+};
 
 type NavItem = (typeof ALL_NAV_ITEMS)[number];
 
@@ -270,7 +351,9 @@ export const SettingsView: React.FC = () => {
   const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [trophyScope, setTrophyScope] = usePsnTrophyScope();
-  const { syncEverything } = useSync();
+  const { syncEverything, lastRunAt } = useSync();
+  const phone = useIsPhone();
+  const wide = useMediaQuery('(min-width: 80rem)');
   // Which option the sync now under way was started for, so only that button
   // shows the spinner rather than both of them at once.
   const [scopeSyncing, setScopeSyncing] = useState<PsnTrophyScope | null>(null);
@@ -477,25 +560,31 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-10">
-      <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
-        {/* Mark and title off on a phone: the app header names the page, and
-            repeating it a line below cost the top of the screen. */}
-        <div className="hidden h-10 w-10 items-center justify-center rounded-md bg-gray-200 text-gray-800 md:flex">
-          <Settings size={20} />
-        </div>
-        <div>
-          <h1 className="hidden text-600 font-bold tracking-tight text-gray-1000 md:block">
-            Settings
-          </h1>
+    <div className={cn('mx-auto space-y-8 pb-10', !wide && 'max-w-3xl')}>
+      {phone ? (
+        // No title on a phone: the app header names the page, and repeating
+        // it a line below cost the top of the screen.
+        <div className="border-b border-gray-200 pb-5">
           <p className="text-75 text-gray-700">
             Your account, the accounts you have linked, how the app looks and where your
             library is kept.
           </p>
         </div>
-      </div>
+      ) : (
+        <PageHeader
+          title="Settings"
+          subtitle={[
+            `Signed in as ${profile.username || user?.email || 'you'}`,
+            lastRunAt ? `last synced ${relativeTime(lastRunAt)}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        />
+      )}
 
-      <SettingsGroup title="Account">
+      <SettingsLayout>
+
+      <SettingsGroup id="account">
       {/* Account ------------------------------------------------------------ */}
       <Card className="space-y-5">
         <SectionHeader
@@ -640,7 +729,7 @@ export const SettingsView: React.FC = () => {
         </Card>
       </SettingsGroup>
 
-      <SettingsGroup title="Connected accounts">
+      <SettingsGroup id="connected">
       {/* Connected accounts -------------------------------------------------- */}
       <ConnectedAccounts />
 
@@ -699,7 +788,7 @@ export const SettingsView: React.FC = () => {
       </Card>
       </SettingsGroup>
 
-      <SettingsGroup title="Customization">
+      <SettingsGroup id="customization">
       {/* Platform order ------------------------------------------------------ */}
       <Card className="space-y-4">
         <SectionHeader
@@ -842,7 +931,7 @@ export const SettingsView: React.FC = () => {
       </Card>
       </SettingsGroup>
 
-      <SettingsGroup title="Appearance">
+      <SettingsGroup id="appearance">
       {/* Card highlight ------------------------------------------------------ */}
       <Card className="space-y-4">
         <SectionHeader
@@ -981,7 +1070,7 @@ export const SettingsView: React.FC = () => {
       </Card>
       </SettingsGroup>
 
-      <SettingsGroup title="Data">
+      <SettingsGroup id="data">
       {/* Cloud --------------------------------------------------------------- */}
       <Card className="space-y-4">
         <SectionHeader
@@ -1089,6 +1178,7 @@ export const SettingsView: React.FC = () => {
         {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
       </Card>
       </SettingsGroup>
+      </SettingsLayout>
     </div>
   );
 };

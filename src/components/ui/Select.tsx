@@ -22,6 +22,11 @@ interface SelectProps<T extends string> {
   /** Shown when the value matches no option. */
   placeholder?: string;
   className?: string;
+  /**
+   * A mark inside the trigger, before the label — what the control does (sort,
+   * filter) rather than anything about the chosen option.
+   */
+  leading?: React.ReactNode;
   'aria-label'?: string;
   /** Passed through by Field, which owns the help text it points at. */
   'aria-describedby'?: string;
@@ -56,6 +61,7 @@ export function Select<T extends string>({
   id,
   placeholder = 'Select…',
   className,
+  leading,
   'aria-label': ariaLabel,
   'aria-describedby': ariaDescribedBy,
 }: SelectProps<T>) {
@@ -258,10 +264,13 @@ export function Select<T extends string>({
         // taller, dimmer well a text field uses.
         className={cn(
           'inline-flex h-8 items-center gap-2 rounded-sm border px-3',
+          // A field's height and well on a wide screen, where it sits in one
+          // row with the search field rather than among chips.
+          'md:h-10 md:gap-2.5 md:rounded-md md:text-90',
           'text-75 font-bold whitespace-nowrap transition-all',
           open
             ? 'glow-ring border-accent-700/60 bg-accent-700/12 text-gray-1000'
-            : 'border-gray-300 bg-white/3 text-gray-800 hover:border-gray-400 hover:bg-white/6 hover:text-gray-1000',
+            : 'border-gray-300 bg-white/3 text-gray-800 hover:border-gray-400 hover:bg-white/6 hover:text-gray-1000 md:bg-black/25',
           className,
         )}
       >
@@ -272,10 +281,11 @@ export function Select<T extends string>({
             style={{ backgroundColor: selected.color, boxShadow: `0 0 6px -1px ${selected.color}` }}
           />
         ) : null}
+        {leading ? <span className="flex shrink-0 items-center">{leading}</span> : null}
         {selected?.icon}
         <span className="min-w-0 flex-1 truncate text-left">{selected?.label ?? placeholder}</span>
         <ChevronDown
-          size={14}
+          size={15}
           className={cn('shrink-0 text-gray-600 transition-transform', open && 'rotate-180')}
         />
       </button>

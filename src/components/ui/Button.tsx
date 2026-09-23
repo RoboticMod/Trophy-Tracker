@@ -16,7 +16,9 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 const SIZE: Record<ButtonSize, string> = {
   s: 'h-7 px-3 gap-1.5 text-75',
   m: 'h-8 px-4 gap-2 text-100',
-  l: 'h-10 px-5 gap-2 text-100',
+  // A field's corner and type from md, where fields, selects and dialog
+  // buttons share one 40px height and should read as one family.
+  l: 'h-10 px-5 gap-2 text-100 md:rounded-md md:text-90',
 };
 
 const ICON_SIZE: Record<ButtonSize, string> = {

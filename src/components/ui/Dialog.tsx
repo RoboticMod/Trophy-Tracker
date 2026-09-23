@@ -14,7 +14,12 @@ interface DialogProps {
   /** Sticky action bar pinned to the bottom of the dialog. */
   footer?: React.ReactNode;
   children: React.ReactNode;
-  size?: 'm' | 'l';
+  /**
+   * `split` is the wide details dialog: 980 across, 720 at most, a 24px title
+   * and no icon well — the children lay out their own two columns, and the
+   * body does not scroll as a whole so that only one of them has to.
+   */
+  size?: 'm' | 'l' | 'split';
   /**
    * Takes the opening focus instead of the panel. A dialog whose first job is
    * typing should land the caret in the field, and doing it here rather than in
@@ -67,6 +72,7 @@ export const Dialog: React.FC<DialogProps> = ({
   initialFocusRef,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const split = size === 'split';
 
   // Callers routinely pass an inline arrow for onClose, so its identity changes
   // on every parent render. Reading it through a ref keeps that churn out of the
@@ -103,7 +109,10 @@ export const Dialog: React.FC<DialogProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-gray-25/85 backdrop-blur-md"
+            className={cn(
+              'fixed inset-0',
+              size === 'split' ? 'bg-gray-25/72 backdrop-blur-[10px]' : 'bg-gray-25/85 backdrop-blur-md',
+            )}
           />
 
           <motion.div
@@ -119,46 +128,91 @@ export const Dialog: React.FC<DialogProps> = ({
             className={cn(
               // Capped height with an internally scrolling body, so the footer
               // actions stay reachable no matter how long the form is.
-              'relative my-8 flex max-h-[calc(100dvh-4rem)] w-full flex-col overflow-hidden rounded-xl',
+              'relative my-8 flex w-full flex-col overflow-hidden',
               // Opaque rather than glass: a dialog sits over content it must
               // not let through, so it borrows the panel's edge and light but
               // keeps a solid ground.
-              'border border-gray-300/70 bg-gray-100 shadow-xl focus:outline-none',
-              'shadow-[inset_0_1px_0_rgb(255_255_255/0.07),var(--shadow-xl)]',
-              size === 'l' ? 'max-w-4xl' : 'max-w-2xl',
+              'border bg-gray-100 focus:outline-none',
+              split
+                ? 'max-h-[min(45rem,calc(100dvh-4rem))] max-w-245 rounded-2xl border-gray-300/80 shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_40px_120px_-30px_rgb(0_0_0/0.85)]'
+                : cn(
+                    'max-h-[calc(100dvh-4rem)] rounded-xl border-gray-300/70',
+                    'shadow-[inset_0_1px_0_rgb(255_255_255/0.07),var(--shadow-xl)]',
+                    size === 'l' ? 'max-w-4xl' : 'max-w-2xl',
+                  ),
             )}
           >
-            <header className="flex items-start justify-between gap-4 border-b border-gray-200 p-4 sm:p-5">
-              <div className="flex min-w-0 items-center gap-3">
-                {icon ? (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-200 text-gray-800">
-                    {icon}
-                  </div>
-                ) : null}
-                <div className="min-w-0">
-                  <h2 className="truncate text-300 font-bold tracking-tight text-gray-1000">
+            {split ? (
+              // The title at a page's 24, with its platform mark in the line
+              // under it rather than in a well beside it — at this size the
+              // well was a second heading competing with the name.
+              <header className="flex shrink-0 items-start gap-4 border-b border-gray-200 pb-4.5 pl-6 pr-5 pt-5">
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-550 font-bold tracking-tight text-gray-1000">
                     {title}
                   </h2>
-                  {description ? (
-                    <p className="text-75 text-gray-600">{description}</p>
+                  {description || icon ? (
+                    <p className="mt-1.25 flex items-center gap-2 text-90 text-gray-700">
+                      {icon}
+                      {description}
+                    </p>
                   ) : null}
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close dialog"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-1000"
-              >
-                <X size={18} />
-              </button>
-            </header>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close dialog"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 text-gray-700 transition-colors hover:border-gray-400 hover:text-gray-1000"
+                >
+                  <X size={18} />
+                </button>
+              </header>
+            ) : (
+              <header className="flex items-start justify-between gap-4 border-b border-gray-200 p-4 sm:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  {icon ? (
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-200 text-gray-800">
+                      {icon}
+                    </div>
+                  ) : null}
+                  <div className="min-w-0">
+                    <h2 className="truncate text-300 font-bold tracking-tight text-gray-1000">
+                      {title}
+                    </h2>
+                    {description ? (
+                      <p className="text-75 text-gray-600">{description}</p>
+                    ) : null}
+                  </div>
+                </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close dialog"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-1000"
+                >
+                  <X size={18} />
+                </button>
+              </header>
+            )}
+
+            <div
+              className={cn(
+                'min-h-0 flex-1',
+                split ? 'flex overflow-hidden p-6' : 'overflow-y-auto p-4 sm:p-5',
+              )}
+            >
+              {children}
+            </div>
 
             {footer ? (
-              <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-black/25 p-3 sm:p-4">
+              <footer
+                className={cn(
+                  'flex shrink-0 flex-wrap items-center justify-end border-t border-gray-200 bg-black/25',
+                  split ? 'gap-2.5 px-6 py-4' : 'gap-2 p-3 sm:p-4',
+                )}
+              >
                 {footer}
               </footer>
             ) : null}

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, FolderKanban, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import {
@@ -9,9 +9,12 @@ import {
   comparePlatformOrder,
 } from '../lib/constants';
 import { isPermanentCollection } from '../lib/collections';
-import { CollectionsList } from '../components/CollectionsList';
+import { CollectionsList, PreviewCover } from '../components/CollectionsList';
+import { aggregateCompletion } from '../lib/completion';
+import { formatHours, sumHours } from '../lib/format';
+import { Collection, UserGame } from '../types';
 import { useIsPhone } from '../lib/useMediaQuery';
-import { Badge, Button, Card, EmptyState, Field, TextInput } from '../components/ui';
+import { Badge, Button, Card, EmptyState, Field, PageHeader, TextInput } from '../components/ui';
 import { cn } from '../lib/cn';
 
 /**
@@ -86,6 +89,74 @@ function useDebouncedSave<T>(save: (value: T) => void) {
   }, []);
 }
 
+/** Cells in a list card's mosaic. The last one says how many more there are. */
+const MOSAIC_CELLS = 4;
+
+/**
+ * One of your lists on a wide screen: a 2 × 2 of its games' 16:9 art, then its
+ * name, its size and how far through it you are.
+ *
+ * 16:9 because that is the one image a game has — the phone's strip is a
+ * phone's answer to a narrow row, and a poster crop on a card 400px wide would
+ * cut every picture in half. The fourth cell carries the count of the rest
+ * rather than a fifth cover squeezed in.
+ */
+const ListCard: React.FC<{
+  collection: Collection;
+  games: UserGame[];
+  onOpen: () => void;
+}> = ({ collection, games, onOpen }) => {
+  const color = collection.color || DEFAULT_COLLECTION_COLOR;
+  const shown = games.slice(0, MOSAIC_CELLS);
+  const more = games.length - shown.length;
+  const { percent } = aggregateCompletion(games);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex flex-col overflow-hidden rounded-lg border border-gray-300/80 bg-gray-100/72 text-left transition-colors hover:border-gray-400"
+    >
+      <span className="grid grid-cols-2 gap-0.5 bg-gray-75">
+        {Array.from({ length: MOSAIC_CELLS }, (_, index) => {
+          const game = shown[index];
+          if (!game) {
+            return <span key={index} aria-hidden className="block aspect-video bg-gray-100" />;
+          }
+          const last = index === MOSAIC_CELLS - 1 && more > 0;
+          return (
+            <PreviewCover key={game.id} game={game} className="w-full">
+              {last ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-gray-25/72 text-250 font-bold tabular-nums text-gray-1000">
+                  +{more}
+                </span>
+              ) : null}
+            </PreviewCover>
+          );
+        })}
+      </span>
+
+      <span className="flex items-center gap-3.5 px-4.5 py-4">
+        <span
+          aria-hidden
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color, boxShadow: `0 0 8px -1px ${color}` }}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-250 font-bold tracking-tight text-gray-1000">
+            {collection.name}
+          </span>
+          <span className="mt-0.75 block truncate text-75 tabular-nums text-gray-700">
+            {games.length} {games.length === 1 ? 'game' : 'games'} · {formatHours(sumHours(games))}h
+          </span>
+        </span>
+        <span className="shrink-0 text-90 font-bold tabular-nums text-gray-800">{percent}%</span>
+        <ChevronRight size={20} className="shrink-0 text-gray-600" />
+      </span>
+    </button>
+  );
+};
+
 export const CollectionsView: React.FC = () => {
   const {
     collections,
@@ -98,8 +169,9 @@ export const CollectionsView: React.FC = () => {
   } = useGame();
 
   const navigate = useNavigate();
-  // On a phone this page is a list you drill into; on a wide screen it is a tab
-  // strip with the games already beside it.
+  // A page of lists you drill into, at any width: a row per list on a phone, a
+  // card per list on a wide screen. It was a tab strip there, which put one
+  // list's games on the page and every other list behind a name.
   const phone = useIsPhone();
 
   const [activeCollectionId, setActiveCollectionId] = useState<string>('');
@@ -180,29 +252,35 @@ export const CollectionsView: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-end">
-        <div className="space-y-1">
-          {/* Hidden on a phone, where the app header states the page already —
-              see PageHeader, which does the same for every other view. */}
-          <div className="hidden items-center gap-2.5 md:flex">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-700/16 text-accent-900">
-              <FolderKanban size={18} />
-            </div>
-            <h1 className="text-600 font-bold tracking-tight text-gray-1000">Collections</h1>
-          </div>
+      {phone ? (
+        <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-end">
+          {/* No title on a phone, where the app header states the page
+              already — see PageHeader, which does the same for every other
+              view. */}
           <p className="text-75 text-gray-600">Custom lists across your library</p>
-        </div>
 
-        <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
-          <Plus size={16} />
-          <span>New collection</span>
-        </Button>
-      </div>
+          <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
+            <Plus size={16} />
+            <span>New list</span>
+          </Button>
+        </div>
+      ) : (
+        <PageHeader
+          title="Lists"
+          subtitle="Lists you make. Playing, Backlog and 100% live in the top bar."
+          action={
+            <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
+              <Plus size={16} />
+              <span>New list</span>
+            </Button>
+          }
+        />
+      )}
 
       {isCreating && (
         <Card className="max-w-lg space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="eyebrow text-gray-1000">Create collection</h2>
+            <h2 className="eyebrow text-gray-1000">Create list</h2>
             <Button buttonStyle="subtle" size="s" onClick={() => setIsCreating(false)}>
               Cancel
             </Button>
@@ -239,7 +317,7 @@ export const CollectionsView: React.FC = () => {
                 Cancel
               </Button>
               <Button type="submit" variant="accent">
-                Save collection
+                Save list
               </Button>
             </div>
           </form>
@@ -259,57 +337,27 @@ export const CollectionsView: React.FC = () => {
         />
       ) : null}
 
-      {/* Tabs -------------------------------------------------------------- */}
-      {!phone && (
-      <div className="flex flex-wrap items-center gap-2">
-        {customCollections.map((col) => {
-          const isSelected = activeCollection?.id === col.id;
-          const count = games.filter((g) => g.collections?.includes(col.id)).length;
-          return (
-            <button
+      {/* Your lists only — the shelves are destinations in the top bar. Three
+          a row at 1440, two on a tablet. */}
+      {!phone && !activeCollectionId && customCollections.length > 0 ? (
+        <section className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,25rem),1fr))] items-stretch gap-5">
+          {customCollections.map((col) => (
+            <ListCard
               key={col.id}
-              type="button"
-              onClick={() => setActiveCollectionId(col.id)}
-              aria-pressed={isSelected}
-              // The active tab is lit in the collection's own colour, so the
-              // selection carries the same identity as the dot beside it.
-              style={
-                isSelected
-                  ? {
-                      borderColor: col.color,
-                      backgroundColor: `${col.color}22`,
-                      boxShadow: `0 0 12px -6px ${col.color}`,
-                    }
-                  : undefined
-              }
-              className={cn(
-                'inline-flex h-8 items-center gap-2 rounded-sm border px-3 text-75 font-bold transition-all',
-                isSelected
-                  ? 'text-gray-1000'
-                  : 'border-gray-300 bg-white/3 text-gray-700 hover:border-gray-400 hover:bg-white/6 hover:text-gray-900',
-              )}
-            >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{
-                  backgroundColor: col.color || DEFAULT_COLLECTION_COLOR,
-                  boxShadow: `0 0 6px -1px ${col.color || DEFAULT_COLLECTION_COLOR}`,
-                }}
-              />
-              <span>{col.name}</span>
-              <span className="rounded-full bg-gray-25/40 px-1.5 text-50 tabular-nums opacity-80">
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      )}
+              collection={col}
+              games={games
+                .filter((g) => g.collections?.includes(col.id))
+                .sort((a, b) => a.title.localeCompare(b.title))}
+              onOpen={() => setActiveCollectionId(col.id)}
+            />
+          ))}
+        </section>
+      ) : null}
 
-      {/* A way back to the list, which on a phone is the page this drilled in
-          from. The browser's own back would work; a control that is visibly
-          part of the page is what people reach for. */}
-      {phone && activeCollectionId ? (
+      {/* A way back to the lists, which is the page this drilled in from. The
+          browser's own back would work; a control that is visibly part of the
+          page is what people reach for. */}
+      {activeCollectionId ? (
         <Button
           buttonStyle="subtle"
           size="s"
@@ -320,11 +368,11 @@ export const CollectionsView: React.FC = () => {
           }}
         >
           <ChevronLeft size={15} />
-          All collections
+          All lists
         </Button>
       ) : null}
 
-      {activeCollection && (!phone || activeCollectionId) && (
+      {activeCollection && activeCollectionId && (
         <Card className="space-y-4">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="space-y-0.5">
@@ -455,18 +503,19 @@ export const CollectionsView: React.FC = () => {
         </Card>
       )}
 
-      {(!phone || activeCollectionId) && (
+      {activeCollectionId && (
         <GameGrid games={collectionGames} platformOrder={platformOrder} />
       )}
 
-      {(!phone || activeCollectionId) && collectionGames.length === 0 && (
+      {((activeCollectionId && collectionGames.length === 0) ||
+        (!phone && customCollections.length === 0)) && (
         <EmptyState
           icon={<Folder size={24} />}
-          title={activeCollection ? 'This collection is empty' : 'No collections yet'}
+          title={activeCollectionId ? 'This list is empty' : 'No lists yet'}
           description={
-            activeCollection
-              ? 'Assign a game to this collection from its edit dialog, or add a new one.'
-              : 'Create a collection to group games however you like.'
+            activeCollectionId
+              ? 'Assign a game to this list from its edit dialog, or add a new one.'
+              : 'Make a list to group games however you like.'
           }
           action={
             <Button variant="accent" onClick={() => setIsQuickAddOpen(true)}>

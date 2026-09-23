@@ -59,8 +59,12 @@ export const FilterChip: React.FC<FilterChipProps> = ({
           }
         : undefined
     }
+    // A pill of 36 from md, at 13px: on a desktop a chip is a pointer target
+    // in a one-line control row, and at 32 it sat shorter than the 40px field
+    // and selects either side of it.
     className={cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-sm border px-3',
+      'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm border px-3',
+      'md:h-9 md:gap-1.75 md:rounded-full md:px-3.5 md:text-90',
       'text-75 font-bold whitespace-nowrap transition-all',
       selected
         ? color

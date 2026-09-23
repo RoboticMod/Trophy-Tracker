@@ -106,12 +106,29 @@
   --text-800--line-height: 2.5rem;
   --text-900: 2.25rem; /* 36px */
   --text-900--line-height: 2.75rem;
+  --text-1000: 2.75rem; /* 44px */
+  --text-1000--line-height: 1;
+
+  /* The desktop steps. A wide screen reads at the odd sizes between the
+     phone's even ones — 13 for body, 15 for a card title, 17 for a panel
+     heading, 24 for a page — so these sit between the ramp's own steps and
+     are named for where they fall on it, not for a role. */
+  --text-90: 0.8125rem; /* 13px */
+  --text-90--line-height: 1.125rem;
+  --text-150: 0.9375rem; /* 15px */
+  --text-150--line-height: 1.25rem;
+  --text-250: 1.0625rem; /* 17px */
+  --text-250--line-height: 1.375rem;
+  --text-550: 1.5rem; /* 24px */
+  --text-550--line-height: 1.875rem;
 
   /* -- Corner radii, applied by role --------------------------------------
      Tighter than a productivity UI: a 6px control next to a 14px card reads
      as engineered rather than soft.                                        */
   --radius-sm: 6px; /* controls: buttons, inputs, pills   */
+  --radius-control: 8px; /* the top bar's own controls        */
   --radius-md: 10px; /* wells, nested surfaces             */
+  --radius-tile: 12px; /* dialog art, result rows, a tile   */
   --radius-lg: 14px; /* cards, panels                      */
   --radius-xl: 18px; /* dialogs                            */
 
@@ -243,6 +260,12 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+
+  /* One step up once there is a top bar: at 11 it was the smallest thing on a
+     1440 screen and read as a footnote to the section it titles. */
+  @media (width >= 48rem) {
+    font-size: var(--text-75);
+  }
 }
 
 /* A coloured hairline ring plus a diffuse bloom of the same colour, driven by
@@ -256,12 +279,17 @@
 
 /* Card grids size intrinsically so column count scales continuously with the
    viewport instead of stepping at three hand-picked breakpoints. */
+/* From 1024 the track is the only rule: columns fall out of the width rather
+   than being counted per breakpoint. 248px gives five at 1440 (259px cards) and
+   four at 1194; the container caps at 1440, so nothing past that ever gets a
+   sixth. Between 768 and 1023 the same track would leave two, so a tablet is
+   told three outright. */
 @utility grid-cards {
   display: grid;
-  gap: --spacing(5);
+  gap: --spacing(4);
   /* Stretched, so every card in a row is the same height. */
   align-items: stretch;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15.5rem), 1fr));
 
   /* Two across on a phone. One card per row turns a library into a scroll,
      and the card survives half a 375px screen — it only has to give up some
@@ -269,6 +297,39 @@
   @media (width < 48rem) {
     gap: --spacing(2.5);
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* A large phone or a small tablet held upright keeps the phone's chrome but
+     has the width for one more. */
+  @media (37.5rem <= width < 64rem) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* The content column from md up: 1440 wide including its gutters, centred.
+   Past 1440 the gutters grow and the layout does not. The top bar's contents
+   sit in the same box, which is what lines the lockup up with the first card. */
+@utility page-container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding-inline: --spacing(6);
+
+  @media (width >= 80rem) {
+    padding-inline: --spacing(8);
+  }
+}
+
+/* A row of chips that scrolls sideways rather than wrapping or clipping — the
+   desktop control row is one line by rule, and a chip cut off mid-word was
+   worse than one you can reach with a wheel. */
+@utility scroll-row {
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 

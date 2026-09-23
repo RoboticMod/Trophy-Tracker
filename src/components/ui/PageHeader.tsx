@@ -12,10 +12,6 @@ import { useIsPhone } from '../../lib/useMediaQuery';
  * then be gone for good.
  */
 export const PageHeader: React.FC<{
-  /** The tinted square to the left of the title. */
-  icon: React.ReactNode;
-  /** Token classes for that square — its background, and its ink. */
-  iconClassName?: string;
   title: React.ReactNode;
   /**
    * The page's headline figures, as `Badge` pills beside the title.
@@ -30,14 +26,20 @@ export const PageHeader: React.FC<{
    * it is the one that fits beside the name.
    */
   badge?: React.ReactNode;
+  /**
+   * One line of figures under the title, on a wide screen — "10 games tracked ·
+   * 241 of 429 awards · 486h played". Where a page gives one, it stands in for
+   * the pills there: a sentence under a 24px title reads as its caption, where
+   * pills beside it read as a second heading. A phone keeps the pills.
+   */
+  subtitle?: React.ReactNode;
   /** Controls pushed to the trailing edge, above the fold on a wide screen. */
   action?: React.ReactNode;
   className?: string;
 }> = ({
-  icon,
-  iconClassName = 'bg-gray-300 text-gray-800',
   title,
   badge,
+  subtitle,
   action,
   className,
 }) => {
@@ -58,31 +60,35 @@ export const PageHeader: React.FC<{
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">{badge}</div>
   ) : null;
 
+  /**
+   * A wide screen: the title at 24 with its figures as a line underneath, and
+   * the page's own control level with the bottom of that line. No mark and no
+   * rule — the top bar already names the page with both, and the 28px to the
+   * first section is what separates the header from it.
+   */
+  if (!phone) {
+    return (
+      <div className={cn('flex items-end gap-4', className)}>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+            <h1 className="min-w-0 text-550 font-bold tracking-tight text-gray-1000">{title}</h1>
+            {subtitle ? null : pills}
+          </div>
+          {subtitle ? (
+            <p className="mt-1.5 text-90 tabular-nums text-gray-700">{subtitle}</p>
+          ) : null}
+        </div>
+        {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      </div>
+    );
+  }
+
   return (
     <div className={cn('border-b border-gray-200 pb-5', className)}>
-      {phone ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {pills}
-          {action}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div
-              className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
-                iconClassName,
-              )}
-            >
-              {icon}
-            </div>
-            <h1 className="min-w-0 text-600 font-bold tracking-tight text-gray-1000">{title}</h1>
-            {pills}
-          </div>
-
-          {action}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {pills}
+        {action}
+      </div>
     </div>
   );
 };

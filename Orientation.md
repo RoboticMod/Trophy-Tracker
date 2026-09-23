@@ -223,14 +223,41 @@ travelling `gold-ring`; `grid-metrics` is one per row there, which is what let
   padding, so even gaps read uneven beside one.
 - **One rule between sections, not two.** `PageHeader` ends in a border, so a
   filter row below it carries none — with the notice gone they sat a gap apart.
-- **A phone splits a game into two windows**: `GamePersonalModal` for what is
-  yours — hours, the last unlock, both ratings, and `notes`, which nothing had
-  ever read back — with a button stepping through to `GameInfoModal` for the
-  store page. A wide screen scrolls one column through both, as before. **The
+- **A card opens your record, at every width**: `GamePersonalModal` — hours,
+  the last unlock, both ratings, and `notes` — with a button stepping through to
+  `GameInfoModal` for the store page. Below 1024 it is a stacked sheet; from
+  1024 it is `Dialog size="split"`, 980 × 720 max, art left and record right,
+  with only the right column scrolling and ⌘E/Ctrl+E stepping to Edit. **The
   dialog is the only way to edit a game**; the card's pencil is gone.
 - **`Dialog`'s scroll lock is reference-counted.** Saving and restoring
   `body.overflow` per dialog meant the first of two to close handed the page
   back its scroll — and the exit animation makes "first" a matter of timing.
+
+The desktop and tablet pass (the handoff's `Desktop & Tablet` design) sits on
+top of that phone system and moves nothing below 768:
+
+- **One 1440 container** (`page-container`, 24px gutters below 1280, 32 above)
+  holds both the 64px top bar's contents and the page, so the lockup lines up
+  with the first card. Marks only in the bar below `lg`, labels from there.
+- **`grid-cards` is a 248px track from 1024** (five at 1440, four at 1194),
+  three columns outright from 600 to 1023. A section of **fewer than three**
+  games is laid out as rows instead (`GameList` in `GameGrid.tsx`,
+  `GameCard layout="row"`) — one card stranded in a five-column track was the
+  fault this rule fixes.
+- **The wide card** is 16:9 art with the title, the score (top left) and the
+  36px 100% emblem on it, over a solid strip: count and percentage, the meter,
+  then playtime and **one list chip** plus `+n` — lists only, since the shelf is
+  the card's own edge. On the Playing page that chip is last-played instead.
+- **Desktop type steps** `text-90/150/250/550/1000` (13/15/17/24/44) sit between
+  the phone ramp's even sizes; the eyebrow is 12 from `md`. Radii
+  `rounded-control` (8) and `rounded-tile` (12) are the two the design added.
+- **`PageHeader` on a wide screen** is the title at 24 with a `subtitle` line of
+  figures under it and the page's control level with it; no mark, no rule.
+- **Two columns only on Statistics and Settings, and only from 1280.** Lists is
+  a grid of list cards with a 2 × 2 16:9 mosaic, drilled into as on a phone.
+- **Not built, for want of data**: the design's 12-week playtime chart, its
+  "All time" period picker and "hours this month" — nothing records playtime
+  over time yet. The Statistics 100% showcase is left to the Trophies tab.
 
 ### Conventions worth keeping
 

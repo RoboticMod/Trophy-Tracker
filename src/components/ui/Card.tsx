@@ -70,3 +70,38 @@ export const SectionTitle: React.FC<{
     {action}
   </div>
 );
+
+/**
+ * A section heading on a wide screen: a mark, the name, a hairline running out
+ * to the edge, and the section's figure at the far end of it — so the counts
+ * of every section on a page read down one edge rather than trailing each name
+ * at a different distance.
+ */
+export const SectionRule: React.FC<{
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  /** A figure at the end of the rule. */
+  count?: React.ReactNode;
+  /** Anything else for the end of the rule, after the count. */
+  action?: React.ReactNode;
+  /** The heading's ink — white inside a panel, a step down on the page. */
+  tone?: 'page' | 'panel';
+  className?: string;
+}> = ({ icon, title, count, action, tone = 'page', className }) => (
+  <div className={cn('flex items-center gap-3', className)}>
+    {icon ? <span className="flex shrink-0 items-center">{icon}</span> : null}
+    <h2
+      className={cn(
+        'eyebrow shrink-0',
+        tone === 'panel' ? 'text-gray-1000' : 'text-gray-900',
+      )}
+    >
+      {title}
+    </h2>
+    <span aria-hidden className="h-px min-w-4 flex-1 bg-gray-200" />
+    {count !== undefined ? (
+      <span className="shrink-0 text-75 font-bold tabular-nums text-gray-600">{count}</span>
+    ) : null}
+    {action}
+  </div>
+);

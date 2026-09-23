@@ -2,7 +2,7 @@ export { Button } from './Button';
 export { Badge } from './Badge';
 export type { BadgeTone } from './Badge';
 export { OverlayBadge } from './OverlayBadge';
-export { Card, SectionHeader, SectionTitle } from './Card';
+export { Card, SectionHeader, SectionRule, SectionTitle } from './Card';
 export { MetricCard, StatTile } from './MetricCard';
 export type { MetricBreakdown } from './MetricCard';
 export { Gauge } from './Gauge';

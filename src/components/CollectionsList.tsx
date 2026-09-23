@@ -174,11 +174,20 @@ const CollectionListRow: React.FC<{
  * That last part is not hypothetical: a stored URL is only ever checked when it
  * is resolved, and a logo can be withdrawn from its host long afterwards.
  */
-const PreviewCover: React.FC<{ game: UserGame }> = ({ game }) => {
+export const PreviewCover: React.FC<{
+  game: UserGame;
+  /** The box. A strip cover by default; the desktop mosaic fills its cell. */
+  className?: string;
+  children?: React.ReactNode;
+}> = ({
+  game,
+  className = 'w-24 shrink-0 rounded-sm border border-gray-300/60',
+  children,
+}) => {
   const [logo, setLogo] = useState<'loading' | 'ready' | 'failed'>('loading');
 
   return (
-    <span className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-sm border border-gray-300/60">
+    <span className={cn('relative block aspect-video overflow-hidden', className)}>
       <CoverArt
         src={game.coverImage}
         title={game.title}
@@ -224,6 +233,8 @@ const PreviewCover: React.FC<{ game: UserGame }> = ({ game }) => {
           />
         </span>
       ) : null}
+
+      {children}
     </span>
   );
 };

@@ -12,6 +12,8 @@ interface MeterProps {
   className?: string;
   /** Paints the fill with a raw colour, for per-platform breakdowns. */
   color?: string;
+  /** 8px rather than 6, for the one meter a dialog is built around. */
+  size?: 'm' | 'l';
 }
 
 const TONE: Record<NonNullable<MeterProps['tone']>, string> = {
@@ -33,6 +35,7 @@ export const Meter: React.FC<MeterProps> = ({
   tone = 'accent',
   className,
   color,
+  size = 'm',
 }) => {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
 
@@ -51,7 +54,8 @@ export const Meter: React.FC<MeterProps> = ({
       aria-valuemax={100}
       aria-label={label}
       className={cn(
-        'h-1.5 w-full overflow-hidden rounded-full',
+        size === 'l' ? 'h-2' : 'h-1.5',
+        'w-full overflow-hidden rounded-full',
         'bg-gray-300/60 shadow-[inset_0_1px_2px_rgb(0_0_0/0.5)]',
         className,
       )}

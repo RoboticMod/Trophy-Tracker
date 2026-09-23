@@ -11,6 +11,10 @@ import {
   collectionName,
   fileInPermanent,
 } from '../lib/collections';
+import { aggregateCompletion } from '../lib/completion';
+import { formatCount } from '../lib/format';
+import { useIsPhone } from '../lib/useMediaQuery';
+import { cn } from '../lib/cn';
 import { IntroNotice } from '../components/IntroNotice';
 import { Badge, Button, EmptyState, FilterChip, PageHeader } from '../components/ui';
 
@@ -18,6 +22,7 @@ export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
   const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
   const platformOrder = profile.platformOrder;
+  const phone = useIsPhone();
 
   const backlogGames = useMemo(
     () => games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)),
@@ -37,18 +42,66 @@ export const BacklogView: React.FC = () => {
 
   const startLabel = `Start ${collectionName(PLAYING_COLLECTION_ID, collections).toLowerCase()}`;
 
+  const { unlocked, unlockable } = aggregateCompletion(backlogGames);
+
+  const filters: { value: Platform | 'all'; label: string; count: number }[] = [
+    { value: 'all', label: 'All', count: backlogGames.length },
+    ...PLATFORM_IDS.map((p) => ({
+      value: p,
+      label: PLATFORMS[p].shortName,
+      count: backlogGames.filter((g) => g.platform === p).length,
+    })),
+  ];
+
+  /**
+   * The platform filter as one segmented control on a wide screen, beside the
+   * title: three choices of which exactly one is always true is a segment,
+   * not a row of toggles.
+   */
+  const segmented = (
+    <div
+      role="radiogroup"
+      aria-label="Platform"
+      className="panel-inset flex h-10 shrink-0 items-center gap-0.5 rounded-md p-0.75"
+    >
+      {filters.map((option) => {
+        const selected = platformFilter === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => setPlatformFilter(option.value)}
+            className={cn(
+              'flex h-8.5 items-center justify-center gap-1.75 rounded-control border px-4 text-90 font-bold transition-colors',
+              selected
+                ? 'border-gray-500 bg-gray-300 text-gray-1000'
+                : 'border-transparent text-gray-700 hover:text-gray-1000',
+            )}
+          >
+            {option.value === 'all' ? null : <PlatformIcon platform={option.value} size={15} />}
+            {option.label} <span className="tabular-nums">{option.count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      {/* How many are queued, and nothing else. A count of the awards waiting
-          inside them measured the size of the job rather than the queue, and it
-          only ever grew.
+      {/* How many are queued. A phone says only that, in a pill: the awards
+          waiting inside them measure the size of the job rather than the
+          queue. A wide screen has a caption line to put both in, and there the
+          job is worth knowing — it is what you are choosing between.
 
           Neutral, not gold: gold is what a finished game earns, and a queue of
           games you have not started has earned nothing. */}
       <PageHeader
-        icon={<Hourglass size={18} />}
         title={collectionName(BACKLOG_COLLECTION_ID, collections)}
         badge={<Badge tone="neutral">{backlogGames.length} queued</Badge>}
+        subtitle={`${formatCount(backlogGames.length)} games queued · ${formatCount(unlockable - unlocked)} awards waiting`}
+        action={phone ? undefined : segmented}
       />
 
       <IntroNotice id="backlog">
@@ -56,54 +109,47 @@ export const BacklogView: React.FC = () => {
         “{collectionName(PLAYING_COLLECTION_ID, collections)}”.
       </IntroNotice>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="eyebrow mr-1 flex items-center gap-1 text-gray-600">
-          <Filter size={13} />
-          Platform
-        </span>
+      {phone ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="eyebrow mr-1 flex items-center gap-1 text-gray-600">
+            <Filter size={13} />
+            Platform
+          </span>
 
-        <FilterChip
-          tone="neutral"
-          selected={platformFilter === 'all'}
-          onClick={() => setPlatformFilter('all')}
-        >
-          All ({backlogGames.length})
-        </FilterChip>
-
-        {PLATFORM_IDS.map((p) => {
-          const count = backlogGames.filter((g) => g.platform === p).length;
-          return (
+          {filters.map((option) => (
             <FilterChip
-              key={p}
+              key={option.value}
               tone="neutral"
-              selected={platformFilter === p}
-              onClick={() => setPlatformFilter(p)}
-              title={PLATFORMS[p].name}
+              selected={platformFilter === option.value}
+              onClick={() => setPlatformFilter(option.value)}
+              title={option.value === 'all' ? undefined : PLATFORMS[option.value].name}
             >
-              <PlatformIcon platform={p} size={15} />
-              <span>{PLATFORMS[p].shortName}</span>
-              <span className="opacity-70">({count})</span>
+              {option.value === 'all' ? null : <PlatformIcon platform={option.value} size={15} />}
+              <span>{option.label}</span>
+              <span className="opacity-70">({option.count})</span>
             </FilterChip>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : null}
 
       <GameGrid
         games={filtered}
         grouped={platformFilter === 'all'}
         platformOrder={platformOrder}
-        renderAction={(game) => (
+        renderAction={(game, layout) => (
+          // At the right-hand end of a row the button is the row's one action
+          // and takes a field's height; under a card it spans the card.
           <Button
             variant="positive"
-            size="s"
-            className="w-full"
+            size={layout === 'row' ? 'l' : 's'}
+            className={layout === 'row' ? 'rounded-md text-90' : 'w-full'}
             onClick={() =>
               updateGame(game.id, {
                 collections: fileInPermanent(game.collections, PLAYING_COLLECTION_ID),
               })
             }
           >
-            <Play size={14} />
+            <Play size={layout === 'row' ? 16 : 14} />
             {startLabel}
           </Button>
         )}

@@ -27,6 +27,14 @@ interface GaugeProps {
    * to sit level with ordinary stat tiles.
    */
   layout?: 'stacked' | 'inline';
+  /**
+   * The desktop hero form of the inline layout: the figure at 36, the verdict
+   * at a panel heading's 17 and the caption at body size, for the one gauge a
+   * wide page leads with.
+   */
+  hero?: boolean;
+  /** The hero figure at 44 rather than 36, for a gauge with a panel to itself. */
+  large?: boolean;
   className?: string;
 }
 
@@ -64,6 +72,8 @@ export const Gauge: React.FC<GaugeProps> = ({
   color,
   size = 132,
   layout = 'stacked',
+  hero = false,
+  large = false,
   className,
 }) => {
   const inline = layout === 'inline';
@@ -83,7 +93,7 @@ export const Gauge: React.FC<GaugeProps> = ({
     <div
       className={cn(
         inline
-          ? 'flex items-center gap-4 text-left'
+          ? cn('flex items-center text-left', hero ? 'gap-4.5' : 'gap-4')
           : 'flex flex-col items-center text-center',
         className,
       )}
@@ -147,25 +157,51 @@ export const Gauge: React.FC<GaugeProps> = ({
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-700 font-bold leading-none tabular-nums text-gray-900">
+          <div
+            className={cn(
+              'font-bold leading-none tabular-nums',
+              hero ? cn(large ? 'text-1000' : 'text-900', 'text-gray-1000') : 'text-700 text-gray-900',
+            )}
+          >
             {value}
             {suffix ? (
-              <span className="ml-0.5 align-super text-300 font-semibold">{suffix}</span>
+              <span
+                className={cn(
+                  'align-super',
+                  hero ? 'ml-px text-400 font-bold' : 'ml-0.5 text-300 font-semibold',
+                )}
+              >
+                {suffix}
+              </span>
             ) : null}
           </div>
         </div>
       </div>
 
       {inline ? (
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="eyebrow truncate text-gray-600">{label}</div>
           {verdict ? (
-            <div className="mt-1.5 text-100 font-bold uppercase tracking-wide" style={{ color }}>
+            <div
+              className={cn(
+                'font-bold uppercase',
+                hero ? 'mt-2 text-250 tracking-[0.03em]' : 'mt-1.5 text-100 tracking-wide',
+              )}
+              style={{ color }}
+            >
               {verdict}
             </div>
           ) : null}
           {caption ? (
-            <p className="mt-1 text-50 leading-snug text-gray-600">{caption}</p>
+            <p
+              className={cn(
+                hero
+                  ? 'mt-1.5 max-w-115 text-90 text-gray-700 xl:max-w-80'
+                  : 'mt-1 text-50 leading-snug text-gray-600',
+              )}
+            >
+              {caption}
+            </p>
           ) : null}
         </div>
       ) : (

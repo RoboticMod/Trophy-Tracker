@@ -11,11 +11,12 @@ import {
   Play,
   Gamepad2,
   CloudOff,
-  Cloud,
   RefreshCw,
   X,
   MoreHorizontal,
   ChevronLeft,
+  ChevronDown,
+  Trophy,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
@@ -37,7 +38,6 @@ import {
 } from '../lib/collections';
 import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
-import { Wordmark } from './Wordmark';
 import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
 
@@ -83,6 +83,8 @@ interface NavItem {
   /** Either a lucide component or ready-made artwork. */
   icon: React.ElementType | null;
   art?: React.ReactNode;
+  /** A line mark for the desktop bar, where artwork would be the odd one out. */
+  barIcon?: React.ElementType;
   badge?: number;
   badgeTone?: 'accent' | 'trophy' | 'neutral';
   enabled: boolean;
@@ -137,6 +139,7 @@ export const AppLayout: React.FC = () => {
       path: '/achievements',
       icon: null,
       art: <TrophyPair size={15} />,
+      barIcon: Trophy,
       badge: perfectCount || undefined,
       badgeTone: 'trophy',
       enabled: sidebarConfig?.showAchievements ?? true,
@@ -161,7 +164,7 @@ export const AppLayout: React.FC = () => {
       enabled: sidebarConfig?.showBacklog ?? true,
     },
     {
-      name: 'Collections',
+      name: 'Lists',
       short: 'Lists',
       path: '/collections',
       icon: FolderKanban,
@@ -337,138 +340,155 @@ export const AppLayout: React.FC = () => {
       <div aria-hidden className="app-ambient" />
 
       {/* Desktop top bar ----------------------------------------------------
-          One horizontal row from md up. Labels appear at lg; below that the
-          destinations stay as icons so seven of them still fit beside the
-          brand and the actions. */}
-      <header className="relative z-20 hidden shrink-0 items-center gap-3 border-b border-gray-200 bg-gray-100/70 px-4 backdrop-blur-xl md:flex 2xl:px-8">
-        {/* The lockup is the way home, as it is on most sites. */}
-        <NavLink
-          to="/"
-          aria-label={`${APP_NAME} home`}
-          className="shrink-0 rounded-md py-2.5 transition-opacity hover:opacity-80"
-        >
-          <Wordmark />
-        </NavLink>
-
-        <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                title={item.name}
-                className={cn(
-                  'relative flex h-14 shrink-0 items-center gap-2 px-3 text-75 font-semibold transition-colors',
-                  isActive ? 'text-accent-900' : 'text-gray-700 hover:text-gray-1000',
-                )}
-              >
-                {/* A lit rule along the bottom edge of the tab, the way a top
-                    bar marks its current section — the vertical bar the rail
-                    used has no edge to sit on here. */}
-                {isActive && (
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent-800 shadow-[0_0_9px_-1px_var(--color-accent-700)]"
-                  />
-                )}
-
-                {Icon ? <Icon size={16} className="shrink-0" /> : item.art}
-                {/* The short label, not the full name: seven destinations plus
-                    the brand and the actions have to share one row, and
-                    "Achievements & Trophies" alone would push two of them off
-                    the end of it. The full name stays as the tooltip. */}
-                <span className="hidden truncate lg:inline">{item.short}</span>
-
-                {item.badge !== undefined && (
-                  <span
-                    className={cn(
-                      'rounded-full border px-1.5 py-0.5 text-50 font-bold tabular-nums',
-                      item.badgeTone === 'accent'
-                        ? 'border-accent-700/45 bg-accent-700/16 text-accent-900'
-                        : item.badgeTone === 'trophy'
-                          ? 'border-trophy-700/50 bg-trophy-700/16 text-trophy-900'
-                          : 'border-gray-500/40 bg-gray-700/12 text-gray-700',
-                    )}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
-        </nav>
-
-        <div className="flex shrink-0 items-center gap-2">
-          {/* The one sync control: the cloud, Steam and PlayStation, all at
-              once. Everything also syncs on its own, so this is for when you
-              want it now. */}
-          <button
-            type="button"
-            onClick={runSync}
-            disabled={!isOnline || syncing}
-            title={syncTitle}
-            aria-label={syncTitle}
-            className="panel-inset flex h-8 items-center gap-2 rounded-sm px-2.5 text-50 font-semibold text-gray-700 transition-colors hover:text-gray-1000 disabled:cursor-default"
-          >
-            {!isOnline ? (
-              <CloudOff size={13} className="shrink-0 text-notice-900" />
-            ) : syncing || pendingWrites > 0 ? (
-              <RefreshCw
-                size={13}
-                className={cn('shrink-0 text-accent-900', syncing && 'animate-spin')}
-              />
-            ) : (
-              <Cloud
-                size={13}
-                className="shrink-0 text-positive-900 drop-shadow-[0_0_5px_currentColor]"
-              />
-            )}
-            <span className="hidden truncate xl:inline">
-              {!isOnline
-                ? 'Offline'
-                : syncing
-                  ? 'Syncing…'
-                  : pendingWrites > 0
-                    ? `${pendingWrites} pending`
-                    : 'Synced'}
-            </span>
-          </button>
-
-          <Button variant="accent" onClick={() => setIsQuickAddOpen(true)} aria-label="Add game">
-            <Plus size={16} />
-            <span className="hidden lg:inline">Add game</span>
-          </Button>
-
+          64px, one row, from md up. The bar itself is full-bleed; what is on
+          it sits in the same 1440 container as the page, so the lockup lines
+          up with the first card rather than with the edge of the window.
+          Destinations are marks alone below lg and gain their labels there;
+          the lockup's name and the sync word wait for xl, which is where the
+          row has the width for them. */}
+      <header className="relative z-20 hidden h-16 shrink-0 border-b border-gray-200 bg-gray-100/88 backdrop-blur-lg md:block">
+        <div className="page-container flex h-full items-center gap-3 xl:gap-4.5">
+          {/* The lockup is the way home, as it is on most sites. */}
           <NavLink
-            to="/settings"
-            title="Settings and account"
-            className={({ isActive }) =>
-              cn(
-                'flex h-8 items-center gap-2 rounded-sm border px-2 text-75 font-semibold transition-colors',
-                isActive
-                  ? 'border-accent-700/45 bg-accent-700/12 text-accent-900'
-                  : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:text-gray-1000',
-              )
-            }
+            to="/"
+            aria-label={`${APP_NAME} home`}
+            className="flex shrink-0 items-center gap-2.5 rounded-control transition-opacity hover:opacity-80"
           >
-            {profile.avatarUrl ? (
-              <img
-                src={profile.avatarUrl}
-                alt=""
-                className="h-5 w-5 shrink-0 rounded-full object-cover"
-              />
-            ) : (
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-50 font-bold text-gray-700">
-                {profile.username?.charAt(0)?.toUpperCase() || 'P'}
-              </span>
-            )}
-            <span className="hidden max-w-28 truncate 2xl:inline">
-              {profile.username || 'Account'}
+            <span className="flex h-7.5 w-7.5 items-center justify-center rounded-control bg-gradient-to-br from-accent-700 to-accent-600 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)]">
+              <Trophy size={16} />
             </span>
-            <Settings size={14} className="hidden shrink-0 text-gray-600 lg:block" />
+            <span className="hidden text-90 font-extrabold uppercase tracking-[0.14em] text-gray-1000 xl:inline">
+              {APP_NAME.split(' ')[0]}
+              <span className="text-accent-900">{APP_NAME.split(' ').slice(1).join(' ')}</span>
+            </span>
           </NavLink>
+
+          <nav className="scroll-row flex min-w-0 flex-1 items-center gap-0.5">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              // The trophy is drawn as a line mark here, like every other tab:
+              // the two-award artwork is a picture, and a picture among six
+              // glyphs read as the one tab that was different.
+              const Icon = item.barIcon ?? item.icon;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  title={item.name}
+                  // The full bar height is the hit area.
+                  className={cn(
+                    'relative flex h-16 shrink-0 items-center gap-2 px-1.5 text-90 font-bold transition-colors xl:px-3.25',
+                    isActive ? 'text-accent-900' : 'text-gray-700 hover:text-gray-1000',
+                  )}
+                >
+                  {/* A lit rule along the bottom edge of the tab — the same mark
+                      a phone puts along the top edge of its bottom bar. */}
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent-800 shadow-[0_0_9px_-1px_var(--color-accent-700)]"
+                    />
+                  )}
+
+                  {Icon ? <Icon size={17} className="shrink-0" /> : item.art}
+                  {/* The short label, not the full name: seven destinations plus
+                      the brand and the actions have to share one row, and
+                      "Achievements & Trophies" alone would push two of them off
+                      the end of it. The full name stays as the tooltip. */}
+                  <span className="hidden whitespace-nowrap lg:inline">{item.short}</span>
+
+                  {item.badge !== undefined && (
+                    <span
+                      className={cn(
+                        'inline-flex h-5 items-center rounded-full border px-1.75 text-75 font-bold tabular-nums',
+                        item.badgeTone === 'accent'
+                          ? 'border-accent-700/45 bg-accent-700/16 text-accent-900'
+                          : item.badgeTone === 'trophy'
+                            ? 'border-trophy-700/50 bg-trophy-700/16 text-trophy-900'
+                            : 'border-gray-500/50 bg-gray-700/12 text-gray-700',
+                      )}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-2.5">
+            {/* The one sync control: the cloud, Steam and PlayStation, all at
+                once. Everything also syncs on its own, so this is for when you
+                want it now. A lit dot when all is well; the word joins it at
+                xl. */}
+            <button
+              type="button"
+              onClick={runSync}
+              disabled={!isOnline || syncing}
+              title={syncTitle}
+              aria-label={syncTitle}
+              className="flex h-9 items-center gap-2 rounded-control border border-gray-300 bg-black/25 px-3 text-75 font-bold text-gray-700 transition-colors hover:text-gray-1000 disabled:cursor-default"
+            >
+              {!isOnline ? (
+                <CloudOff size={13} className="shrink-0 text-notice-900" />
+              ) : syncing || pendingWrites > 0 ? (
+                <RefreshCw
+                  size={13}
+                  className={cn('shrink-0 text-accent-900', syncing && 'animate-spin')}
+                />
+              ) : (
+                <span className="h-2 w-2 shrink-0 rounded-full bg-positive-900 shadow-[0_0_8px_-1px_var(--color-positive-900)]" />
+              )}
+              <span className="hidden whitespace-nowrap xl:inline">
+                {!isOnline
+                  ? 'Offline'
+                  : syncing
+                    ? 'Syncing…'
+                    : pendingWrites > 0
+                      ? `${pendingWrites} pending`
+                      : 'Synced'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsQuickAddOpen(true)}
+              aria-label="Add game"
+              className="flex h-9 items-center gap-2 rounded-control bg-gradient-to-br from-accent-700 to-accent-600 px-3.5 text-90 font-bold whitespace-nowrap text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_16px_-6px_var(--color-accent-700)] transition-colors hover:from-accent-800 hover:to-accent-700"
+            >
+              <Plus size={16} className="shrink-0" />
+              <span className="hidden lg:inline">Add game</span>
+            </button>
+
+            <NavLink
+              to="/settings"
+              title="Settings and account"
+              className={({ isActive }) =>
+                cn(
+                  'flex h-9 items-center gap-2 rounded-control border pl-2 pr-2.5 text-75 font-bold transition-colors',
+                  isActive
+                    ? 'border-accent-700/45 bg-accent-700/12 text-accent-900'
+                    : 'border-gray-300 text-gray-800 hover:border-gray-400 hover:text-gray-1000',
+                )
+              }
+            >
+              {profile.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt=""
+                  className="h-5.5 w-5.5 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <span className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-gray-300 text-75 font-extrabold text-gray-800">
+                  {profile.username?.charAt(0)?.toUpperCase() || 'P'}
+                </span>
+              )}
+              <span className="hidden max-w-24 truncate lg:inline">
+                {profile.username || 'Account'}
+              </span>
+              <ChevronDown size={14} className="shrink-0 text-gray-600" />
+            </NavLink>
+          </div>
         </div>
       </header>
 
@@ -553,7 +573,10 @@ export const AppLayout: React.FC = () => {
       {/* pt-20 below md is the fixed phone header's own height plus a little
           air. It used to be pt-32, which cleared the header twice over and
           started every page a third of a screen down. */}
-      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-20 sm:px-6 md:py-8 2xl:px-10">
+      {/* From md the gutters belong to the container inside, not to main, so
+          the page and the bar above it share one box and one left edge. */}
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-20 sm:px-6 md:px-0 md:pb-12 md:pt-8">
+        <div className="md:page-container">
         {/* An account with nothing saved yet is not a failure, and saying so
             was alarming and untrue. A genuine network problem still gets
             today's wording; a first sign-in gets a way forward instead. */}
@@ -584,6 +607,7 @@ export const AppLayout: React.FC = () => {
         ) : null}
 
         <Outlet />
+        </div>
       </main>
 
       {/* Mobile "More" sheet: the destinations the bar has no room for ------ */}

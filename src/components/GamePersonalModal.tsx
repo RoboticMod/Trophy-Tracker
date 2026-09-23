@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, Store } from 'lucide-react';
 import { UserGame } from '../types';
@@ -6,7 +6,12 @@ import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import { useGame } from '../context/GameContext';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { formatDate, formatHours, relativeTime } from '../lib/format';
+import { formatRating, ratingColor } from '../lib/rating';
+import { useMediaQuery } from '../lib/useMediaQuery';
+import { cn } from '../lib/cn';
 import {
+  COMPLETE_COLLECTION_ID,
+  PERMANENT_SELECTED_CLASS,
   PERMANENT_TONE,
   collectionName,
   isPermanentCollection,
@@ -16,7 +21,7 @@ import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
 import { RatingValue } from './Rating';
-import { Badge, Button, Dialog, Meter, SectionTitle, StatTile } from './ui';
+import { Badge, Button, Dialog, Meter, SectionRule, SectionTitle, StatTile } from './ui';
 
 interface GamePersonalModalProps {
   game: UserGame | null;
@@ -41,6 +46,11 @@ interface GamePersonalModalProps {
  * `notes` appears here and nowhere else. The model has carried the field all
  * along and the edit dialog has always written it, but nothing has ever read it
  * back — you could write yourself a note and never see it again.
+ *
+ * From 1024 it is a two-column dialog rather than a sheet: the art, where it is
+ * filed and how far through it you are on the left; your record and your notes
+ * on the right. Nothing scrolls until the dialog reaches its 720 cap, and then
+ * only the right column does — the picture and the progress stay put.
  */
 export const GamePersonalModal: React.FC<GamePersonalModalProps> = ({
   game,
@@ -82,6 +92,216 @@ const GamePersonal: React.FC<{
   const memberships = collections.filter(
     (c) => !isPermanentCollection(c.id) && game.collections?.includes(c.id),
   );
+
+  const split = useMediaQuery('(min-width: 64rem)');
+
+  const edit = onEdit
+    ? () => {
+        onClose();
+        onEdit();
+      }
+    : undefined;
+
+  /**
+   * ⌘E, or Ctrl+E elsewhere, steps through to the edit dialog — the footer
+   * says so. Only while this is open and wide: a phone has no keyboard to
+   * press it on, and the hint is not shown there.
+   */
+  const editRef = useRef(edit);
+  editRef.current = edit;
+  useEffect(() => {
+    if (!isOpen || !split) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'e' && editRef.current) {
+        event.preventDefault();
+        editRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, split]);
+
+  const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform);
+  const left = Math.max(0, game.achievementsTotal - game.achievementsUnlocked);
+
+  if (split) {
+    const tile = (label: string, value: string, caption: string, color?: string) => (
+      <div className="panel-inset rounded-md px-3.5 py-3">
+        <div className="eyebrow truncate text-gray-600">{label}</div>
+        <div
+          className="mt-2.25 truncate text-550 font-bold leading-none tabular-nums text-gray-1000"
+          style={color ? { color } : undefined}
+        >
+          {value}
+        </div>
+        <div className="mt-1.5 truncate text-75 text-gray-700">{caption}</div>
+      </div>
+    );
+
+    return (
+      <Dialog
+        isOpen={isOpen}
+        onClose={onClose}
+        size="split"
+        title={game.title}
+        icon={<PlatformIcon platform={game.platform} size={14} className="shrink-0" />}
+        description={[
+          platform.name,
+          shelf ? collectionName(shelf, collections) : null,
+          `Added ${formatDate(game.addedAt)}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        footer={
+          <>
+            <span className="mr-auto text-75 text-gray-600">
+              Esc closes{edit ? ` · ${isMac ? '⌘E' : 'Ctrl+E'} edits` : ''}
+            </span>
+
+            {/* Closes this and opens that, rather than stacking one dialog
+                over another — the same step-through Edit makes. */}
+            <Button buttonStyle="outline" size="l" onClick={onOpenStore}>
+              <Store size={16} />
+              Store details
+            </Button>
+
+            {edit ? (
+              <Button buttonStyle="outline" size="l" onClick={edit}>
+                <Pencil size={16} />
+                Edit
+              </Button>
+            ) : null}
+
+            {/* One primary, on the right. The phone's full-width primary is a
+                rule for a thumb, not for a pointer. */}
+            <Button variant="accent" size="l" onClick={onClose}>
+              Done
+            </Button>
+          </>
+        }
+      >
+        <div className="grid min-h-0 w-full grid-cols-[26.25rem_minmax(0,1fr)] gap-7">
+          {/* What it is, and how far through it you are ------------------- */}
+          <div className="flex flex-col gap-4">
+            <CoverArt
+              src={game.coverImage}
+              title={game.title}
+              className="aspect-video w-full rounded-tile object-cover"
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              {shelf ? (
+                <span
+                  className={cn(
+                    'inline-flex h-7 items-center rounded-full border px-3.25 text-75 font-bold uppercase tracking-[0.04em]',
+                    PERMANENT_SELECTED_CLASS[shelf],
+                  )}
+                >
+                  {collectionName(shelf, collections)}
+                </span>
+              ) : null}
+              {perfect && shelf !== COMPLETE_COLLECTION_ID ? (
+                <span className="inline-flex h-7 items-center rounded-full border border-trophy-700/50 bg-trophy-700/16 px-3.25 text-75 font-bold uppercase tracking-[0.04em] text-trophy-900">
+                  100%
+                </span>
+              ) : null}
+              {memberships.map((collection) => {
+                const color = collection.color || DEFAULT_COLLECTION_COLOR;
+                return (
+                  <span
+                    key={collection.id}
+                    className="inline-flex h-7 items-center gap-1.75 rounded-full border border-gray-300 px-3.25 text-75 font-bold"
+                    style={{ color }}
+                    title={collection.description || collection.name}
+                  >
+                    <span aria-hidden className="h-1.75 w-1.75 rounded-full bg-current" />
+                    {collection.name}
+                  </span>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-2.5 text-150 tabular-nums">
+                <TrophyBadge platform={game.platform} size={18} muted={!perfect} />
+                <span className="font-bold text-gray-1000">
+                  {game.achievementsUnlocked} / {game.achievementsTotal} {noun.toLowerCase()}
+                </span>
+                <span className="ml-auto text-gray-700">{progress}%</span>
+              </div>
+              <Meter
+                size="l"
+                value={progress}
+                tone={perfect ? 'trophy' : 'accent'}
+                label={`${game.title} ${noun.toLowerCase()} progress`}
+              />
+              <p className="text-75 text-gray-600">
+                {perfect
+                  ? `Every one of them earned${game.completedAt ? `, finished ${formatDate(game.completedAt)}` : ''}.`
+                  : `${left} left.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Yours ---------------------------------------------------------- */}
+          <div className="flex min-h-0 flex-col gap-5.5 overflow-y-auto">
+            <section className="flex flex-col gap-3.5">
+              <SectionRule title="Your record" />
+              <div className="grid grid-cols-2 gap-2.5">
+                {tile(
+                  'Hours',
+                  `${formatHours(game.hoursPlayed)}h`,
+                  game.lastPlayedAt ? `Played ${relativeTime(game.lastPlayedAt)}` : 'Not played yet',
+                )}
+                {tile(
+                  `Last ${noun.toLowerCase().replace(/s$/, '')}`,
+                  game.lastUnlockedAt
+                    ? new Date(game.lastUnlockedAt).toLocaleDateString(undefined, {
+                        day: 'numeric',
+                        month: 'short',
+                      })
+                    : '—',
+                  game.lastUnlockedAt ? relativeTime(game.lastUnlockedAt) : 'Nothing unlocked yet',
+                )}
+                {tile(
+                  'Game rating',
+                  game.rating ? formatRating(game.rating) : '—',
+                  game.rating ? 'Out of 10' : 'Not rated',
+                  game.rating ? ratingColor(game.rating) : 'var(--color-gray-600)',
+                )}
+                {/* Mirroring where it can be set: an award rating is a verdict
+                    on a whole list, and cannot honestly be given — or shown —
+                    part-way through one. */}
+                {tile(
+                  noun,
+                  perfect && game.achievementRating ? formatRating(game.achievementRating) : '—',
+                  perfect ? (game.achievementRating ? 'Out of 10' : 'Not rated') : 'Rated at 100%',
+                  perfect && game.achievementRating
+                    ? ratingColor(game.achievementRating)
+                    : 'var(--color-gray-600)',
+                )}
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-3.5">
+              <SectionRule title="Notes" />
+              {game.notes ? (
+                // Whitespace kept: a note written as a few lines was written
+                // that way on purpose.
+                <p className="panel-inset whitespace-pre-wrap rounded-md p-3.5 text-90 leading-[1.1875rem] text-gray-800">
+                  {game.notes}
+                </p>
+              ) : (
+                <p className="text-90 text-gray-600">
+                  Nothing written down yet — Edit adds a note.
+                </p>
+              )}
+            </section>
+          </div>
+        </div>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog

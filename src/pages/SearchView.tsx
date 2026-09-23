@@ -43,9 +43,11 @@ import {
   FilterChip,
   OverlayBadge,
   PageHeader,
+  SectionRule,
   TextInput,
 } from '../components/ui';
 import { ResultPlatforms, VersionToggle } from '../components/CatalogVersions';
+import { useIsPhone } from '../lib/useMediaQuery';
 
 export const SearchView: React.FC = () => {
   const { games, addGame, collections, platformAccounts } = useGame();
@@ -67,6 +69,7 @@ export const SearchView: React.FC = () => {
   /** A game you already have, opened from its result rather than re-added. */
   const [editing, setEditing] = useState<UserGame | null>(null);
   const [addingKey, setAddingKey] = useState<string | null>(null);
+  const phone = useIsPhone();
 
   useEffect(() => {
     let cancelled = false;
@@ -160,9 +163,8 @@ export const SearchView: React.FC = () => {
       {/* A plus, matching the Add button and the add dialog — the three ways to
           add a game were a sparkle, a sparkle and a plus. */}
       <PageHeader
-        icon={<Plus size={18} />}
-        iconClassName="bg-accent-700/16 text-accent-900"
         title="Search & add"
+        subtitle="Find a game on Steam or PlayStation and put it on a shelf."
       />
 
       {/* Kept as a note rather than dropped outright: which catalog is being
@@ -176,6 +178,7 @@ export const SearchView: React.FC = () => {
         .
       </IntroNotice>
 
+      {phone ? (
       <div className="space-y-4">
         <div className="relative">
           <Search
@@ -218,8 +221,70 @@ export const SearchView: React.FC = () => {
           ))}
         </div>
       </div>
+      ) : (
+        /* One field and the platform a game is added as, in one row. The field
+           is the page's reason for being, so it is taller than any other and
+           lit before you have typed anything. */
+        <section className="flex items-center gap-3">
+          <div className="relative w-130 max-w-full min-w-0">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-accent-900"
+              size={20}
+            />
+            <input
+              type="search"
+              aria-label={`Search ${sourceName}`}
+              placeholder="Search by title — Elden Ring, Hollow Knight, Balatro…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="no-spinner h-12 w-full rounded-tile border border-accent-700/50 bg-black/30 pl-12 pr-4 text-150 text-gray-900 shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent-700)_12%,transparent)] placeholder:text-gray-600 focus:border-accent-700 focus:outline-none"
+            />
+          </div>
 
-      {heading || loading ? (
+          <div
+            role="radiogroup"
+            aria-label="Add to"
+            className="panel-inset flex h-12 shrink-0 items-center gap-0.5 rounded-tile p-1"
+          >
+            {(['all', ...PLATFORM_IDS] as const).map((option) => {
+              const selected = selectedPlatform === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setSelectedPlatform(option)}
+                  title={option === 'all' ? 'Add each game as the platform it was found on' : `Add as ${PLATFORMS[option].name}`}
+                  className={cn(
+                    'flex h-10 items-center justify-center gap-2 rounded-md border px-4.5 text-90 font-bold transition-colors',
+                    selected
+                      ? 'border-gray-500 bg-gray-300 text-gray-1000'
+                      : 'border-transparent text-gray-700 hover:text-gray-1000',
+                  )}
+                >
+                  {option === 'all' ? null : <PlatformIcon platform={option} size={15} />}
+                  {option === 'all' ? 'Auto-detect' : PLATFORMS[option].name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {!phone && (results.length > 0 || loading) ? (
+        <SectionRule
+          title={query.trim() ? 'Results' : recent ? 'Recently played on Steam' : 'Popular on RAWG now'}
+          count={results.length}
+          action={
+            loading ? (
+              <span className="eyebrow shrink-0 animate-pulse text-accent-900">Searching…</span>
+            ) : null
+          }
+        />
+      ) : null}
+
+      {phone && (heading || loading) ? (
         <div className="eyebrow flex items-center justify-between text-gray-600">
           <span>{heading}</span>
           {loading && <span className="animate-pulse text-accent-900">Searching…</span>}
@@ -247,6 +312,100 @@ export const SearchView: React.FC = () => {
         <CatalogEmptyState error={error} query={query} source={source} linked={Boolean(steamId)} />
       )}
 
+      {/* Rows on a wide screen, two across: a result is read for its name and
+          where it came from, and a tile's worth of art for each of twenty was
+          a page of pictures to scroll past to find the one you typed. */}
+      {!phone ? (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {results.map((found) => {
+            const version = versions[found.key] ?? found.source;
+            const game = found.twin ? { ...pickVersion(found, version), key: found.key } : found;
+            const owned = alreadyAdded(game);
+            const added = Boolean(owned) || addedKeys[game.key];
+            const adding = addingKey === game.key;
+            const platform = selectedPlatform !== 'all' ? selectedPlatform : game.platform;
+
+            return (
+              <div
+                key={game.key}
+                className="flex items-center gap-3.5 rounded-tile border border-gray-300/80 bg-gray-100/72 p-3"
+              >
+                <CoverArt
+                  src={game.image}
+                  title={game.title}
+                  className="h-10 w-18 shrink-0 rounded-sm object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex shrink-0" style={{ color: PLATFORMS[platform].color }}>
+                      <PlatformIcon platform={platform} size={14} />
+                    </span>
+                    <h3 className="truncate text-150 font-bold text-gray-1000">{game.title}</h3>
+                    {game.rating ? <RatingValue value={game.rating} size="xs" /> : null}
+                  </div>
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                    {source === 'both' ? <ResultPlatforms result={found} /> : null}
+                    <p className="truncate text-75 text-gray-700">
+                      {added
+                        ? `${PLATFORMS[platform].name} · In your library`
+                        : game.subtitle}
+                    </p>
+                  </div>
+                  {found.twin && !added ? (
+                    <div className="mt-2">
+                      <VersionToggle
+                        result={found}
+                        value={version}
+                        onChange={(next) => setVersions((prev) => ({ ...prev, [found.key]: next }))}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                {added ? (
+                  // Not a dead end: the game is already tracked, so this opens
+                  // the one you have rather than offering to add it twice.
+                  <button
+                    type="button"
+                    disabled={!owned}
+                    onClick={() => owned && setEditing(owned)}
+                    title={owned ? `Edit ${owned.title}` : undefined}
+                    className="flex h-9 shrink-0 items-center justify-center gap-1.75 rounded-md border border-gray-300 px-3.5 text-90 font-bold text-gray-600 transition-colors enabled:hover:text-gray-1000"
+                  >
+                    <Check size={15} />
+                    In library
+                  </button>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={adding}
+                      onClick={() => void handleQuickAdd(game, false)}
+                      title={`Add to ${collectionName(PLAYING_COLLECTION_ID, collections)}`}
+                      className="flex h-9 items-center justify-center gap-1.75 rounded-md border border-accent-700/50 bg-accent-700/16 px-3.5 text-90 font-bold text-accent-900 transition-colors hover:border-accent-700 disabled:opacity-40"
+                    >
+                      {adding ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      disabled={adding}
+                      onClick={() => void handleQuickAdd(game, true)}
+                      title={`Add to ${collectionName(BACKLOG_COLLECTION_ID, collections)}`}
+                      aria-label={`Add ${game.title} to ${collectionName(BACKLOG_COLLECTION_ID, collections)}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 text-gray-700 transition-colors hover:border-gray-400 hover:text-gray-1000 disabled:opacity-40"
+                    >
+                      <Bookmark size={15} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {phone ? (
       <div className="grid-cards">
         {results.map((found) => {
           const version = versions[found.key] ?? found.source;
@@ -357,6 +516,7 @@ export const SearchView: React.FC = () => {
           );
         })}
       </div>
+      ) : null}
 
       {/* The game a result turned out to be, opened from its own card. */}
       <EditGameModal

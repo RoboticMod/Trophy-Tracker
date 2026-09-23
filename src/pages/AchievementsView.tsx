@@ -57,8 +57,6 @@ export const AchievementsView: React.FC = () => {
   return (
     <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
       <PageHeader
-        icon={<TrophyPair size={17} />}
-        iconClassName="bg-trophy-700/16"
         title="100% Achievements & Platinum Trophies"
         // The total, then the same total split by platform — each in a pill of
         // the one height and radius, so the marks sit on a line with the words
@@ -76,6 +74,12 @@ export const AchievementsView: React.FC = () => {
             ))}
           </>
         }
+        subtitle={[
+          `${completedGames.length} games at 100%`,
+          ...PLATFORM_IDS.map(
+            (p) => `${completedGames.filter((g) => g.platform === p).length} ${PLATFORMS[p].name}`,
+          ),
+        ].join(' · ')}
       />
 
       <IntroNotice id="achievements">

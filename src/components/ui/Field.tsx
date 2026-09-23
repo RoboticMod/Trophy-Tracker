@@ -48,6 +48,11 @@ export const Field: React.FC<FieldProps> = ({
  */
 export const inputClass = cn(
   'w-full rounded-sm border px-3 text-100 text-gray-900',
+  // 40px, a 10px corner and 13px type on a wide screen: fields, selects and
+  // dialog buttons share one height there. No padding of its own at md — a
+  // field with a leading mark sets its own left inset, and a variant here
+  // would outrank it.
+  'md:rounded-md md:text-90',
   // Applied to every field rather than to the number ones: it is inert on a
   // text input, and one class here is one fewer thing to remember at each
   // call site.
@@ -61,7 +66,7 @@ export const inputClass = cn(
 
 export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...rest }, ref) => (
-    <input ref={ref} className={cn(inputClass, 'h-9', className)} {...rest} />
+    <input ref={ref} className={cn(inputClass, 'h-9 md:h-10', className)} {...rest} />
   ),
 );
 TextInput.displayName = 'TextInput';
