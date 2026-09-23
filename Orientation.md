@@ -48,11 +48,16 @@ A game is a row with counts, dates, an optional platform link, and an array of
 field — there was, saying the same thing in a second vocabulary, and the two
 disagreed in normal use.
 
-**Three collections are permanent** ([`lib/collections.ts`](src/lib/collections.ts)):
+**Four collections are permanent** ([`lib/collections.ts`](src/lib/collections.ts)):
 
 ```
-perm-backlog  ·  perm-playing  ·  perm-complete
+perm-backlog  ·  perm-playing  ·  perm-beaten  ·  perm-complete
 ```
+
+Beaten (finished, awards still to earn) has no page of its own and no tab: it
+is kept in Lists, first, undeletable. It counts toward Home's gauge. A seeded
+shelf needs no migration — `withPermanentCollections` adds any missing one on
+load and writes it back.
 
 - A game is on **at most one** of them. `fileInPermanent` and `toggleCollection`
   enforce that; `normalizeCollections` repairs any array that got past them, and
@@ -127,7 +132,8 @@ send CORS headers and the Steam key must not ship in the bundle.
   or every group including add-ons. The edge function takes `?groups=all`.
 - A sync passes `{ automatic: true }` to `updateGame`, which is what makes a shelf
   change it causes announce itself in `GameMovedDialog`.
-- Two backfills ride along, same shape: [`useCoverArt`](src/lib/useCoverArt.ts)
+- Three backfills ride along, same shape — posters too, via `useGamePosters`
+  and the `/poster` route, stored in `poster_image`: [`useCoverArt`](src/lib/useCoverArt.ts)
   for RAWG art and [`useGameLogos`](src/lib/useGameLogos.ts) for logos —
   SteamGridDB by title (a PlayStation game's only source), Steam's CDN behind
   it, stored in `logo_image`. **A logo not found is not an error**: recorded as
@@ -167,7 +173,7 @@ Function secrets (`supabase secrets set …`):
 
 ```
 STEAM_API_KEY                # Steam search, achievements, playtime
-STEAMGRIDDB_API_KEY          # optional; game logos, keyed by title
+STEAMGRIDDB_API_KEY          # optional; game logos and posters, keyed by title
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into every edge
@@ -204,40 +210,54 @@ star is retired: see below. What is load-bearing:
 - **One card, 16:9 at every width** (`GameCard`): the score top left, the title
   on the art (one line, ellipsis), then a solid strip — count and percentage,
   the meter, and on a wide card playtime and **one list chip** plus `+n` (lists
-  only; the shelf is the card's own edge). A phone's 100% mark is the award art
-  top right; a wide card's is a 36px disc by the title. No platform mark on a
-  phone — the section rule names it. A phone's per-card action (Backlog's
-  Start) sits inside the strip. Scrims are a share of the box (34% / 52%).
+  only; the shelf is the card's own edge). The 100% mark is the bare award art
+  top right at every width, no disc, over a strong top scrim (42%, mirroring the
+  52% bottom one under the title). No platform mark on a phone — the section
+  rule names it. A phone's per-card action (Backlog's Start) sits in the strip.
 - **`grid-cards`**: 2 columns with 12px gaps on a phone, 3 from 600 to 1023,
-  then a 248px track (five at 1440). From 768 a section of **fewer than three**
-  games is rows instead (`GameList`, `GameCard layout="row"`).
-- **Chrome.** A phone: 56px fixed header (back, 17px title, the shelf's count
-  badge, sync, add — all 44px) and a 60px bottom bar lit on its top edge. A page
-  can put a control in that header through `PhoneHeaderAction`
+  then a 248px track (five at 1440). **Always cards** — a sparse section once
+  became full-width rows, and a card unlike every other read as a bug.
+- **Chrome.** A phone: 56px fixed header (back — not on Home — 17px title, the
+  shelf's count badge, sync, add — all 44px) and a 60px bottom bar lit on its top
+  edge. A page can put a control in that header through `PhoneHeaderAction`
   (`lib/phoneHeader.tsx`, a portal target, no state lifted). From 768: a 64px
-  top bar in the same 1440 `page-container` as the page.
+  top bar in the same 1440 `page-container` as the page, the `Wordmark` lockup,
+  and `ProfileMenu` (Settings, Log out). `<main>` is reset to the top on every
+  route change (a layout effect, so a page's own scroll-to still wins). The app
+  always opens on Home — the start-page setting is gone.
 - **Figures sit with the title, not in the page.** A phone shows the count in
   the fixed header; `PageHeader` there renders only a page's own control. A wide
   screen gets the title at 24 and a `subtitle` line of figures.
 - **Every `Dialog` is a bottom sheet on a phone** — handle, 18px corners, max
-  88dvh, sticky header and footer — and portals to `<body>`, since a sheet
-  opened from inside `<main>` could not otherwise rise over the bars. `Select`
-  opens one too. Game details (`GamePersonalModal`) stay a sheet up to 1024
-  (`sheetBelow="lg"`: 2-up secondaries, one full-width primary), then become
-  `Dialog size="split"`, 980 × 720, only the right column scrolling, ⌘E/Ctrl+E
-  to Edit. **The dialog is the only way to edit a game.**
+  88dvh, sticky header and footer, pulled down by handle or header to close —
+  and portals to `<body>`, since a sheet opened from inside `<main>` could not
+  otherwise rise over the bars. `Select` opens one too. Game details
+  (`GamePersonalModal`) stay a sheet up to 1024 (`sheetBelow="lg"`: 2-up
+  secondaries, one full-width primary), then become `Dialog size="split"`,
+  980 × 720, only the right column scrolling, Delete game bottom left. **The
+  dialog is the only way to edit a game.**
 - **Controls**: 44px fields and selects on a phone (40 from md), 36px pill
   chips in rows that scroll sideways (`scroll-row`) rather than wrap.
 - **Type**: the phone ramp plus desktop steps `text-90/150/250/550/1000`
   (13/15/17/24/44); eyebrow 11, 12 from md. Radii `rounded-control` (8) and
   `rounded-tile` (12).
-- **Pages**: Lists is a row per list with three 2:3 previews on a phone and a
-  grid of 2 × 2 mosaic cards from 768. Statistics is four panels (overview,
+- **Pages**: Lists is a row per list with three 2:3 previews on a phone — the
+  game's `posterImage` (`useGamePosters`: SteamGridDB 600 × 900 grid by title,
+  then Steam's `library_600x900`, same upgrade rules as logos), Steam's capsule
+  directly for a linked app, else the landscape art cropped — and a grid of
+  2 × 2 mosaic cards from 768. `/settings?section=<id>` opens (or scrolls to) a
+  Settings group. Statistics is four panels (overview,
   platforms, distribution, recent) — reorderable on a phone, fixed and two
   columns from 1280, as is Settings.
-- **Naming**: users see "Lists", "New list", "Distribution". Code, the
-  `/collections` route and stored config keys keep the old names, so saved nav
-  orders and labels still resolve.
+- **Naming**: users see "Lists", "New list", "Distribution", "PlayStation"
+  / "PS". Code, the `/collections` route, the `ps5` id and stored config keys
+  keep the old names, so saved settings still resolve; a saved nav label of
+  "Collections" is treated as unset.
+- **Version and changelog**: [`lib/changelog.ts`](src/lib/changelog.ts) is the
+  one source — `APP_VERSION` is its newest entry, `package.json` matches, and
+  Settings shows both. 0.x: major for a new major feature, minor for a feature
+  changed entirely, patch for small changes and UI. **Every shipped change adds
+  an entry.**
 - **Not built, for want of data**: the design's 12-week playtime chart, its
   "All time" picker and "hours this month" — nothing records playtime over
   time. The Statistics 100% showcase is left to the Trophies tab.

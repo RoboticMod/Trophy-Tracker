@@ -50,7 +50,7 @@ export const PsnSyncStatus: React.FC<{ game: UserGame; className?: string }> = (
     detail = (
       <>
         Link it in{' '}
-        <Link to="/settings" className="font-semibold text-accent-900 hover:text-accent-1000">
+        <Link to="/settings?section=connected" className="font-semibold text-accent-900 hover:text-accent-1000">
           Settings
         </Link>{' '}
         to sync trophies and playtime.

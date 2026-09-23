@@ -17,6 +17,7 @@ import { aggregateCompletion, isPerfect } from '../lib/completion';
 import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
 import {
   BACKLOG_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
   collectionName,
   isPermanentCollection,
@@ -172,6 +173,7 @@ export const DashboardView: React.FC = () => {
         (g) =>
           g.collections?.includes(BACKLOG_COLLECTION_ID) ||
           g.collections?.includes(PLAYING_COLLECTION_ID) ||
+          g.collections?.includes(BEATEN_COLLECTION_ID) ||
           isPerfect(g),
       ),
     [games],
@@ -237,7 +239,7 @@ export const DashboardView: React.FC = () => {
             suffix="%"
             verdict={completionLabel(completion)}
             color={completionColor(completion)}
-            caption={`${formatCount(gaugeTotals.unlocked)} of ${formatCount(gaugeTotals.unlockable)} awards across the ${formatCount(gaugeGames.length)} games you are playing, queueing or have finished.`}
+            caption={`across ${formatCount(gaugeGames.length)} games in playing, beaten, backlog and 100%`}
             size={wide ? 96 : 104}
           />
         </Card>

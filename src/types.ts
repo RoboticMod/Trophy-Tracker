@@ -30,6 +30,11 @@ export interface UserGame {
    * app — and stored, because a card cannot go looking for one as it draws.
    */
   logoImage?: string;
+  /**
+   * A portrait poster with the game's name painted in, for a list's previews.
+   * Resolved like the logo and stored for the same reason.
+   */
+  posterImage?: string;
   releaseDate?: string;
   genres: string[];
   hoursPlayed: number;

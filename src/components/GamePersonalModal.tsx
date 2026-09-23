@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Store } from 'lucide-react';
+import { Pencil, Store, Trash2 } from 'lucide-react';
 import { UserGame } from '../types';
 import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import { useGame } from '../context/GameContext';
@@ -79,7 +79,7 @@ const GamePersonal: React.FC<{
   onOpenStore: () => void;
   onEdit?: () => void;
 }> = ({ game, isOpen, onClose, onOpenStore, onEdit }) => {
-  const { collections } = useGame();
+  const { collections, deleteGame } = useGame();
 
   const platform = PLATFORMS[game.platform] ?? PLATFORMS.steam;
   const progress = completionPercent(game);
@@ -101,25 +101,14 @@ const GamePersonal: React.FC<{
     : undefined;
 
   /**
-   * ⌘E, or Ctrl+E elsewhere, steps through to the edit dialog — the footer
-   * says so. Only while this is open and wide: a phone has no keyboard to
-   * press it on, and the hint is not shown there.
+   * Deleting from here, behind one confirming click — the same two steps the
+   * edit dialog asks for. Reset whenever the dialog opens again, so a confirm
+   * left hanging is never the first thing the next visit shows.
    */
-  const editRef = useRef(edit);
-  editRef.current = edit;
+  const [confirmDelete, setConfirmDelete] = useState(false);
   useEffect(() => {
-    if (!isOpen || !split) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'e' && editRef.current) {
-        event.preventDefault();
-        editRef.current();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, split]);
-
-  const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform);
+    if (isOpen) setConfirmDelete(false);
+  }, [isOpen]);
   const left = Math.max(0, game.achievementsTotal - game.achievementsUnlocked);
 
   if (split) {
@@ -152,9 +141,43 @@ const GamePersonal: React.FC<{
           .join(' · ')}
         footer={
           <>
-            <span className="mr-auto text-75 text-gray-600">
-              Esc closes{edit ? ` · ${isMac ? '⌘E' : 'Ctrl+E'} edits` : ''}
-            </span>
+            {confirmDelete ? (
+              <div className="mr-auto flex min-w-0 items-center gap-2">
+                <span className="min-w-0 text-75 leading-tight text-gray-800">
+                  Delete this game permanently?
+                </span>
+                <Button
+                  variant="negative"
+                  size="l"
+                  className="shrink-0"
+                  onClick={() => {
+                    onClose();
+                    deleteGame(game.id);
+                  }}
+                >
+                  Delete
+                </Button>
+                <Button
+                  buttonStyle="subtle"
+                  size="l"
+                  className="shrink-0"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Keep
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="negative"
+                buttonStyle="subtle"
+                size="l"
+                className="mr-auto"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 size={16} />
+                Delete game
+              </Button>
+            )}
 
             {/* Closes this and opens that, rather than stacking one dialog
                 over another — the same step-through Edit makes. */}

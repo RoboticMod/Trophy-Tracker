@@ -2,18 +2,10 @@ import React, { useMemo } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Platform, PLATFORM_IDS, UserGame } from '../types';
 import { comparePlatformOrder } from '../lib/constants';
-import { useIsPhone } from '../lib/useMediaQuery';
 import { PlatformSectionHeader } from './PlatformSectionHeader';
-import { CardLayout, CardMeta, GameCard } from './GameCard';
+import { CardMeta, GameCard } from './GameCard';
 
-/**
- * Fewer games than this in a section and a wide screen lays them out as rows.
- * One or two cards stranded at the left of a five-column track is the alignment
- * fault rows exist to fix; three already reads as the start of a grid.
- */
-const SPARSE_BELOW = 3;
-
-type RenderAction = (game: UserGame, layout: CardLayout) => React.ReactNode;
+type RenderAction = (game: UserGame) => React.ReactNode;
 
 interface GameListProps {
   games: UserGame[];
@@ -23,30 +15,25 @@ interface GameListProps {
 }
 
 /**
- * One section's games: a grid of cards, or — on a wide screen, when there are
- * too few to fill a row — full-width rows. A phone is always the grid.
+ * One section's games, as a grid of cards — however few there are. A section
+ * of one or two used to become full-width rows on a wide screen; a card that
+ * looks like every other card turned out to matter more than a filled row.
  */
-export const GameList: React.FC<GameListProps> = ({ games, renderAction, hidePlatform, meta }) => {
-  const phone = useIsPhone();
-  const layout: CardLayout = !phone && games.length < SPARSE_BELOW ? 'row' : 'card';
-
-  return (
-    <div className={layout === 'row' ? 'flex flex-col gap-3' : 'grid-cards'}>
-      <AnimatePresence>
-        {games.map((game) => (
-          <GameCard
-            key={game.id}
-            game={game}
-            layout={layout}
-            meta={meta}
-            hidePlatform={hidePlatform}
-            action={renderAction?.(game, layout)}
-          />
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-};
+export const GameList: React.FC<GameListProps> = ({ games, renderAction, hidePlatform, meta }) => (
+  <div className="grid-cards">
+    <AnimatePresence>
+      {games.map((game) => (
+        <GameCard
+          key={game.id}
+          game={game}
+          meta={meta}
+          hidePlatform={hidePlatform}
+          action={renderAction?.(game)}
+        />
+      ))}
+    </AnimatePresence>
+  </div>
+);
 
 interface GameGridProps {
   games: UserGame[];

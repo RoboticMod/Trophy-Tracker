@@ -13,7 +13,7 @@ import { PlatformIcon } from './PlatformIcon';
 import { Button, OverlayBadge } from './ui';
 import { cn } from '../lib/cn';
 
-/** "Steam and PlayStation 5", for a title attribute. */
+/** "Steam and PlayStation", for a title attribute. */
 const platformNames = (result: CatalogResult) =>
   resultPlatforms(result)
     .map((platform) => PLATFORMS[platform].name)

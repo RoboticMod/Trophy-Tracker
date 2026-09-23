@@ -8,7 +8,7 @@ import {
   DEFAULT_COLLECTION_COLOR,
   comparePlatformOrder,
 } from '../lib/constants';
-import { isPermanentCollection } from '../lib/collections';
+import { BEATEN_COLLECTION_ID, isPermanentCollection } from '../lib/collections';
 import { CollectionsList, PreviewCover } from '../components/CollectionsList';
 import { aggregateCompletion } from '../lib/completion';
 import { formatHours, sumHours } from '../lib/format';
@@ -189,15 +189,19 @@ export const CollectionsView: React.FC = () => {
   const [color, setColor] = useState(DEFAULT_COLLECTION_COLOR);
 
   /**
-   * This page is about the lists you made yourself.
+   * This page is about your lists — and Beaten, which lives here.
    *
-   * The three permanent shelves each already have a page of their own —
-   * /playing, /backlog and /achievements — so listing them here too was a
-   * second way to the same three places, taking up the front of a tab strip
-   * that is otherwise entirely yours.
+   * Three of the four shelves have a page of their own — /playing, /backlog
+   * and /achievements — so listing them here too was a second way to the same
+   * places. Beaten has none, and is not worth a tab of its own in a bar that
+   * already holds seven, so this page is where it is kept: first, and not
+   * deletable, like the shelf it is.
    */
   const customCollections = useMemo(
-    () => collections.filter((c) => !isPermanentCollection(c.id)),
+    () => [
+      ...collections.filter((c) => c.id === BEATEN_COLLECTION_ID),
+      ...collections.filter((c) => !isPermanentCollection(c.id)),
+    ],
     [collections],
   );
 

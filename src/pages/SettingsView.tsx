@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Reorder, useDragControls } from 'motion/react';
 import {
   ChevronRight,
@@ -25,6 +26,7 @@ import {
   Loader2,
   UserX,
   Palette,
+  ScrollText,
   X,
   CloudOff,
   Cloud,
@@ -45,7 +47,6 @@ import {
 import { GameCatalogCard } from '../components/GameCatalogCard';
 import {
   DEFAULT_PLATFORM_SORT_ORDER,
-  DEFAULT_START_PATH,
   PLATFORMS,
   describePlatformOrder,
   normalizePlatform,
@@ -75,12 +76,12 @@ import {
   Field,
   PageHeader,
   SectionHeader,
-  Select,
   Switch,
   TextInput,
 } from '../components/ui';
 import { cn } from '../lib/cn';
-import { relativeTime } from '../lib/format';
+import { formatDate, relativeTime } from '../lib/format';
+import { APP_VERSION, CHANGELOG } from '../lib/changelog';
 import { useIsPhone, useMediaQuery } from '../lib/useMediaQuery';
 
 /** The groups the page is split into, in order — and the wide screen's nav. */
@@ -90,6 +91,7 @@ const SETTINGS_GROUPS = [
   { id: 'customization', title: 'Customization' },
   { id: 'appearance', title: 'Appearance' },
   { id: 'data', title: 'Data' },
+  { id: 'changelog', title: 'Changelog' },
 ] as const;
 
 type SettingsGroupId = (typeof SETTINGS_GROUPS)[number]['id'];
@@ -113,10 +115,21 @@ const SettingsGroup: React.FC<{ id: SettingsGroupId; children: React.ReactNode }
   children,
 }) => {
   const active = useContext(ActiveGroupContext);
+  const [params] = useSearchParams();
+  const ref = useRef<HTMLElement>(null);
+
+  // Sent here by name — "link it in Settings" from a game's sync status. One
+  // column shows every group, so the one asked for is scrolled to; two
+  // columns open it instead (see SettingsLayout).
+  const requested = params.get('section') === id;
+  useEffect(() => {
+    if (requested && active === null) ref.current?.scrollIntoView({ block: 'start' });
+  }, [requested, active]);
+
   if (active !== null && active !== id) return null;
 
   return (
-    <section className="space-y-3">
+    <section ref={ref} id={`settings-${id}`} className="scroll-mt-20 space-y-3">
       {active === null ? (
         <h2 className="eyebrow px-0.5 text-gray-600">
           {SETTINGS_GROUPS.find((group) => group.id === id)?.title}
@@ -134,7 +147,14 @@ const SettingsGroup: React.FC<{ id: SettingsGroupId; children: React.ReactNode }
  */
 const SettingsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const wide = useMediaQuery('(min-width: 80rem)');
-  const [active, setActive] = useState<SettingsGroupId>('account');
+  const [params] = useSearchParams();
+  const requested = SETTINGS_GROUPS.find((group) => group.id === params.get('section'))?.id;
+  const [active, setActive] = useState<SettingsGroupId>(requested ?? 'account');
+
+  // A second link while already here opens the group it names.
+  useEffect(() => {
+    if (requested) setActive(requested);
+  }, [requested]);
 
   if (!wide) return <div className="space-y-8">{children}</div>;
 
@@ -461,13 +481,6 @@ export const SettingsView: React.FC = () => {
    * to a page that is not in the navigation would leave you somewhere you
    * cannot get back to.
    */
-  const startPageOptions = orderedNavItems
-    .filter((item) => !item.configKey || (sidebarConfig[item.configKey] as boolean))
-    .map((item) => ({
-      value: item.path,
-      label: navNames[item.path]?.trim() || item.name,
-    }));
-
   const renameNav = (path: string, value: string) => {
     const next = { ...navNames };
     if (value.trim()) next[path] = value.trim();
@@ -567,7 +580,7 @@ export const SettingsView: React.FC = () => {
         <div className="border-b border-gray-200 pb-5">
           <p className="text-75 text-gray-700">
             Your account, the accounts you have linked, how the app looks and where your
-            library is kept.
+            library is kept. Version {APP_VERSION}.
           </p>
         </div>
       ) : (
@@ -576,6 +589,7 @@ export const SettingsView: React.FC = () => {
           subtitle={[
             `Signed in as ${profile.username || user?.email || 'you'}`,
             lastRunAt ? `last synced ${relativeTime(lastRunAt)}` : null,
+            `version ${APP_VERSION}`,
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -738,7 +752,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<TrophyBadge platform="ps5" size={18} />}
           title="PlayStation trophy counts"
-          description="Which trophy groups a PS5 game is measured against"
+          description="Which trophy groups a PlayStation game is measured against"
           iconClassName="bg-playstation-700/15"
         />
 
@@ -854,29 +868,6 @@ export const SettingsView: React.FC = () => {
         </div>
       </Card>
 
-      {/* Start page ---------------------------------------------------------- */}
-      <Card className="space-y-4">
-        <SectionHeader
-          icon={<Home size={18} />}
-          title="Start page"
-          description="Where the app opens when you arrive"
-        />
-
-        <Field
-          label="Open on"
-          description="Only destinations you have kept visible are offered here."
-        >
-          {(props) => (
-            <Select
-              {...props}
-              value={sidebarConfig.startPath ?? DEFAULT_START_PATH}
-              onChange={(startPath) => updateSidebarConfig({ startPath })}
-              options={startPageOptions}
-            />
-          )}
-        </Field>
-      </Card>
-
       {/* Navigation ---------------------------------------------------------- */}
       <Card className="space-y-4">
         <SectionHeader
@@ -911,7 +902,14 @@ export const SettingsView: React.FC = () => {
             <NavReorderRow
               key={item.path}
               item={item}
-              name={navNames[item.path] ?? item.name}
+              // A stored "Collections" is the page's old name, carried along
+              // by this field rather than chosen — it shows as the new one.
+              name={
+                item.path === '/collections' &&
+                navNames[item.path]?.trim().toLowerCase() === 'collections'
+                  ? item.name
+                  : (navNames[item.path] ?? item.name)
+              }
               visible={item.configKey ? (sidebarConfig[item.configKey] as boolean) : true}
               onRename={(value) => renameNav(item.path, value)}
               onToggle={
@@ -1176,6 +1174,45 @@ export const SettingsView: React.FC = () => {
         </p>
 
         {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
+      </Card>
+      </SettingsGroup>
+
+      <SettingsGroup id="changelog">
+      {/* Changelog ---------------------------------------------------------- */}
+      <Card className="space-y-5">
+        <SectionHeader
+          icon={<ScrollText size={18} />}
+          title={`Version ${APP_VERSION}`}
+          description="What changed in each release, newest first"
+        />
+
+        <ol className="space-y-5">
+          {CHANGELOG.map((entry, index) => (
+            <li key={entry.version} className="space-y-2">
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <span
+                  className={cn(
+                    'inline-flex h-5.5 items-center rounded-full border px-2.25 text-75 font-bold tabular-nums',
+                    index === 0
+                      ? 'border-accent-700/45 bg-accent-700/16 text-accent-900'
+                      : 'border-gray-300 text-gray-700',
+                  )}
+                >
+                  {entry.version}
+                </span>
+                <h3 className="text-90 font-bold text-gray-1000">{entry.title}</h3>
+                <time className="text-75 tabular-nums text-gray-600" dateTime={entry.date}>
+                  {formatDate(`${entry.date}T12:00:00`)}
+                </time>
+              </div>
+              <ul className="list-disc space-y-1 pl-5 text-75 leading-relaxed text-gray-700 marker:text-gray-500">
+                {entry.changes.map((change) => (
+                  <li key={change}>{change}</li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
       </Card>
       </SettingsGroup>
       </SettingsLayout>

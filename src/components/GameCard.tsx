@@ -72,13 +72,6 @@ const scrollerOf = (node: HTMLElement): HTMLElement | null => {
  */
 export type CardMeta = 'lists' | 'lastPlayed';
 
-/**
- * A tile in a grid, or a full-width row. A section of fewer than three games
- * is laid out as rows on a wide screen: one card stranded in a five-column
- * track is the alignment fault rows exist to avoid. A phone is always tiles.
- */
-export type CardLayout = 'card' | 'row';
-
 interface GameCardProps {
   game: UserGame;
   /** Rendered below the progress row, for actions specific to one view. */
@@ -86,7 +79,6 @@ interface GameCardProps {
   /** Drops the platform chip where a surrounding heading already states it. */
   hidePlatform?: boolean;
   meta?: CardMeta;
-  layout?: CardLayout;
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
@@ -94,7 +86,6 @@ export const GameCard: React.FC<GameCardProps> = ({
   action,
   hidePlatform = false,
   meta = 'lists',
-  layout = 'card',
 }) => {
   const { profile, collections, added, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -307,84 +298,6 @@ export const GameCard: React.FC<GameCardProps> = ({
     transition: { duration: 0.45, ease: EASE_OUT, layout: { duration: 0.45, ease: EASE_OUT } },
   } as const;
 
-  // Row ------------------------------------------------------------------------
-  // For a section too sparse to fill a grid row: the art at 200 × 112, the name
-  // at a heading's size, and the view's own action on the right where a hand
-  // expects it, rather than a card standing alone at the left of an empty
-  // track.
-  if (layout === 'row' && !phone) {
-    const rowMeta = [
-      shelf === BACKLOG_COLLECTION_ID
-        ? 'Queued'
-        : shelf === PLAYING_COLLECTION_ID
-          ? collectionName(PLAYING_COLLECTION_ID, collections)
-          : null,
-      game.hoursPlayed > 0
-        ? `${formatHours(game.hoursPlayed)}h played`
-        : 'not started · no playtime recorded',
-      game.lastPlayedAt ? `last played ${relativeTime(game.lastPlayedAt)}` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-
-    return (
-      <motion.div
-        {...motionProps}
-        className={cn(
-          'group relative flex items-center gap-4.5 rounded-lg border p-3.5 transition-colors',
-          highlight,
-        )}
-      >
-        <button
-          type="button"
-          onClick={openDetails}
-          aria-label={`Game info for ${game.title}`}
-          title="Open game info"
-          className="absolute inset-0 z-20 rounded-lg"
-        />
-        {isMastered && <span aria-hidden className="gold-ring z-30 rounded-lg" />}
-
-        <div className="relative h-28 w-50 shrink-0 overflow-hidden rounded-md bg-gray-25">
-          <CoverArt
-            src={game.coverImage}
-            title={game.title}
-            className={cn(
-              'h-full w-full object-cover object-center transition-all duration-500',
-              shelf === BACKLOG_COLLECTION_ID &&
-                'opacity-85 grayscale group-hover:opacity-100 group-hover:grayscale-0',
-            )}
-          />
-        </div>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-1.75">
-          <h3 className="truncate text-250 font-bold tracking-tight text-gray-1000">
-            {game.title}
-          </h3>
-          <div className="flex items-center gap-2.5 text-90 tabular-nums text-gray-700">
-            <TrophyBadge platform={game.platform} size={15} muted={!isMastered} />
-            <span className="font-bold text-gray-900">
-              {game.achievementsUnlocked} / {game.achievementsTotal}
-            </span>
-            <span>
-              {game.achievementsUnlocked === 0
-                ? `${awardNoun(game.platform).toLowerCase()} waiting`
-                : `${progress}%`}
-            </span>
-          </div>
-          <p className="truncate text-75 text-gray-600">
-            {rowMeta.charAt(0).toUpperCase() + rowMeta.slice(1)}
-          </p>
-        </div>
-
-        {/* Lifted above the info button, so a view's own action stays
-            clickable rather than opening the dialog. */}
-        {action ? <div className="relative z-30 shrink-0">{action}</div> : null}
-
-        {extras}
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       {...motionProps}
@@ -446,7 +359,7 @@ export const GameCard: React.FC<GameCardProps> = ({
               the score, the lower half under the title. One lift per thing on
               the art — the title carries its own shadow, so the scrim only has
               to hold the last stretch behind it. */}
-          <div className="absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-gray-25/60 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-[42%] bg-gradient-to-b from-gray-25/85 via-gray-25/45 via-40% to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-gray-25/92 via-gray-25/55 via-45% to-transparent" />
 
           {/* Completion celebration: a slow specular sweep across the art. */}
@@ -467,57 +380,44 @@ export const GameCard: React.FC<GameCardProps> = ({
           </span>
         ) : null}
 
-        {/* Only on a wide screen outside a platform section, where nothing else
-            says which platform this is. A phone never shows it: its sections
-            already name the platform, and a platform-mixed grid there is the
-            spotlight, where the award mark in the strip says it. */}
-        {!phone && !hidePlatform ? (
-          <div className="absolute right-3 top-3 z-10">
-            <OverlayBadge square tint={platform.tint} title={platform.name}>
-              <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
-            </OverlayBadge>
-          </div>
-        ) : null}
+        {/* Top right: the award mark on a finished game, and — on a wide screen
+            outside a platform section, where nothing else says which platform
+            this is — the platform. A phone never shows the platform: its
+            sections already name it, and in the mixed spotlight the award mark
+            in the strip does.
 
-        {/* Completion emblem. A phone's is the award mark alone in the top
-            right, lit gold: at 171px wide a disc in the bottom corner would
-            have sat on the title. A wide card's is a 36px disc ringed in gold
-            beside the title. Both sit below the card-wide info button, so the
-            medal is not the one patch of a clickable card that does nothing. */}
-        {isMastered ? (
-          phone ? (
-            <span
-              title={awardLabel}
-              className="absolute right-2.5 top-2.25 z-10 drop-shadow-[0_0_6px_color-mix(in_srgb,var(--color-trophy-900)_55%,transparent)]"
-            >
-              <TrophyBadge platform={game.platform} size={24} />
-            </span>
-          ) : (
-            <div className="absolute bottom-2.5 right-3 z-10">
-              <OverlayBadge
-                circle
-                size={36}
+            The award mark stands on the art with no disc behind it, lit gold,
+            at every width. The stronger top scrim is what keeps it legible over
+            a bright picture — the same job the bottom one does for the title.
+            Below the card-wide info button, so a medal is not the one patch of
+            a clickable card that does nothing. */}
+        {isMastered || (!phone && !hidePlatform) ? (
+          <div className="absolute right-2.5 top-2.25 z-10 flex items-center gap-2 md:right-3 md:top-2.75">
+            {isMastered ? (
+              <span
                 title={awardLabel}
-                // The shine needs a clipped box to travel across, so the disc
-                // hides its own overflow rather than letting the band escape.
-                className="trophy-emblem badge-shine overflow-hidden ring-1 ring-trophy-700/60"
+                className="flex drop-shadow-[0_0_6px_color-mix(in_srgb,var(--color-trophy-900)_55%,transparent)]"
               >
-                <TrophyBadge platform={game.platform} size={22} />
+                <TrophyBadge platform={game.platform} size={phone ? 24 : 28} />
+              </span>
+            ) : null}
+            {!phone && !hidePlatform ? (
+              <OverlayBadge square tint={platform.tint} title={platform.name}>
+                <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
               </OverlayBadge>
-            </div>
-          )
+            ) : null}
+          </div>
         ) : null}
 
         {/* One line, and an ellipsis: a title that wrapped made its card taller
             than the rest of its row, which is the thing a fixed-height card
             exists to prevent. The full name is the button's label and this
-            line's tooltip. Clear of a wide card's emblem on a finished game. */}
+            line's tooltip. */}
         <h3
           title={game.title}
           className={cn(
             'pointer-events-none absolute inset-x-2.5 bottom-2 z-10 truncate text-90 font-bold tracking-tight text-gray-1000 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]',
             'md:inset-x-3 md:bottom-2.5 md:text-150',
-            isMastered && 'md:pr-10',
           )}
         >
           {game.title}

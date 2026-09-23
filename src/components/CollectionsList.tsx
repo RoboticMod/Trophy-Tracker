@@ -6,6 +6,7 @@ import { DEFAULT_COLLECTION_COLOR } from '../lib/constants';
 import { formatCount, formatHours, sumHours } from '../lib/format';
 import {
   BACKLOG_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
   COMPLETE_COLLECTION_ID,
   PERMANENT_COLOR,
   PERMANENT_ROW_CLASS,
@@ -32,10 +33,11 @@ const SHELF_ROUTES: Record<string, string> = {
   [BACKLOG_COLLECTION_ID]: '/backlog',
 };
 
-/** Finished, in progress, queued — then the lists you made yourself. */
+/** Finished, in progress, beaten, queued — then the lists you made yourself. */
 const SHELF_ORDER = [
   COMPLETE_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
   BACKLOG_COLLECTION_ID,
 ] as const;
 
@@ -219,10 +221,11 @@ export const PreviewCover: React.FC<{
   /** The box's width and edge. The desktop mosaic fills its cell. */
   className?: string;
   /**
-   * 2:3 rather than 16:9: a phone row's three previews. The art is cropped to
-   * its middle third to fill it, which is the one place that is allowed — the
-   * preview is a glance at what is inside, carried by the game's own lettering
-   * laid over it, not the picture a card or the details sheet shows.
+   * 2:3 rather than 16:9: a phone row's three previews. Drawn from the game's
+   * portrait poster, which has its name painted in, so no logo is laid over
+   * it: the stored poster first, Steam's own portrait capsule for a linked app
+   * while the backfill has not reached it, and only then the landscape art,
+   * cropped to its middle to fill the box.
    */
   portrait?: boolean;
   children?: React.ReactNode;
@@ -243,12 +246,22 @@ export const PreviewCover: React.FC<{
       )}
     >
       <CoverArt
-        src={game.coverImage}
+        src={
+          portrait
+            ? [
+                game.posterImage,
+                game.steamAppId
+                  ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId}/library_600x900.jpg`
+                  : undefined,
+                game.coverImage,
+              ]
+            : game.coverImage
+        }
         title={game.title}
         className="h-full w-full object-cover object-center"
       />
 
-      {game.logoImage && logo !== 'failed' ? (
+      {!portrait && game.logoImage && logo !== 'failed' ? (
         <span
           className={cn(
             'absolute inset-0 flex items-center justify-center p-1.5 transition-opacity',

@@ -1,6 +1,7 @@
 import { Platform, PlatformConfig, Collection, isPlatform } from '../types';
 import {
   BACKLOG_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
   COMPLETE_COLLECTION_ID,
   DEFAULT_PERMANENT_NAMES,
   PLAYING_COLLECTION_ID,
@@ -8,13 +9,6 @@ import {
 } from './collections';
 
 export const APP_NAME = 'Trophy Tracker';
-
-/**
- * Where the app opens. The games you are actually playing are what you come
- * back for; the whole library is a place you go looking for something.
- * Overridable per user in Settings.
- */
-export const DEFAULT_START_PATH = '/playing';
 
 export const PLATFORMS: Record<Platform, PlatformConfig> = {
   steam: {
@@ -27,8 +21,8 @@ export const PLATFORMS: Record<Platform, PlatformConfig> = {
   },
   ps5: {
     id: 'ps5',
-    name: 'PlayStation 5',
-    shortName: 'PS5',
+    name: 'PlayStation',
+    shortName: 'PS',
     color: '#8fd0ff',
     tint: 'rgb(143 208 255 / 0.26)',
     surfaceClass: 'bg-playstation-700/15 text-playstation-900',
@@ -51,7 +45,7 @@ export const comparePlatformOrder = (
   return indexOf(platformA) - indexOf(platformB);
 };
 
-/** Human-readable summary of an order, e.g. "Steam → PS5". */
+/** Human-readable summary of an order, e.g. "Steam → PS". */
 export const describePlatformOrder = (order?: Platform[]): string =>
   (order && order.length > 0 ? order : DEFAULT_PLATFORM_SORT_ORDER)
     .map((p) => PLATFORMS[p]?.shortName ?? p)
@@ -74,7 +68,7 @@ export const normalizePlatform = (value: unknown): Platform | null => {
  * The collections every account has, seeded on first load and re-asserted on
  * every load after it.
  *
- * The first three are the permanent shelves — a game sits on at most one of
+ * The first four are the permanent shelves — a game sits on at most one of
  * them, and none of them can be deleted, so the app can always answer "where is
  * this game" without a lazy re-creation dance. The rest are ordinary starter
  * lists, deletable like any other.
@@ -96,6 +90,14 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     icon: 'Gamepad2',
     color: '#4d9bf0',
     createdAt: '2026-01-02T00:00:00.000Z',
+  },
+  {
+    id: BEATEN_COLLECTION_ID,
+    name: DEFAULT_PERMANENT_NAMES[BEATEN_COLLECTION_ID],
+    description: 'Finished, awards still to earn',
+    icon: 'Flag',
+    color: '#52c294',
+    createdAt: '2026-01-02T12:00:00.000Z',
   },
   {
     id: COMPLETE_COLLECTION_ID,

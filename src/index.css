@@ -707,7 +707,7 @@
     height: var(--rating-thumb);
     border-radius: 9999px;
     background: currentColor;
-    border: 2px solid var(--color-gray-25);
+    border: none;
     box-shadow: 0 0 6px -2px currentColor;
     cursor: pointer;
   }
@@ -717,7 +717,7 @@
     height: var(--rating-thumb);
     border-radius: 9999px;
     background: currentColor;
-    border: 2px solid var(--color-gray-25);
+    border: none;
     cursor: pointer;
   }
 

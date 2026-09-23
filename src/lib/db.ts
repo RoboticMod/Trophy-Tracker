@@ -24,6 +24,7 @@ interface GameRow {
   platform: string;
   cover_image: string | null;
   logo_image: string | null;
+  poster_image?: string | null;
   release_date: string | null;
   genres: string[] | null;
   hours_played: number | string | null;
@@ -61,6 +62,7 @@ function toGame(row: GameRow): UserGame | null {
     platform,
     coverImage: row.cover_image ?? undefined,
     logoImage: row.logo_image ?? undefined,
+    posterImage: row.poster_image ?? undefined,
     releaseDate: row.release_date ?? undefined,
     genres: row.genres ?? [],
     hoursPlayed: Number(row.hours_played) || 0,
@@ -97,6 +99,7 @@ function fromGame(game: UserGame, userId: string) {
     platform: game.platform,
     cover_image: game.coverImage ?? null,
     logo_image: game.logoImage ?? null,
+    poster_image: game.posterImage ?? null,
     release_date: game.releaseDate ?? null,
     genres: game.genres ?? [],
     hours_played: game.hoursPlayed ?? 0,
@@ -223,7 +226,7 @@ let schemaHasLinkColumns = true;
  * Dropped first when a write comes back 42703: these are the newest columns and
  * so the likeliest to be the missing one.
  */
-const LATER_COLUMNS = ['logo_image'] as const;
+const LATER_COLUMNS = ['logo_image', 'poster_image'] as const;
 
 let schemaHasLaterColumns = true;
 

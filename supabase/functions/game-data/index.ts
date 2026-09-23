@@ -66,6 +66,8 @@ const CACHE = {
    * and because SteamGridDB asks callers to go easy on it.
    */
   logo: 60 * 60 * 24 * 7,
+  /** A portrait poster, on exactly the same terms as a logo. */
+  poster: 60 * 60 * 24 * 7,
 };
 
 const json = (body: unknown, status = 200, maxAge = 0) =>
@@ -135,6 +137,61 @@ async function steamGridLogo(title: string): Promise<string | null> {
     const options = body.data ?? [];
     const official = options.find((o) => o.style === 'official' && o.url);
     return (official ?? options.find((o) => o.url))?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * SteamGridDB's portrait poster for a title, or null — 600 × 900, the shape of
+ * a box on a shelf, with the game's name painted in.
+ *
+ * Grids rather than heroes: a grid is the cover art, and every style but
+ * `no_logo` carries the title, which is the point — a poster in a row of three
+ * has to say which game it is without a logo laid over it. Static only, so an
+ * animated upload cannot become a video in a list preview.
+ */
+async function steamGridPoster(title: string): Promise<string | null> {
+  if (!STEAMGRIDDB_API_KEY) return null;
+
+  const headers = {
+    Authorization: `Bearer ${STEAMGRIDDB_API_KEY}`,
+    'User-Agent': USER_AGENT,
+  };
+
+  try {
+    const found = await fetch(
+      `${STEAMGRIDDB}/search/autocomplete/${encodeURIComponent(title)}`,
+      { headers },
+    );
+    if (!found.ok) return null;
+
+    const search = (await found.json()) as { data?: { id: number; name: string }[] };
+    const id = search.data?.[0]?.id;
+    if (!id) return null;
+
+    const grids = await fetch(
+      `${STEAMGRIDDB}/grids/game/${id}?dimensions=600x900&styles=alternate,material,white_logo,blurred&types=static&nsfw=false&humor=false`,
+      { headers },
+    );
+    if (!grids.ok) return null;
+
+    const body = (await grids.json()) as { data?: { url?: string }[] };
+    return body.data?.find((g) => g.url)?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Steam's own portrait library capsule for an app, if the file is there. It
+ * carries the official lettering, and needs no key and no search.
+ */
+async function steamCdnPoster(appid: number): Promise<string | null> {
+  const url = `${STEAM_CDN}/${appid}/library_600x900.jpg`;
+  try {
+    const response = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': USER_AGENT } });
+    return response.ok ? url : null;
   } catch {
     return null;
   }
@@ -633,6 +690,24 @@ Deno.serve(async (request) => {
         (hasApp ? await steamCdnLogo(appid) : null);
 
       return json({ logo }, 200, CACHE.logo);
+    }
+
+    /**
+     * A portrait poster, for a list's previews. The logo route's shape and its
+     * rules: SteamGridDB by title first (the only source a PlayStation game has),
+     * Steam's CDN behind it for a linked app, and `{ poster: null }` — not an
+     * error — when there is none, so the client falls back to its own art.
+     */
+    if (segments[0] === 'poster') {
+      const title = url.searchParams.get('title')?.trim();
+      const appid = Number(url.searchParams.get('appid') ?? '');
+      const hasApp = Number.isFinite(appid) && appid > 0;
+      if (!title && !hasApp) return fail(400, 'missing-query');
+
+      const poster = (title ? await steamGridPoster(title) : null) ??
+        (hasApp ? await steamCdnPoster(appid) : null);
+
+      return json({ poster }, 200, CACHE.poster);
     }
 
     if (segments[0] === 'app') {

@@ -104,15 +104,25 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
     `linear-gradient(90deg, ${color} 0, ${color} ${fillStop}, ` +
     `var(--color-gray-300) ${fillStop})`;
 
-  /** A tick at every whole point, so the track is a scale rather than a smear. */
-  const tickSpacing = 100 / MAX_RATING;
-  const ticks =
-    `repeating-linear-gradient(90deg, transparent 0, transparent calc(${tickSpacing}% - 1px), ` +
-    `var(--color-gray-100) calc(${tickSpacing}% - 1px), var(--color-gray-100) ${tickSpacing}%)`;
+  /**
+   * The scale, as a row of ticks under the track rather than notches cut into
+   * it: a notch in a 6px bar read as the fill breaking up, where a tick below
+   * reads as a ruler. Tall at every whole point, short at every half — the
+   * steps the slider actually lands on.
+   */
+  const steps = Math.round(MAX_RATING / RATING_STEP);
+  const ticks = Array.from({ length: steps + 1 }, (_, index) => ({
+    at: index / steps,
+    whole: (index * RATING_STEP) % 1 === 0,
+  }));
 
   return (
     // The height of a text input, so this lines up with the field beside it.
     <div className="flex h-9 items-center gap-3">
+      <div
+        className="relative flex h-full min-w-24 flex-1 items-center"
+        style={{ '--rating-thumb': '14px' } as React.CSSProperties}
+      >
       <input
         id={id}
         type="range"
@@ -123,15 +133,30 @@ export const RatingControl: React.FC<RatingControlProps> = ({ value, onChange, i
         onChange={(e) => onChange(snapRating(Number(e.target.value)))}
         aria-label={`Rating out of ${MAX_RATING}`}
         {...rest}
-        className="rating-slider h-1.5 min-w-24 flex-1 cursor-pointer appearance-none rounded-full bg-gray-300"
+        className="rating-slider h-1.5 w-full cursor-pointer appearance-none rounded-full bg-gray-300"
         style={{
           color,
-          backgroundImage: `${ticks}, ${fill}`,
-          backgroundSize: `${TRAVEL} 100%, 100% 100%`,
-          backgroundPosition: `calc(var(--rating-thumb) / 2) center, 0 center`,
-          backgroundRepeat: 'no-repeat, no-repeat',
+          backgroundImage: fill,
+          backgroundSize: '100% 100%',
+          backgroundRepeat: 'no-repeat',
         }}
       />
+
+      {/* Across the thumb's travel, not the track, so each tick sits under
+          the thumb's centre at its value. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(50%+6px)] h-2">
+        {ticks.map(({ at, whole }) => (
+          <span
+            key={at}
+            className={cn(
+              'absolute top-0 w-px -translate-x-1/2 rounded-full',
+              whole ? 'h-2 bg-gray-500' : 'h-1 bg-gray-400',
+            )}
+            style={{ left: `calc(var(--rating-thumb) / 2 + ${at} * ${TRAVEL})` }}
+          />
+        ))}
+      </div>
+      </div>
 
       <input
         type="number"

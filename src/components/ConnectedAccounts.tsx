@@ -241,8 +241,8 @@ const PlayStationAccount: React.FC = () => {
         <>
           <p className="text-50 text-gray-600">
             {ps5Count > 0
-              ? `${ps5Count} PS5 game${ps5Count === 1 ? '' : 's'} kept current automatically. Trophy lists and playtime are matched to your library by title.`
-              : 'No PS5 games yet. Any you add are matched to your trophy lists by title and kept current automatically.'}
+              ? `${ps5Count} PlayStation game${ps5Count === 1 ? '' : 's'} kept current automatically. Trophy lists and playtime are matched to your library by title.`
+              : 'No PlayStation games yet. Any you add are matched to your trophy lists by title and kept current automatically.'}
           </p>
 
           {state.lastReport ? (

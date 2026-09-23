@@ -12,6 +12,7 @@ import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { PsnSyncStatus } from './PsnSyncStatus';
 import { SteamSyncStatus } from './SteamSyncStatus';
 import { Button, Dialog } from './ui';
+import { useIsPhone } from '../lib/useMediaQuery';
 
 interface EditGameModalProps {
   game: UserGame | null;
@@ -52,6 +53,9 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     steamAppId: game.steamAppId,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // A phone's footer is 358px: the question and four buttons fit on one row
+  // only if the question is short and Save says just that while confirming.
+  const phone = useIsPhone();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,13 +103,19 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
       description={`${PLATFORMS[values.platform].name} • edit tracked details`}
       icon={<PlatformIcon platform={values.platform} size={18} />}
       footer={
-        <>
+        // One row, always. The question wraps onto a second line inside its
+        // own space rather than pushing Cancel and Save onto a row of their
+        // own, which is what moved the whole footer when Delete was pressed.
+        <div className="flex w-full items-center gap-2">
           {confirmDelete ? (
-            <div className="mr-auto flex items-center gap-2">
-              <span className="text-75 text-gray-800">Delete this game permanently?</span>
+            <div className="mr-auto flex min-w-0 flex-1 items-center gap-2">
+              <span className="min-w-0 text-75 leading-tight text-gray-800">
+                {phone ? 'Delete permanently?' : 'Delete this game permanently?'}
+              </span>
               <Button
                 variant="negative"
                 size="s"
+                className="shrink-0"
                 onClick={() => {
                   deleteGame(game.id);
                   onClose();
@@ -113,7 +123,12 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
               >
                 Delete
               </Button>
-              <Button buttonStyle="subtle" size="s" onClick={() => setConfirmDelete(false)}>
+              <Button
+                buttonStyle="subtle"
+                size="s"
+                className="shrink-0"
+                onClick={() => setConfirmDelete(false)}
+              >
                 Keep
               </Button>
             </div>
@@ -129,18 +144,19 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
             </Button>
           )}
 
-          <Button buttonStyle="subtle" onClick={onClose}>
+          <Button buttonStyle="subtle" className="shrink-0" onClick={onClose}>
             Cancel
           </Button>
           <Button
             variant="accent"
             type="submit"
             form="edit-game-form"
+            className="shrink-0"
             disabled={!values.title.trim()}
           >
-            Save changes
+            {phone && confirmDelete ? 'Save' : 'Save changes'}
           </Button>
-        </>
+        </div>
       }
     >
       <GameDetailsFields

@@ -93,11 +93,7 @@ export const StatsView: React.FC = () => {
 
   const totalGames = games.length;
   const totalHours = sumHours(games);
-  const {
-    unlocked: totalAchievements,
-    unlockable: totalMaxAchievements,
-    percent: overallCompletionRate,
-  } = aggregateCompletion(games);
+  const { percent: overallCompletionRate } = aggregateCompletion(games);
   const perfectGames = games.filter(isPerfect);
   const activePlaying = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID));
 
@@ -217,7 +213,9 @@ export const StatsView: React.FC = () => {
         {inset(
           'Completion',
           `${overallCompletionRate}%`,
-          `${formatCount(totalAchievements)} of ${formatCount(totalMaxAchievements)}`,
+          // Games, not awards: the percentage above already speaks for the
+          // awards, and a tally of thousands under it said the same thing again.
+          `${formatCount(perfectGames.length)} of ${formatCount(totalGames)} games at 100%`,
           completionColor(overallCompletionRate),
         )}
         {inset('Playtime', `${formatHours(totalHours)}h`, `~${Math.round(totalHours / 24)} days`)}

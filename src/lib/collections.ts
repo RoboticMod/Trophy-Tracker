@@ -8,7 +8,7 @@ import { Collection } from '../types';
  * and still not be `status: 'backlog'`, and the Backlog page only ever read the
  * status, so one of the two was always a lie.
  *
- * Three collections are permanent: they cannot be deleted, they carry app-owned
+ * Four collections are permanent: they cannot be deleted, they carry app-owned
  * colours, and a game may be on at most one of them at a time. Everything else
  * is an ordinary list a game can join as many of as it likes.
  */
@@ -21,10 +21,18 @@ import { Collection } from '../types';
 export const BACKLOG_COLLECTION_ID = 'perm-backlog';
 export const PLAYING_COLLECTION_ID = 'perm-playing';
 export const COMPLETE_COLLECTION_ID = 'perm-complete';
+/**
+ * Finished — the story, the ending, whatever finishing means for the game —
+ * without every award. The shelf a game goes to when you are done with it and
+ * it is not at 100%; reaching 100% later still moves it on to that shelf.
+ */
+export const BEATEN_COLLECTION_ID = 'perm-beaten';
 
+/** In the order a game moves through them. */
 export const PERMANENT_COLLECTION_IDS = [
   BACKLOG_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
   COMPLETE_COLLECTION_ID,
 ] as const;
 
@@ -97,6 +105,7 @@ export const normalizeCollections = (collections?: string[]): string[] => {
 export const DEFAULT_PERMANENT_NAMES: Record<PermanentCollectionId, string> = {
   [BACKLOG_COLLECTION_ID]: 'Backlog',
   [PLAYING_COLLECTION_ID]: 'Playing',
+  [BEATEN_COLLECTION_ID]: 'Beaten',
   [COMPLETE_COLLECTION_ID]: '100% Complete',
 };
 
@@ -132,6 +141,7 @@ export function validateCollectionName(value: string): string | null {
 export const PERMANENT_SELECTED_CLASS: Record<PermanentCollectionId, string> = {
   [PLAYING_COLLECTION_ID]: 'border-accent-700/60 bg-accent-700/16 text-accent-900',
   [BACKLOG_COLLECTION_ID]: 'border-gray-400 bg-gray-300 text-gray-1000',
+  [BEATEN_COLLECTION_ID]: 'border-positive-700/60 bg-positive-700/16 text-positive-900',
   [COMPLETE_COLLECTION_ID]: 'border-trophy-700/60 bg-trophy-700/16 text-trophy-900',
 };
 
@@ -142,6 +152,7 @@ export const PERMANENT_SELECTED_CLASS: Record<PermanentCollectionId, string> = {
 export const PERMANENT_OVERLAY_CLASS: Record<PermanentCollectionId, string> = {
   [PLAYING_COLLECTION_ID]: 'text-accent-900',
   [BACKLOG_COLLECTION_ID]: 'text-gray-800',
+  [BEATEN_COLLECTION_ID]: 'text-positive-900',
   [COMPLETE_COLLECTION_ID]: 'text-trophy-900',
 };
 
@@ -153,6 +164,7 @@ export const PERMANENT_OVERLAY_CLASS: Record<PermanentCollectionId, string> = {
 export const PERMANENT_COLOR: Record<PermanentCollectionId, string> = {
   [PLAYING_COLLECTION_ID]: 'var(--color-accent-700)',
   [BACKLOG_COLLECTION_ID]: 'var(--color-gray-500)',
+  [BEATEN_COLLECTION_ID]: 'var(--color-positive-700)',
   [COMPLETE_COLLECTION_ID]: 'var(--color-trophy-700)',
 };
 
@@ -170,6 +182,7 @@ export const PERMANENT_COLOR: Record<PermanentCollectionId, string> = {
 export const PERMANENT_ROW_CLASS: Record<PermanentCollectionId, string> = {
   [PLAYING_COLLECTION_ID]: 'border-accent-700/45 bg-accent-700/12',
   [BACKLOG_COLLECTION_ID]: 'border-gray-500/40 bg-gray-700/12',
+  [BEATEN_COLLECTION_ID]: 'border-positive-700/45 bg-positive-700/12',
   [COMPLETE_COLLECTION_ID]: 'border-transparent bg-trophy-700/12',
 };
 
@@ -182,5 +195,8 @@ export const PERMANENT_TONE: Record<
   // Neutral, not notice: the backlog is a queue, and the amber read as a
   // warning and clashed with the gold used for completion.
   [BACKLOG_COLLECTION_ID]: 'neutral',
+  // Green: finished, which is a verdict of its own — but not gold, which is
+  // what every award earns.
+  [BEATEN_COLLECTION_ID]: 'positive',
   [COMPLETE_COLLECTION_ID]: 'trophy',
 };

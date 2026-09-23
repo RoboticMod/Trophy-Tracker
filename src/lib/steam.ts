@@ -297,6 +297,20 @@ export async function getGameLogo(
   return call<{ logo: string | null }>(`/logo?${params.toString()}`);
 }
 
+/**
+ * A portrait poster for a list preview. Like the logo, `null` is an answer —
+ * most PlayStation games without an upload have none — and only an
+ * unreachable function is an error.
+ */
+export async function getGamePoster(
+  title: string,
+  appid?: number,
+): Promise<SteamResult<{ poster: string | null }>> {
+  const params = new URLSearchParams({ title });
+  if (appid) params.set('appid', String(appid));
+  return call<{ poster: string | null }>(`/poster?${params.toString()}`);
+}
+
 export async function getPlayerSeries(
   appid: number,
   range: PlayerRange,

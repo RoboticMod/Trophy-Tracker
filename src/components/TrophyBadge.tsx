@@ -52,7 +52,7 @@ const TROPHY_ART: Record<Platform, TrophyArt> = {
     src: ps5Art,
     alt: 'PlayStation platinum trophy',
     label: 'Platinum',
-    title: 'PlayStation 5 — Platinum Trophy unlocked',
+    title: 'PlayStation — Platinum Trophy unlocked',
     noun: 'Trophies',
     nounSingular: 'Trophy',
     completeLabel: 'Platinum Trophy Unlocked',
@@ -124,7 +124,7 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
 export const trophyLabel = (platform: Platform | string): string =>
   TROPHY_ART[normalizePlatform(platform) ?? 'steam'].label;
 
-/** What this platform's games collect: "Achievements" on Steam, "Trophies" on PS5. */
+/** What this platform's games collect: "Achievements" on Steam, "Trophies" on PlayStation. */
 export const awardNoun = (platform: Platform | string): string =>
   TROPHY_ART[normalizePlatform(platform) ?? 'steam'].noun;
 

@@ -119,22 +119,21 @@ export const BacklogView: React.FC = () => {
         games={filtered}
         grouped={platformFilter === 'all'}
         platformOrder={platformOrder}
-        renderAction={(game, layout) => (
-          // At the right-hand end of a row the button is the row's one action
-          // and takes a field's height; under a card it spans the card — and
-          // on a phone it is a target of its own at that same height, inside
-          // the card's strip, saying only "Start" in the width it has.
+        renderAction={(game) => (
+          // Spans the card. On a phone it is a target of its own at a field's
+          // height, inside the card's strip, saying only "Start" in the width
+          // it has.
           <Button
             variant="positive"
-            size={layout === 'row' || phone ? 'l' : 's'}
-            className={layout === 'row' ? undefined : 'w-full'}
+            size={phone ? 'l' : 's'}
+            className="w-full"
             onClick={() =>
               updateGame(game.id, {
                 collections: fileInPermanent(game.collections, PLAYING_COLLECTION_ID),
               })
             }
           >
-            <Play size={layout === 'row' || phone ? 16 : 14} />
+            <Play size={phone ? 16 : 14} />
             {phone ? 'Start' : startLabel}
           </Button>
         )}

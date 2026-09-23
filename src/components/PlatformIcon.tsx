@@ -20,7 +20,7 @@ export const PlatformIcon: React.FC<PlatformIconProps> = ({
   return (
     <span className={`inline-flex shrink-0 items-center justify-center ${className}`}>
       {id === 'ps5' ? (
-        <SiPlaystation size={size} aria-label="PlayStation 5" />
+        <SiPlaystation size={size} aria-label="PlayStation" />
       ) : (
         <SiSteam size={size} aria-label="Steam" />
       )}

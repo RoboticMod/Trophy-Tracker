@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -15,8 +15,6 @@ import {
   X,
   MoreHorizontal,
   ChevronLeft,
-  ChevronDown,
-  Trophy,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
@@ -24,7 +22,7 @@ import { GameMovedDialog } from './GameMovedDialog';
 import { QuickAddModal } from './QuickAddModal';
 import { SessionProgressDialog } from './SessionProgressDialog';
 import { UserGame } from '../types';
-import { APP_NAME, DEFAULT_START_PATH } from '../lib/constants';
+import { APP_NAME } from '../lib/constants';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
@@ -32,6 +30,7 @@ import { useSync } from '../context/SyncContext';
 import { relativeTime } from '../lib/format';
 import {
   BACKLOG_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
   collectionName,
   permanentOf,
@@ -39,6 +38,9 @@ import {
 import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
 import { cn } from '../lib/cn';
+import { useMediaQuery } from '../lib/useMediaQuery';
+import { Wordmark } from './Wordmark';
+import { ProfileMenu } from './ProfileMenu';
 import { EASE_OUT } from '../lib/motion';
 import { PhoneHeaderContext } from '../lib/phoneHeader';
 
@@ -71,6 +73,9 @@ const shelfFor = (game: UserGame): string => {
       return '/playing';
     case BACKLOG_COLLECTION_ID:
       return '/backlog';
+    // No page of its own; it is kept in Lists.
+    case BEATEN_COLLECTION_ID:
+      return '/collections';
     default:
       return '/';
   }
@@ -84,8 +89,6 @@ interface NavItem {
   /** Either a lucide component or ready-made artwork. */
   icon: React.ElementType | null;
   art?: React.ReactNode;
-  /** A line mark for the desktop bar, where artwork would be the odd one out. */
-  barIcon?: React.ElementType;
   badge?: number;
   badgeTone?: 'accent' | 'trophy' | 'neutral';
   enabled: boolean;
@@ -107,7 +110,6 @@ export const AppLayout: React.FC = () => {
     setIsQuickAddOpen,
     games,
     collections,
-    profile,
     isOnline,
     pendingWrites,
     error,
@@ -148,7 +150,6 @@ export const AppLayout: React.FC = () => {
       path: '/achievements',
       icon: null,
       art: <TrophyPair size={15} />,
-      barIcon: Trophy,
       badge: perfectCount || undefined,
       badgeTone: 'trophy',
       enabled: sidebarConfig?.showAchievements ?? true,
@@ -192,6 +193,9 @@ export const AppLayout: React.FC = () => {
   const navNames = sidebarConfig?.navNames;
   const named = (item: NavItem): NavItem => {
     const custom = navNames?.[item.path]?.trim();
+    // The page was renamed Lists. A label that still reads "Collections" is
+    // the old name carried along by the rename field, not a name anyone chose.
+    if (item.path === '/collections' && custom?.toLowerCase() === 'collections') return item;
     return custom ? { ...item, name: custom, short: custom.split(' ')[0] } : item;
   };
 
@@ -209,27 +213,6 @@ export const AppLayout: React.FC = () => {
     // and a shelf is a collection anyway — the page that lists them all can
     // carry these three without inventing anything.
     .filter((item) => !phone || !FOLDED_ON_PHONE.has(item.path));
-
-  /**
-   * The destination the app opens on.
-   *
-   * Once per mount, and only from the root: the start page is where a session
-   * begins, not a place you are sent back to. Without the ref, clicking Library
-   * would bounce straight off it again. Waits for the profile to arrive so a
-   * saved choice is not overtaken by the default on a cold load, and falls back
-   * to Library when the chosen destination has since been hidden.
-   */
-  const redirected = useRef(false);
-  useEffect(() => {
-    if (redirected.current || loading) return;
-    redirected.current = true;
-
-    if (location.pathname !== '/') return;
-    const start = sidebarConfig?.startPath ?? DEFAULT_START_PATH;
-    if (start === '/' || !navItems.some((item) => item.path === start)) return;
-
-    navigate(start, { replace: true });
-  });
 
   /**
    * Following a game onto the shelf it actually landed on.
@@ -340,6 +323,22 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => setMoreOpen(false), [location.pathname]);
 
+  /** Where the bar has room for the lockup's name as well as its mark. */
+  const wideBar = useMediaQuery('(min-width: 80rem)');
+
+  /**
+   * Every page opens at its top. The page scrolls inside <main>, not the
+   * window, so the browser's own reset on navigation never reached it and a
+   * tab opened wherever the last one had been left.
+   *
+   * A layout effect so it lands before any page's own effects — Settings
+   * scrolling to the group a link asked for would otherwise be undone by it.
+   */
+  const mainRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
+
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-gray-50 text-gray-900">
       {/* The lit ground every translucent surface in the app sits on. Fixed, so
@@ -359,24 +358,19 @@ export const AppLayout: React.FC = () => {
           <NavLink
             to="/"
             aria-label={`${APP_NAME} home`}
-            className="flex shrink-0 items-center gap-2.5 rounded-control transition-opacity hover:opacity-80"
+            className="flex shrink-0 items-center rounded-md transition-opacity hover:opacity-80"
           >
-            <span className="flex h-7.5 w-7.5 items-center justify-center rounded-control bg-gradient-to-br from-accent-700 to-accent-600 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)]">
-              <Trophy size={16} />
-            </span>
-            <span className="hidden text-90 font-extrabold uppercase tracking-[0.14em] text-gray-1000 xl:inline">
-              {APP_NAME.split(' ')[0]}
-              <span className="text-accent-900">{APP_NAME.split(' ').slice(1).join(' ')}</span>
-            </span>
+            {/* Both award marks in a gold-lit well, the name beside them once
+                the bar has the width for it. */}
+            <Wordmark size="sm" markOnly={!wideBar} />
           </NavLink>
 
           <nav className="scroll-row flex min-w-0 flex-1 items-center gap-0.5">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
-              // The trophy is drawn as a line mark here, like every other tab:
-              // the two-award artwork is a picture, and a picture among six
-              // glyphs read as the one tab that was different.
-              const Icon = item.barIcon ?? item.icon;
+              // The 100% tab wears the two award marks, as it does everywhere
+              // else — it is the one destination that is about the awards.
+              const Icon = item.icon;
               return (
                 <NavLink
                   key={item.path}
@@ -467,34 +461,7 @@ export const AppLayout: React.FC = () => {
               <span className="hidden lg:inline">Add game</span>
             </button>
 
-            <NavLink
-              to="/settings"
-              title="Settings and account"
-              className={({ isActive }) =>
-                cn(
-                  'flex h-9 items-center gap-2 rounded-control border pl-2 pr-2.5 text-75 font-bold transition-colors',
-                  isActive
-                    ? 'border-accent-700/45 bg-accent-700/12 text-accent-900'
-                    : 'border-gray-300 text-gray-800 hover:border-gray-400 hover:text-gray-1000',
-                )
-              }
-            >
-              {profile.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt=""
-                  className="h-5.5 w-5.5 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <span className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-gray-300 text-75 font-extrabold text-gray-800">
-                  {profile.username?.charAt(0)?.toUpperCase() || 'P'}
-                </span>
-              )}
-              <span className="hidden max-w-24 truncate lg:inline">
-                {profile.username || 'Account'}
-              </span>
-              <ChevronDown size={14} className="shrink-0 text-gray-600" />
-            </NavLink>
+            <ProfileMenu />
           </div>
         </div>
       </header>
@@ -509,17 +476,26 @@ export const AppLayout: React.FC = () => {
                 platform back gesture exists but is not visible, and a control
                 you can see is the one people reach for. Held open rather than
                 shown conditionally, so the title never moves under a thumb. */}
-            <button
-              type="button"
-              aria-label="Go back"
-              disabled={!canGoBack}
-              onClick={() => navigate(-1)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-gray-800 transition-colors hover:bg-white/5 disabled:text-gray-500"
-            >
-              <ChevronLeft size={20} />
-            </button>
+            {/* Not on Home, which is where the bar's own first tab goes and
+                has nowhere of its own to go back to. */}
+            {location.pathname === '/' ? null : (
+              <button
+                type="button"
+                aria-label="Go back"
+                disabled={!canGoBack}
+                onClick={() => navigate(-1)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-gray-800 transition-colors hover:bg-white/5 disabled:text-gray-500"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
 
-            <h1 className="min-w-0 truncate text-250 font-bold tracking-tight text-gray-1000">
+            <h1
+              className={cn(
+                'min-w-0 truncate text-250 font-bold tracking-tight text-gray-1000',
+                location.pathname === '/' && 'pl-3',
+              )}
+            >
               {pageTitle}
             </h1>
 
@@ -579,7 +555,7 @@ export const AppLayout: React.FC = () => {
           started every page a third of a screen down. */}
       {/* From md the gutters belong to the container inside, not to main, so
           the page and the bar above it share one box and one left edge. */}
-      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-0 md:pb-12 md:pt-8">
+      <main ref={mainRef} className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-0 md:pb-12 md:pt-8">
         <div className="md:page-container">
         {/* An account with nothing saved yet is not a failure, and saying so
             was alarming and untrue. A genuine network problem still gets

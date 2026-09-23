@@ -14,6 +14,9 @@ create table if not exists public.games (
   -- SteamGridDB by title, or from Steam's CDN for a linked app; stored so the
   -- lookup happens once per game rather than once per render.
   logo_image            text,
+  -- A 600 × 900 poster with the title painted in, for a list's previews.
+  -- Resolved like the logo: SteamGridDB by title, then Steam's CDN.
+  poster_image          text,
   release_date          text,
   genres                text[] not null default '{}',
   hours_played          numeric not null default 0,
@@ -113,6 +116,7 @@ alter table public.games
   add column if not exists rawg_id               integer,
   add column if not exists cover_image           text,
   add column if not exists logo_image            text,
+  add column if not exists poster_image          text,
   add column if not exists release_date          text,
   add column if not exists genres                text[] not null default '{}',
   add column if not exists hours_played          numeric not null default 0,
@@ -246,13 +250,14 @@ $$;
 create index if not exists games_collections_idx
   on public.games using gin (collections);
 
--- 7c. Seed the three permanent collections for every existing user ------------
+-- 7c. Seed the four permanent collections for every existing user -------------
 insert into public.collections (id, user_id, name, description, color, icon, created_at)
 select v.id, u.id, v.name, v.description, v.color, v.icon, now()
   from auth.users u
   cross join (values
     ('perm-backlog',  'Backlog',       'Games queued to play',   '#a5a5ad', 'Clock'),
     ('perm-playing',  'Playing',       'Games on the go',        '#4d9bf0', 'Gamepad2'),
+    ('perm-beaten',   'Beaten',        'Finished, awards still to earn', '#52c294', 'Flag'),
     ('perm-complete', '100% Complete', 'Every award earned',     '#f2c14e', 'Trophy')
   ) as v(id, name, description, color, icon)
 on conflict (user_id, id) do nothing;

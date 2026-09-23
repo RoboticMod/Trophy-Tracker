@@ -206,7 +206,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
       <div className="space-y-4">
         {/* One control for where a game is filed.
 
-            The three permanent collections lead and behave as a single choice —
+            The four permanent collections lead and behave as a single choice —
             a game is on at most one, and re-clicking the current one takes it
             off. Your own lists follow and stack freely. Exclusivity lives in
             toggleCollection rather than here, so this picker and every other
@@ -217,7 +217,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
             a collection when it is exactly that. */}
         <fieldset>
           <legend className="eyebrow mb-1.5 text-gray-700">Lists</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {PERMANENT_COLLECTION_IDS.map((id) => (
               <button
                 key={id}
@@ -293,21 +293,27 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
                   />
                 </div>
                 {/* Input height, so the row is one even band. */}
+                {/* A step either way, the height of the field: an overshoot on
+                    the way up is as common as a missing hour, and +5 only ever
+                    got used to find out how far past it had gone. */}
                 <Button
-                  size="m"
+                  size="l"
                   variant="secondary"
-                  className="h-9"
+                  disabled={hoursPlayed <= 0}
+                  aria-label="One hour less"
+                  onClick={() =>
+                    onChange({ hoursPlayed: Math.max(0, roundHours(hoursPlayed - 1)) })
+                  }
+                >
+                  −1h
+                </Button>
+                <Button
+                  size="l"
+                  variant="secondary"
+                  aria-label="One hour more"
                   onClick={() => onChange({ hoursPlayed: roundHours(hoursPlayed + 1) })}
                 >
                   +1h
-                </Button>
-                <Button
-                  size="m"
-                  variant="secondary"
-                  className="h-9"
-                  onClick={() => onChange({ hoursPlayed: roundHours(hoursPlayed + 5) })}
-                >
-                  +5h
                 </Button>
               </div>
             )}

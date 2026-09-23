@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { EASE_OUT } from '../../lib/motion';
@@ -86,6 +86,13 @@ export const Dialog: React.FC<DialogProps> = ({
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const split = size === 'split';
+  /** A sheet is pulled down by its handle or its header, never by its body. */
+  const dragControls = useDragControls();
+  const startDrag = (event: React.PointerEvent) => {
+    // The close button is in the header too; a press on it is a press.
+    if ((event.target as HTMLElement).closest('button')) return;
+    dragControls.start(event);
+  };
   const sheet = useMediaQuery(
     sheetBelow === 'lg' ? '(max-width: 1023px)' : '(max-width: 767px)',
   );
@@ -146,22 +153,44 @@ export const Dialog: React.FC<DialogProps> = ({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ duration: 0.26, ease: EASE_OUT }}
+              // Pulled down far or fast enough, it goes; otherwise it springs
+              // back. Only downwards — there is nowhere above to pull it to.
+              drag="y"
+              dragListener={false}
+              dragControls={dragControls}
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.7 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 120 || info.velocity.y > 500) onClose();
+              }}
               className={cn(
                 'relative flex max-h-[88dvh] w-full max-w-160 flex-col overflow-hidden rounded-t-xl',
                 'border border-b-0 border-gray-300/80 bg-gray-100 focus:outline-none',
                 'shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_-30px_90px_-20px_rgb(0_0_0/0.8)]',
               )}
             >
-              <div aria-hidden className="flex h-5 shrink-0 items-center justify-center">
+              <div
+                aria-hidden
+                onPointerDown={startDrag}
+                className="flex h-5 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+              >
                 <span className="h-1 w-9.5 rounded-full bg-gray-400" />
               </div>
 
-              <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 pb-3 pl-4 pr-3 pt-1.5">
+              <header
+                onPointerDown={startDrag}
+                className="flex shrink-0 touch-none items-center gap-3 border-b border-gray-200 pb-3 pl-4 pr-3 pt-1.5"
+              >
+                {/* With no line under the title for it to lead, the icon sits
+                    beside the title instead of alone on a line of its own. */}
+                {icon && !description ? (
+                  <span className="flex shrink-0 items-center text-accent-900">{icon}</span>
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-250 font-bold tracking-tight text-gray-1000">
                     {title}
                   </h2>
-                  {description || icon ? (
+                  {description ? (
                     <p className="mt-0.5 flex items-center gap-1.5 text-75 text-gray-700">
                       {icon ? <span className="flex shrink-0 items-center">{icon}</span> : null}
                       <span className="min-w-0 truncate">{description}</span>
