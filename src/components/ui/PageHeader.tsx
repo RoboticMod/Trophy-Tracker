@@ -53,7 +53,9 @@ export const PageHeader: React.FC<{
    * anywhere else.
    */
   const phone = useIsPhone();
-  if (phone && !badge && !action) return null;
+  // The figures go too: a phone's fixed header carries the count beside the
+  // page's name, where it stays in view however far down the page you are.
+  if (phone && !action) return null;
 
   /** One wrapping row, whether a page passes a single pill or three. */
   const pills = badge ? (
@@ -83,12 +85,5 @@ export const PageHeader: React.FC<{
     );
   }
 
-  return (
-    <div className={cn('border-b border-gray-200 pb-5', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {pills}
-        {action}
-      </div>
-    </div>
-  );
+  return <div className={cn('flex flex-wrap items-center gap-3', className)}>{action}</div>;
 };

@@ -18,7 +18,6 @@ import { EditGameModal } from './EditGameModal';
 import { GameInfoModal } from './GameInfoModal';
 import { GamePersonalModal } from './GamePersonalModal';
 import { Celebration } from './Celebration';
-import { RatingValue } from './Rating';
 import { Meter, OverlayBadge } from './ui';
 import { formatRating, ratingColor } from '../lib/rating';
 import { completionPercent, isPerfect } from '../lib/completion';
@@ -241,21 +240,21 @@ export const GameCard: React.FC<GameCardProps> = ({
   // rather than an outer glow: the strip below the art is solid now, and a
   // bloom around a panel that size lit the gap between two cards.
   const filled = profile.highlightStyle === 'fill';
+  //
+  // A phone keeps its playing card lit with a bloom rather than the wash: on a
+  // card that narrow the wash reads as a grey-blue tint, where the ring reads
+  // as the shelf.
   const highlight = isMastered
     ? filled
       ? 'trophy-glow border-transparent bg-trophy-100'
-      : phone
-        ? 'trophy-glow border-transparent bg-gradient-to-b from-trophy-100/45 to-gray-100/70'
-        : 'trophy-glow border-transparent bg-gradient-to-b from-trophy-100/40 to-gray-100/72'
+      : 'trophy-glow border-transparent bg-gradient-to-b from-trophy-100/40 to-gray-100/72'
     : shelf === PLAYING_COLLECTION_ID
       ? filled
         ? 'glow-ring border-accent-700/50 bg-accent-100'
         : phone
-          ? 'glow-ring border-accent-700/40 bg-gray-100/70 hover:border-accent-700'
+          ? 'glow-ring border-accent-700/40 bg-gray-100/72'
           : 'border-accent-700/30 bg-gray-100/72 bg-gradient-to-b from-accent-700/16 to-accent-700/8 hover:border-accent-700/60'
-      : phone
-        ? 'border-gray-300/70 bg-gray-100/70 hover:border-gray-400'
-        : 'border-gray-300/80 bg-gray-100/72 hover:border-gray-400';
+      : 'border-gray-300/80 bg-gray-100/72 hover:border-gray-400';
 
   const openDetails = () => setIsPersonalOpen(true);
 
@@ -425,219 +424,133 @@ export const GameCard: React.FC<GameCardProps> = ({
       )}
 
       {/* Cover ------------------------------------------------------------- */}
-      {/* On a phone the artwork is the whole card, so it is rounded on all four
-          corners rather than opening a panel below it — and it is given a
-          taller box than 16:9, because half of a 16:9 phone card was overlay
-          and the picture had nowhere left to be. `object-cover` trims a little
-          off a landscape still to fill it; that is the price of the height, and
-          a far milder one than the portrait tile this repo tried and removed,
-          which cropped the same art roughly in half. */}
-      <div
-        className={cn(
-          'relative w-full bg-gray-25',
-          phone ? 'aspect-[3/2] rounded-lg' : 'aspect-[16/9] rounded-t-lg',
-        )}
-      >
-        <div
-          className={cn('absolute inset-0 overflow-hidden', phone ? 'rounded-lg' : 'rounded-t-lg')}
-        >
+      {/* 16:9 at every width, because that is the one image a game has — the
+          phone's taller 3:2 box trimmed the sides off every picture to make
+          room for an overlay that has since moved to the strip below. */}
+      <div className="relative aspect-[16/9] w-full rounded-t-lg bg-gray-25">
+        <div className="absolute inset-0 overflow-hidden rounded-t-lg">
           <CoverArt
             src={game.coverImage}
             title={game.title}
-            className={[
+            className={cn(
               'h-full w-full object-cover object-center transition-all duration-500',
               'group-hover:scale-105',
-              shelf === BACKLOG_COLLECTION_ID
-                ? phone
-                  ? 'opacity-80 grayscale group-hover:opacity-100 group-hover:grayscale-0'
-                  : 'opacity-85 grayscale group-hover:opacity-100 group-hover:grayscale-0'
-                : '',
-            ].join(' ')}
+              shelf === BACKLOG_COLLECTION_ID &&
+                'opacity-85 grayscale group-hover:opacity-100 group-hover:grayscale-0',
+            )}
           />
           {/* Scrims top and bottom guarantee overlay legibility over any art.
 
-              A share of the box, not a pixel height. They were `h-20` and
-              `h-24`, measured against a wide card — on a phone, whose cover box
-              is barely taller than the bottom scrim alone, the two overlapped
-              and darkened the whole picture twice over. As fractions they cover
-              the same part of the art whatever size the card is.
-
-              A wide card carries only a title and two marks over its art, so
-              its bottom scrim is shorter than a phone's, which holds the whole
-              progress block. */}
-          {phone ? (
-            <>
-              <div className="absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-gray-25/70 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-gray-25/95 via-gray-25/45 to-transparent" />
-            </>
-          ) : (
-            <>
-              <div className="absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-gray-25/60 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-gray-25/92 via-gray-25/55 via-45% to-transparent" />
-            </>
-          )}
+              A share of the box, not a pixel height, so they cover the same
+              part of the art whatever size the card is: the top third under
+              the score, the lower half under the title. One lift per thing on
+              the art — the title carries its own shadow, so the scrim only has
+              to hold the last stretch behind it. */}
+          <div className="absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-gray-25/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-gray-25/92 via-gray-25/55 via-45% to-transparent" />
 
           {/* Completion celebration: a slow specular sweep across the art. */}
           {isMastered && <div aria-hidden className="trophy-sweep" />}
         </div>
 
-        {phone ? (
-          <>
-            {/* Kept on a phone even inside a platform section: that heading is
-                the only other thing saying which platform a game is on, and on
-                a phone it has scrolled off the top long before the cards below
-                it have.
+        {/* The score, top left, on the same edge as the title and the strip:
+            a scrim with a hairline ring in the score's own colour, so the
+            verdict reads from across the grid before the digits do. White
+            figures inside it — the ring already says how good. */}
+        {game.rating ? (
+          <span
+            title={`Game rated ${formatRating(game.rating)} out of 10`}
+            className="absolute left-2.5 top-2.5 z-10 inline-flex h-5.5 min-w-8 items-center justify-center rounded-sm bg-gray-25/55 px-1.5 text-75 font-bold tabular-nums text-gray-1000 md:left-3 md:top-3 md:h-6 md:min-w-9 md:text-90"
+            style={{ boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}` }}
+          >
+            {formatRating(game.rating)}
+          </span>
+        ) : null}
 
-                The mark stands on the artwork rather than in a chip. A phone
-                card is down to four things, and a tinted box around a logo that
-                is already a recognisable silhouette was chrome around chrome.
-                It keeps a shadow, which is what the box's scrim was really
-                for — legibility over a bright picture. No `title`: a phone has
-                no hover to show one, and the mark already carries its platform
-                as an aria-label. */}
-            <div className="absolute left-2 top-2 z-10 flex items-center">
-              <PlatformIcon
-                platform={game.platform}
-                size={17}
-                className="text-white drop-shadow-[0_1px_3px_rgb(3_5_10/0.95)]"
-              />
-            </div>
+        {/* Only on a wide screen outside a platform section, where nothing else
+            says which platform this is. A phone never shows it: its sections
+            already name the platform, and a platform-mixed grid there is the
+            spotlight, where the award mark in the strip says it. */}
+        {!phone && !hidePlatform ? (
+          <div className="absolute right-3 top-3 z-10">
+            <OverlayBadge square tint={platform.tint} title={platform.name}>
+              <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
+            </OverlayBadge>
+          </div>
+        ) : null}
 
-            {/* A compact rectangle ringed in the score's own colour, one width
-                whatever the score — "10" and "8.5" side by side did not line
-                up. */}
-            {game.rating ? (
-              <div className="absolute right-2 top-2 z-30">
-                <OverlayBadge
-                  compact
-                  className="min-w-9"
-                  style={{
-                    boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}, 0 0 9px -5px ${ratingColor(game.rating)}`,
-                  }}
-                >
-                  <RatingValue value={game.rating} size="xs" label="Game rated" bare />
-                </OverlayBadge>
-              </div>
-            ) : null}
-
-            {/* Progress, on the art ------------------------------------------
-                The name, then what is being counted and how much of it, then
-                the meter — all on the artwork's own scrim, with no panel behind
-                them.
-
-                The count needs the word beside it: on its own, `23 / 44` in the
-                corner of a picture does not say what was counted, and the two
-                platforms do not count the same thing. The percentage is gone
-                from a phone — the mark, the word and the figure fill this line
-                at 166px, and the meter directly below draws the same number.
-                Its own shadow, so the scrim behind it can be lighter. */}
-            <div className="pointer-events-none absolute inset-x-2.5 bottom-2 z-10 space-y-1 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]">
-              <h3 className="truncate text-75 font-bold tracking-tight text-gray-1000">
-                {game.title}
-              </h3>
-
-              <div className="flex items-center gap-1.5 text-50 font-semibold text-gray-800">
-                <TrophyBadge platform={game.platform} size={12} muted={!isMastered} />
-                <span className="min-w-0 truncate">{awardNoun(game.platform)}:</span>
-                <span className="ml-auto shrink-0 font-bold tabular-nums text-gray-1000">
-                  {game.achievementsUnlocked} / {game.achievementsTotal}
-                </span>
-              </div>
-
-              <Meter
-                value={progress}
-                tone={progress === 100 ? 'trophy' : 'accent'}
-                label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
-              />
-            </div>
-          </>
-        ) : (
-          <>
-            {/* The score, top left: a scrim with a hairline ring in the score's
-                own colour, so the verdict reads from across the grid before
-                the digits do. White figures inside it — the ring already says
-                how good. */}
-            {game.rating ? (
-              <span
-                title={`Game rated ${formatRating(game.rating)} out of 10`}
-                className="absolute left-3 top-3 z-10 inline-flex h-6 min-w-9 items-center justify-center rounded-sm bg-gray-25/55 px-1.5 text-90 font-bold tabular-nums text-gray-1000"
-                style={{ boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}` }}
-              >
-                {formatRating(game.rating)}
-              </span>
-            ) : null}
-
-            {/* Only outside a platform section, where nothing else says which
-                platform this is. The opposite corner from the score. */}
-            {!hidePlatform ? (
-              <div className="absolute right-3 top-3 z-10">
-                <OverlayBadge square tint={platform.tint} title={platform.name}>
-                  <PlatformIcon platform={game.platform} size={15} className="text-gray-1000" />
-                </OverlayBadge>
-              </div>
-            ) : null}
-
-            {/* Completion emblem: a disc carrying the platform's own award
-                artwork, ringed in gold so it reads as an award rather than a
-                chip. Below the card-wide info button rather than above it: a
-                medal in the corner of a clickable card should not be the one
-                patch of it that does nothing when clicked. */}
-            {isMastered && (
-              <div className="absolute bottom-2.5 right-3 z-10">
-                <OverlayBadge
-                  circle
-                  size={36}
-                  title={awardLabel}
-                  // The shine needs a clipped box to travel across, so the disc
-                  // hides its own overflow rather than letting the band escape.
-                  className="trophy-emblem badge-shine overflow-hidden ring-1 ring-trophy-700/60"
-                >
-                  <TrophyBadge platform={game.platform} size={22} />
-                </OverlayBadge>
-              </div>
-            )}
-
-            {/* One line, and an ellipsis: a title that wrapped made its card
-                taller than the rest of its row, which is the thing a fixed-
-                height card exists to prevent. The full name is the button's
-                label and this line's tooltip. Clear of the emblem on a finished
-                game. */}
-            <h3
-              title={game.title}
-              className={cn(
-                'pointer-events-none absolute inset-x-3 bottom-2.5 z-10 truncate text-150 font-bold tracking-tight text-gray-1000 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]',
-                isMastered && 'pr-10',
-              )}
+        {/* Completion emblem. A phone's is the award mark alone in the top
+            right, lit gold: at 171px wide a disc in the bottom corner would
+            have sat on the title. A wide card's is a 36px disc ringed in gold
+            beside the title. Both sit below the card-wide info button, so the
+            medal is not the one patch of a clickable card that does nothing. */}
+        {isMastered ? (
+          phone ? (
+            <span
+              title={awardLabel}
+              className="absolute right-2.5 top-2.25 z-10 drop-shadow-[0_0_6px_color-mix(in_srgb,var(--color-trophy-900)_55%,transparent)]"
             >
-              {game.title}
-            </h3>
-          </>
-        )}
+              <TrophyBadge platform={game.platform} size={24} />
+            </span>
+          ) : (
+            <div className="absolute bottom-2.5 right-3 z-10">
+              <OverlayBadge
+                circle
+                size={36}
+                title={awardLabel}
+                // The shine needs a clipped box to travel across, so the disc
+                // hides its own overflow rather than letting the band escape.
+                className="trophy-emblem badge-shine overflow-hidden ring-1 ring-trophy-700/60"
+              >
+                <TrophyBadge platform={game.platform} size={22} />
+              </OverlayBadge>
+            </div>
+          )
+        ) : null}
+
+        {/* One line, and an ellipsis: a title that wrapped made its card taller
+            than the rest of its row, which is the thing a fixed-height card
+            exists to prevent. The full name is the button's label and this
+            line's tooltip. Clear of a wide card's emblem on a finished game. */}
+        <h3
+          title={game.title}
+          className={cn(
+            'pointer-events-none absolute inset-x-2.5 bottom-2 z-10 truncate text-90 font-bold tracking-tight text-gray-1000 [text-shadow:0_1px_3px_rgb(3_5_10/0.9)]',
+            'md:inset-x-3 md:bottom-2.5 md:text-150',
+            isMastered && 'md:pr-10',
+          )}
+        >
+          {game.title}
+        </h3>
       </div>
 
       {/* Strip ------------------------------------------------------------- */}
-      {/* Solid, below the art: the count and the percentage, the meter, then
-          playtime and one list. Always these three lines, whatever the state,
-          so a row of cards ends level.
+      {/* Solid, below the art: the count and the percentage, then the meter.
+          A wide card adds playtime and one list; a phone stops there, which is
+          what lets its type stay at 12 rather than shrinking to fit a picture.
+          Always the same lines whatever the state, so a row of cards ends
+          level. */}
+      <div className="flex flex-1 flex-col gap-1.75 p-2.5 md:gap-2.25 md:p-3">
+        <div className="flex items-center gap-1.75 text-75 tabular-nums md:gap-2 md:text-90">
+          {/* The platform's own award, dimmed until it is actually earned. */}
+          <TrophyBadge platform={game.platform} size={phone ? 14 : 15} muted={!isMastered} />
+          <span className="font-bold text-gray-900">
+            {game.achievementsUnlocked} / {game.achievementsTotal}
+          </span>
+          <span className="ml-auto text-gray-700">{progress}%</span>
+        </div>
 
-          A phone gets none of this: its figures are over the artwork above. */}
-      {phone ? null : (
-        <div className="flex flex-1 flex-col gap-2.25 p-3">
-          <div className="flex items-center gap-2 text-90 tabular-nums">
-            {/* The platform's own award, dimmed until it is actually earned. */}
-            <TrophyBadge platform={game.platform} size={15} muted={!isMastered} />
-            <span className="font-bold text-gray-900">
-              {game.achievementsUnlocked} / {game.achievementsTotal}
-            </span>
-            <span className="ml-auto text-gray-700">{progress}%</span>
-          </div>
+        <Meter
+          value={progress}
+          tone={progress === 100 ? 'trophy' : 'accent'}
+          label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
+        />
 
-          <Meter
-            value={progress}
-            tone={progress === 100 ? 'trophy' : 'accent'}
-            label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
-          />
-
+        {phone ? (
+          // A phone's per-card action lives in the strip, full width — its own
+          // target, lifted above the card's info button.
+          action ? <div className="relative z-30 mt-0.25">{action}</div> : null
+        ) : (
           <div className="flex h-5.5 min-w-0 items-center gap-2 text-75 tabular-nums text-gray-700">
             <Clock size={13} className="shrink-0 text-gray-600" />
             <span className="shrink-0">{hoursLabel}</span>
@@ -667,12 +580,12 @@ export const GameCard: React.FC<GameCardProps> = ({
               </span>
             ) : null}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Lifted above the info button, so a view's own action — starting a
           backlog game — stays clickable rather than opening the dialog. */}
-      {action ? (
+      {action && !phone ? (
         <div className="relative z-30 border-t border-gray-200 p-3">{action}</div>
       ) : null}
 

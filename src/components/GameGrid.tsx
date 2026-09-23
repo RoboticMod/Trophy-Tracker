@@ -88,7 +88,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
   }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6 md:space-y-7">
       {groups.map(({ platform, games: list }) => (
         <section key={platform} className="space-y-3 md:space-y-4">
           <PlatformSectionHeader platform={platform} count={list.length} />

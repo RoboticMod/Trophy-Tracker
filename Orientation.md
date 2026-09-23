@@ -192,72 +192,57 @@ service-role route, Settings in five groups, a dragged sidebar order, and page
 descriptions as dismissable `IntroNotice` banners — which is why a page's first
 rule can end up beside its second.
 
-Passes since then, each cutting a surface down to what it is read for. A card
-lists **every** collection a game is in, shelf first; the achievement rating is
-asked for only at 100%, being a verdict on a whole list; phones fold the three
-shelves into Collections (`CollectionsList`), where each wears its own colour
-(`PERMANENT_ROW_CLASS`, lifted from `Badge`'s tones) and 100% takes the card's
-travelling `gold-ring`; `grid-metrics` is one per row there, which is what let
-`MetricCard` give its emblem a column. The star is retired: see below. And:
+Passes since then, each cutting a surface down to what it is read for. The
+achievement rating is asked for only at 100%, being a verdict on a whole list;
+phones fold the three shelves into Lists (`CollectionsList`), where each wears
+its own colour and 100% takes the card's travelling `gold-ring`.
 
-- **Figures count games, not unlocks**, and live as `Badge` pills beside the
-  page title: `6 active`, `27 queued`, `19 finished` and the two platform marks.
-  Statistics' platform rows end in the perfected count alone and Home's gauge
-  caption counts the games its arc speaks for.
-- **`MetricCard` centres on its own height** and gives the emblem a column —
-  stretched to the gauge beside it, the lower half of every box was void.
-- **Platform is no longer a sort.** `GameSortOption` has no `'platform'` and
-  `compareGames` takes no `platformOrder`: every grid splits into platform
-  sections already. The Settings card stays — it orders those sections.
-- **A phone card is the artwork**, in a 3:2 box rather than 16:9: platform mark,
-  a fixed-width score, and on the art's own scrim the name, the award mark
-  beside its word (`awardNoun`), the count hard right, then the meter. No panel,
-  hours, emblem or percentage — the line fills a 166px card without it.
-- **The cover scrims are a share of the box, not a pixel height.** At `h-20` and
-  `h-24` they totalled 176px over a 94px phone cover, overlapping by 82px and
-  darkening every pixel twice. The overlay text has its own shadow instead.
-- **A phone reads its page title, and the tab's mark, from the fixed app
-  header**, where the lockup was. `PageHeader` draws no title below `md`;
-  `CollectionsView` and `SettingsView` hide their hand-rolled ones too. Space
-  that row to the glyphs, not the boxes — an icon button carries 5px of its own
-  padding, so even gaps read uneven beside one.
-- **One rule between sections, not two.** `PageHeader` ends in a border, so a
-  filter row below it carries none — with the notice gone they sat a gap apart.
-- **A card opens your record, at every width**: `GamePersonalModal` — hours,
-  the last unlock, both ratings, and `notes` — with a button stepping through to
-  `GameInfoModal` for the store page. Below 1024 it is a stacked sheet; from
-  1024 it is `Dialog size="split"`, 980 × 720 max, art left and record right,
-  with only the right column scrolling and ⌘E/Ctrl+E stepping to Edit. **The
-  dialog is the only way to edit a game**; the card's pencil is gone.
-- **`Dialog`'s scroll lock is reference-counted.** Saving and restoring
-  `body.overflow` per dialog meant the first of two to close handed the page
-  back its scroll — and the exit animation makes "first" a matter of timing.
+Then the handoff's two designs, `Mobile Redesign` (phone) and `Desktop &
+Tablet` (768 up), rebuilt every surface on one card and one set of rules. The
+star is retired: see below. What is load-bearing:
 
-The desktop and tablet pass (the handoff's `Desktop & Tablet` design) sits on
-top of that phone system and moves nothing below 768:
-
-- **One 1440 container** (`page-container`, 24px gutters below 1280, 32 above)
-  holds both the 64px top bar's contents and the page, so the lockup lines up
-  with the first card. Marks only in the bar below `lg`, labels from there.
-- **`grid-cards` is a 248px track from 1024** (five at 1440, four at 1194),
-  three columns outright from 600 to 1023. A section of **fewer than three**
-  games is laid out as rows instead (`GameList` in `GameGrid.tsx`,
-  `GameCard layout="row"`) — one card stranded in a five-column track was the
-  fault this rule fixes.
-- **The wide card** is 16:9 art with the title, the score (top left) and the
-  36px 100% emblem on it, over a solid strip: count and percentage, the meter,
-  then playtime and **one list chip** plus `+n` — lists only, since the shelf is
-  the card's own edge. On the Playing page that chip is last-played instead.
-- **Desktop type steps** `text-90/150/250/550/1000` (13/15/17/24/44) sit between
-  the phone ramp's even sizes; the eyebrow is 12 from `md`. Radii
-  `rounded-control` (8) and `rounded-tile` (12) are the two the design added.
-- **`PageHeader` on a wide screen** is the title at 24 with a `subtitle` line of
-  figures under it and the page's control level with it; no mark, no rule.
-- **Two columns only on Statistics and Settings, and only from 1280.** Lists is
-  a grid of list cards with a 2 × 2 16:9 mosaic, drilled into as on a phone.
+- **One card, 16:9 at every width** (`GameCard`): the score top left, the title
+  on the art (one line, ellipsis), then a solid strip — count and percentage,
+  the meter, and on a wide card playtime and **one list chip** plus `+n` (lists
+  only; the shelf is the card's own edge). A phone's 100% mark is the award art
+  top right; a wide card's is a 36px disc by the title. No platform mark on a
+  phone — the section rule names it. A phone's per-card action (Backlog's
+  Start) sits inside the strip. Scrims are a share of the box (34% / 52%).
+- **`grid-cards`**: 2 columns with 12px gaps on a phone, 3 from 600 to 1023,
+  then a 248px track (five at 1440). From 768 a section of **fewer than three**
+  games is rows instead (`GameList`, `GameCard layout="row"`).
+- **Chrome.** A phone: 56px fixed header (back, 17px title, the shelf's count
+  badge, sync, add — all 44px) and a 60px bottom bar lit on its top edge. A page
+  can put a control in that header through `PhoneHeaderAction`
+  (`lib/phoneHeader.tsx`, a portal target, no state lifted). From 768: a 64px
+  top bar in the same 1440 `page-container` as the page.
+- **Figures sit with the title, not in the page.** A phone shows the count in
+  the fixed header; `PageHeader` there renders only a page's own control. A wide
+  screen gets the title at 24 and a `subtitle` line of figures.
+- **Every `Dialog` is a bottom sheet on a phone** — handle, 18px corners, max
+  88dvh, sticky header and footer — and portals to `<body>`, since a sheet
+  opened from inside `<main>` could not otherwise rise over the bars. `Select`
+  opens one too. Game details (`GamePersonalModal`) stay a sheet up to 1024
+  (`sheetBelow="lg"`: 2-up secondaries, one full-width primary), then become
+  `Dialog size="split"`, 980 × 720, only the right column scrolling, ⌘E/Ctrl+E
+  to Edit. **The dialog is the only way to edit a game.**
+- **Controls**: 44px fields and selects on a phone (40 from md), 36px pill
+  chips in rows that scroll sideways (`scroll-row`) rather than wrap.
+- **Type**: the phone ramp plus desktop steps `text-90/150/250/550/1000`
+  (13/15/17/24/44); eyebrow 11, 12 from md. Radii `rounded-control` (8) and
+  `rounded-tile` (12).
+- **Pages**: Lists is a row per list with three 2:3 previews on a phone and a
+  grid of 2 × 2 mosaic cards from 768. Statistics is four panels (overview,
+  platforms, distribution, recent) — reorderable on a phone, fixed and two
+  columns from 1280, as is Settings.
+- **Naming**: users see "Lists", "New list", "Distribution". Code, the
+  `/collections` route and stored config keys keep the old names, so saved nav
+  orders and labels still resolve.
 - **Not built, for want of data**: the design's 12-week playtime chart, its
-  "All time" period picker and "hours this month" — nothing records playtime
-  over time yet. The Statistics 100% showcase is left to the Trophies tab.
+  "All time" picker and "hours this month" — nothing records playtime over
+  time. The Statistics 100% showcase is left to the Trophies tab.
+- **`Dialog`'s scroll lock is reference-counted**, because the exit animation
+  makes which of two dialogs closes first a matter of timing.
 
 ### Conventions worth keeping
 
@@ -265,9 +250,9 @@ top of that phone system and moves nothing below 768:
   rating filter and read as decoration in both. `CollectionIcon` keeps
   `Sparkles` only as a key aliased to `ListPlus`, so a row saved under the old
   name still draws something sensible.
-- **A page's headline figures go in `PageHeader`'s `badge`**, never in a strip
-  under the title or a band of cards below it. Both were tried; both restated
-  the title.
+- **A page's headline figures go beside its title** — the phone header's count,
+  the desktop `subtitle` — never in a strip or a band of cards below it. Both
+  were tried; both restated the title.
 
 ### Known gaps
 

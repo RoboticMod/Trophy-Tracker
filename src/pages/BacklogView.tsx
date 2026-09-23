@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Hourglass, Plus, Play, Filter } from 'lucide-react';
+import { Hourglass, Plus, Play } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
@@ -16,7 +16,7 @@ import { formatCount } from '../lib/format';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
 import { IntroNotice } from '../components/IntroNotice';
-import { Badge, Button, EmptyState, FilterChip, PageHeader } from '../components/ui';
+import { Badge, Button, EmptyState, PageHeader } from '../components/ui';
 
 export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
@@ -54,15 +54,16 @@ export const BacklogView: React.FC = () => {
   ];
 
   /**
-   * The platform filter as one segmented control on a wide screen, beside the
-   * title: three choices of which exactly one is always true is a segment,
-   * not a row of toggles.
+   * The platform filter as one segmented control: three choices of which
+   * exactly one is always true is a segment, not a row of toggles. Beside the
+   * title on a wide screen; across the full width on a phone, where each
+   * segment is a third of the row and a platform is its mark and its count.
    */
   const segmented = (
     <div
       role="radiogroup"
       aria-label="Platform"
-      className="panel-inset flex h-10 shrink-0 items-center gap-0.5 rounded-md p-0.75"
+      className="panel-inset flex h-11 shrink-0 items-center gap-0.5 rounded-md p-0.75 md:h-10"
     >
       {filters.map((option) => {
         const selected = platformFilter === option.value;
@@ -73,15 +74,17 @@ export const BacklogView: React.FC = () => {
             role="radio"
             aria-checked={selected}
             onClick={() => setPlatformFilter(option.value)}
+            title={option.value === 'all' ? undefined : PLATFORMS[option.value].name}
             className={cn(
-              'flex h-8.5 items-center justify-center gap-1.75 rounded-control border px-4 text-90 font-bold transition-colors',
+              'flex h-9.5 flex-1 items-center justify-center gap-1.75 rounded-control border text-90 font-bold transition-colors md:h-8.5 md:flex-none md:px-4',
               selected
                 ? 'border-gray-500 bg-gray-300 text-gray-1000'
                 : 'border-transparent text-gray-700 hover:text-gray-1000',
             )}
           >
             {option.value === 'all' ? null : <PlatformIcon platform={option.value} size={15} />}
-            {option.label} <span className="tabular-nums">{option.count}</span>
+            {option.value === 'all' || !phone ? option.label : null}{' '}
+            <span className="tabular-nums">{option.count}</span>
           </button>
         );
       })}
@@ -89,11 +92,12 @@ export const BacklogView: React.FC = () => {
   );
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
-      {/* How many are queued. A phone says only that, in a pill: the awards
-          waiting inside them measure the size of the job rather than the
-          queue. A wide screen has a caption line to put both in, and there the
-          job is worth knowing — it is what you are choosing between.
+    <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
+      {/* How many are queued. A phone says only that, beside the page's name
+          in its fixed header: the awards waiting inside them measure the size
+          of the job rather than the queue. A wide screen has a caption line to
+          put both in, and there the job is worth knowing — it is what you are
+          choosing between.
 
           Neutral, not gold: gold is what a finished game earns, and a queue of
           games you have not started has earned nothing. */}
@@ -109,28 +113,7 @@ export const BacklogView: React.FC = () => {
         “{collectionName(PLAYING_COLLECTION_ID, collections)}”.
       </IntroNotice>
 
-      {phone ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="eyebrow mr-1 flex items-center gap-1 text-gray-600">
-            <Filter size={13} />
-            Platform
-          </span>
-
-          {filters.map((option) => (
-            <FilterChip
-              key={option.value}
-              tone="neutral"
-              selected={platformFilter === option.value}
-              onClick={() => setPlatformFilter(option.value)}
-              title={option.value === 'all' ? undefined : PLATFORMS[option.value].name}
-            >
-              {option.value === 'all' ? null : <PlatformIcon platform={option.value} size={15} />}
-              <span>{option.label}</span>
-              <span className="opacity-70">({option.count})</span>
-            </FilterChip>
-          ))}
-        </div>
-      ) : null}
+      {phone ? segmented : null}
 
       <GameGrid
         games={filtered}
@@ -138,19 +121,21 @@ export const BacklogView: React.FC = () => {
         platformOrder={platformOrder}
         renderAction={(game, layout) => (
           // At the right-hand end of a row the button is the row's one action
-          // and takes a field's height; under a card it spans the card.
+          // and takes a field's height; under a card it spans the card — and
+          // on a phone it is a target of its own at that same height, inside
+          // the card's strip, saying only "Start" in the width it has.
           <Button
             variant="positive"
-            size={layout === 'row' ? 'l' : 's'}
-            className={layout === 'row' ? 'rounded-md text-90' : 'w-full'}
+            size={layout === 'row' || phone ? 'l' : 's'}
+            className={layout === 'row' ? undefined : 'w-full'}
             onClick={() =>
               updateGame(game.id, {
                 collections: fileInPermanent(game.collections, PLAYING_COLLECTION_ID),
               })
             }
           >
-            <Play size={layout === 'row' ? 16 : 14} />
-            {startLabel}
+            <Play size={layout === 'row' || phone ? 16 : 14} />
+            {phone ? 'Start' : startLabel}
           </Button>
         )}
       />

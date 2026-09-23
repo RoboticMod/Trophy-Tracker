@@ -216,7 +216,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
             "Collections", which made the first sound like something other than
             a collection when it is exactly that. */}
         <fieldset>
-          <legend className="eyebrow mb-1.5 text-gray-700">Collections</legend>
+          <legend className="eyebrow mb-1.5 text-gray-700">Lists</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {PERMANENT_COLLECTION_IDS.map((id) => (
               <button

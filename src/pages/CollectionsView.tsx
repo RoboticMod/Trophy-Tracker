@@ -251,19 +251,21 @@ export const CollectionsView: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+    <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
       {phone ? (
-        <div className="flex flex-col justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-end">
-          {/* No title on a phone, where the app header states the page
-              already — see PageHeader, which does the same for every other
-              view. */}
-          <p className="text-75 text-gray-600">Custom lists across your library</p>
-
-          <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
+        // No title on a phone, where the fixed header names the page. Making a
+        // list is the page's one action, so it leads it, full width — dashed,
+        // since it is a list that does not exist yet.
+        activeCollectionId ? null : (
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-accent-700/50 bg-accent-700/8 text-90 font-bold text-accent-900 transition-colors hover:bg-accent-700/12"
+          >
             <Plus size={16} />
-            <span>New list</span>
-          </Button>
-        </div>
+            New list
+          </button>
+        )
       ) : (
         <PageHeader
           title="Lists"
@@ -488,7 +490,7 @@ export const CollectionsView: React.FC = () => {
 
               {isPermanent ? (
                 <p className="text-50 text-gray-600">
-                  A permanent collection keeps the app&rsquo;s own colour, so it stays
+                  A shelf keeps the app&rsquo;s own colour, so it stays
                   recognisable everywhere it appears, and it cannot be deleted — it is where
                   your games live. Its name and description are yours to change.
                 </p>

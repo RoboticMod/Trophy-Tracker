@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { EASE_OUT } from '../../lib/motion';
+import { useIsPhone } from '../../lib/useMediaQuery';
+import { Dialog } from './Dialog';
 
 export interface SelectOption<T extends string = string> {
   value: T;
@@ -73,6 +75,10 @@ export function Select<T extends string>({
   const typeAhead = useRef({ buffer: '', at: 0 });
 
   const [open, setOpen] = useState(false);
+  // A phone picks from a bottom sheet of full-width rows rather than a list
+  // hanging off the trigger: a popover under a thumb is a target the size of
+  // one line of 12px type, and it opened wherever the trigger happened to be.
+  const phone = useIsPhone();
   const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(
     null,
   );
@@ -263,14 +269,13 @@ export function Select<T extends string>({
         // The chip height and weight of the row it sits in, rather than the
         // taller, dimmer well a text field uses.
         className={cn(
-          'inline-flex h-8 items-center gap-2 rounded-sm border px-3',
-          // A field's height and well on a wide screen, where it sits in one
-          // row with the search field rather than among chips.
-          'md:h-10 md:gap-2.5 md:rounded-md md:text-90',
-          'text-75 font-bold whitespace-nowrap transition-all',
+          // A field's well and corner: 44px on a phone, where it is a thumb
+          // target, and 40 on a desktop, level with the search field.
+          'inline-flex h-11 items-center gap-2 rounded-md border px-3 md:h-10 md:gap-2.5',
+          'text-90 font-bold whitespace-nowrap transition-all',
           open
             ? 'glow-ring border-accent-700/60 bg-accent-700/12 text-gray-1000'
-            : 'border-gray-300 bg-white/3 text-gray-800 hover:border-gray-400 hover:bg-white/6 hover:text-gray-1000 md:bg-black/25',
+            : 'border-gray-300 bg-white/3 text-gray-800 hover:border-gray-400 hover:text-gray-1000 bg-black/25',
           className,
         )}
       >
@@ -290,7 +295,46 @@ export function Select<T extends string>({
         />
       </button>
 
-      {createPortal(
+      {phone ? (
+        <Dialog
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          title={ariaLabel ?? placeholder}
+        >
+          <ul ref={holdList} id={listId} role="listbox" aria-label={ariaLabel} className="-my-1 space-y-0.5">
+            {options.map((option, index) => {
+              const isSelected = option.value === value;
+              return (
+                <li key={option.value} role="option" aria-selected={isSelected}>
+                  <button
+                    type="button"
+                    onClick={() => commit(index)}
+                    className={cn(
+                      'flex h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-100 font-bold transition-colors',
+                      isSelected
+                        ? 'bg-accent-700/12 text-accent-900'
+                        : 'text-gray-800 hover:bg-white/5',
+                    )}
+                  >
+                    {option.color ? (
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: option.color }}
+                      />
+                    ) : null}
+                    {option.icon}
+                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    {isSelected ? <Check size={16} className="shrink-0" /> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Dialog>
+      ) : null}
+
+      {phone ? null : createPortal(
         <AnimatePresence>
           {open && position ? (
             <motion.ul

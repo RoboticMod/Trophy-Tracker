@@ -12,7 +12,6 @@ import { cn } from '../lib/cn';
 import {
   COMPLETE_COLLECTION_ID,
   PERMANENT_SELECTED_CLASS,
-  PERMANENT_TONE,
   collectionName,
   isPermanentCollection,
   permanentOf,
@@ -20,8 +19,7 @@ import {
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun } from './TrophyBadge';
-import { RatingValue } from './Rating';
-import { Badge, Button, Dialog, Meter, SectionRule, SectionTitle, StatTile } from './ui';
+import { Button, Dialog, Meter, SectionRule } from './ui';
 
 interface GamePersonalModalProps {
   game: UserGame | null;
@@ -303,91 +301,124 @@ const GamePersonal: React.FC<{
     );
   }
 
+  /* -- Below 1024: the same content as a bottom sheet, stacked --------------- */
+
+  const tile = (label: string, value: string, caption: string, color?: string) => (
+    <div className="panel-inset rounded-md px-3 py-2.5">
+      <div className="eyebrow truncate text-gray-600">{label}</div>
+      <div
+        className="mt-1.75 truncate text-400 font-bold leading-none tabular-nums text-gray-1000"
+        style={color ? { color } : undefined}
+      >
+        {value}
+      </div>
+      <div className="mt-1.25 truncate text-75 text-gray-700">{caption}</div>
+    </div>
+  );
+
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
+      sheetBelow="lg"
       title={game.title}
-      description={
-        shelf ? `${platform.name} • ${collectionName(shelf, collections)}` : platform.name
-      }
-      icon={<PlatformIcon platform={game.platform} size={18} />}
+      icon={<PlatformIcon platform={game.platform} size={13} className="shrink-0" />}
+      description={[platform.name, shelf ? collectionName(shelf, collections) : null]
+        .filter(Boolean)
+        .join(' · ')}
       footer={
-        <>
-          {/* Closes this and opens that, rather than stacking one dialog over
-              another — the same step-through the edit button below makes. */}
-          <Button buttonStyle="outline" onClick={onOpenStore}>
-            <Store size={14} />
-            Store details
-          </Button>
-
-          {onEdit ? (
-            <Button
-              buttonStyle="outline"
-              onClick={() => {
-                onClose();
-                onEdit();
-              }}
+        // Two secondaries side by side, then one primary across the full
+        // width — the bottom of the sheet is where a thumb rests, and one
+        // wide target is the one it should find.
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex gap-2">
+            {/* Closes this and opens that, rather than stacking one sheet over
+                another — the same step-through Edit makes. */}
+            <button
+              type="button"
+              onClick={onOpenStore}
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md border border-gray-300 text-90 font-bold text-gray-800 transition-colors hover:border-gray-400 hover:text-gray-1000"
             >
-              <Pencil size={14} />
-              Edit
-            </Button>
-          ) : null}
-
-          <Button variant="accent" onClick={onClose}>
+              <Store size={16} />
+              Store details
+            </button>
+            {edit ? (
+              <button
+                type="button"
+                onClick={edit}
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md border border-gray-300 text-90 font-bold text-gray-800 transition-colors hover:border-gray-400 hover:text-gray-1000"
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-12 items-center justify-center rounded-md bg-gradient-to-br from-accent-700 to-accent-600 text-100 font-bold text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_16px_-6px_var(--color-accent-700)]"
+          >
             Close
-          </Button>
-        </>
+          </button>
+        </div>
       }
     >
-      <div className="space-y-5">
-        {/* What it is ------------------------------------------------------ */}
-        <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-5">
+        {/* What it is, and how far through it you are ----------------------- */}
+        <div className="flex flex-col gap-3">
           <CoverArt
             src={game.coverImage}
             title={game.title}
-            className="h-28 w-full shrink-0 rounded-md object-cover sm:h-20 sm:w-36"
+            className="aspect-video w-full rounded-tile object-cover"
           />
 
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {shelf ? (
-                <Badge tone={PERMANENT_TONE[shelf]}>{collectionName(shelf, collections)}</Badge>
-              ) : null}
-              {perfect ? <Badge tone="trophy">100%</Badge> : null}
-
-              {/* Each list in its own colour, the identity the library filter
-                  chips carry. */}
-              {memberships.map((collection) => {
-                const color = collection.color || DEFAULT_COLLECTION_COLOR;
-                return (
-                  <span
-                    key={collection.id}
-                    className="flex items-center gap-1.5 rounded-full border border-gray-300 px-2 py-0.5 text-50 text-gray-800"
-                    title={collection.description || collection.name}
-                  >
-                    <span
-                      aria-hidden
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
-                    {collection.name}
-                  </span>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-1.5 text-75 font-bold tabular-nums text-gray-900">
-              <TrophyBadge platform={game.platform} size={15} muted={!perfect} />
-              <span>
-                {game.achievementsUnlocked} / {game.achievementsTotal}{' '}
-                <span className="font-normal text-gray-600">
-                  {noun.toLowerCase()} ({progress}%)
-                </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {shelf ? (
+              <span
+                className={cn(
+                  'inline-flex h-6.5 items-center rounded-full border px-3 text-75 font-bold uppercase tracking-[0.04em]',
+                  PERMANENT_SELECTED_CLASS[shelf],
+                )}
+              >
+                {collectionName(shelf, collections)}
               </span>
-            </div>
+            ) : null}
+            {perfect && shelf !== COMPLETE_COLLECTION_ID ? (
+              <span className="inline-flex h-6.5 items-center rounded-full border border-trophy-700/50 bg-trophy-700/16 px-3 text-75 font-bold uppercase tracking-[0.04em] text-trophy-900">
+                100%
+              </span>
+            ) : null}
+            {/* Each list in its own colour, the identity the library filter
+                chips carry. */}
+            {memberships.map((collection) => {
+              const color = collection.color || DEFAULT_COLLECTION_COLOR;
+              return (
+                <span
+                  key={collection.id}
+                  className="inline-flex h-6.5 items-center gap-1.75 rounded-full border border-gray-300 px-3 text-75 text-gray-800"
+                  title={collection.description || collection.name}
+                >
+                  <span
+                    aria-hidden
+                    className="h-1.75 w-1.75 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                  {collection.name}
+                </span>
+              );
+            })}
+          </div>
 
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-90 tabular-nums">
+              <TrophyBadge platform={game.platform} size={16} muted={!perfect} />
+              <span className="font-bold text-gray-1000">
+                {game.achievementsUnlocked} / {game.achievementsTotal} {noun.toLowerCase()}
+              </span>
+              <span className="ml-auto text-gray-700">{progress}%</span>
+            </div>
             <Meter
+              size="l"
               value={progress}
               tone={perfect ? 'trophy' : 'accent'}
               label={`${game.title} ${noun.toLowerCase()} progress`}
@@ -395,82 +426,57 @@ const GamePersonal: React.FC<{
           </div>
         </div>
 
-        {/* Your figures ---------------------------------------------------- */}
-        <section className="space-y-3">
-          <SectionTitle>Your record</SectionTitle>
-
-          <div className="grid-metrics">
-            <StatTile
-              label="Hours played"
-              value={`${formatHours(game.hoursPlayed)}h`}
-              caption={game.lastPlayedAt ? `Last played ${relativeTime(game.lastPlayedAt)}` : undefined}
-            />
-            <StatTile
-              label={`Last ${noun.toLowerCase().replace(/s$/, '')}`}
-              value={formatDate(game.lastUnlockedAt)}
-              caption={game.lastUnlockedAt ? relativeTime(game.lastUnlockedAt) : 'Nothing unlocked yet'}
-            />
-            {/* Only once it is finished: a completion date on a game still in
-                progress would be a date for something that has not happened. */}
-            {game.completedAt ? (
-              <StatTile
-                label="Finished"
-                value={formatDate(game.completedAt)}
-                caption={relativeTime(game.completedAt)}
-              />
-            ) : null}
+        {/* Your record ------------------------------------------------------ */}
+        <section className="flex flex-col gap-3">
+          <SectionRule title="Your record" />
+          <div className="grid grid-cols-2 gap-2">
+            {tile(
+              'Hours',
+              `${formatHours(game.hoursPlayed)}h`,
+              game.lastPlayedAt ? `Played ${relativeTime(game.lastPlayedAt)}` : 'Not played yet',
+            )}
+            {tile(
+              `Last ${noun.toLowerCase().replace(/s$/, '')}`,
+              game.lastUnlockedAt
+                ? new Date(game.lastUnlockedAt).toLocaleDateString(undefined, {
+                    day: 'numeric',
+                    month: 'short',
+                  })
+                : '—',
+              game.lastUnlockedAt ? relativeTime(game.lastUnlockedAt) : 'Nothing unlocked yet',
+            )}
+            {tile(
+              'Game rating',
+              game.rating ? formatRating(game.rating) : '—',
+              game.rating ? 'Out of 10' : 'Not rated',
+              game.rating ? ratingColor(game.rating) : 'var(--color-gray-600)',
+            )}
+            {/* Mirroring where it can be set: an award rating is a verdict on
+                a whole list, and cannot honestly be given — or shown — part-way
+                through one. */}
+            {tile(
+              noun,
+              perfect && game.achievementRating ? formatRating(game.achievementRating) : '—',
+              perfect ? (game.achievementRating ? 'Out of 10' : 'Not rated') : 'Rated at 100%',
+              perfect && game.achievementRating
+                ? ratingColor(game.achievementRating)
+                : 'var(--color-gray-600)',
+            )}
           </div>
         </section>
 
-        {/* Your verdict ---------------------------------------------------- */}
-        <section className="space-y-3">
-          <SectionTitle>Your verdict</SectionTitle>
-
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div className="flex items-center gap-2">
-              <span className="eyebrow text-gray-600">Game</span>
-              {game.rating ? (
-                <RatingValue value={game.rating} size="md" label="Game rated" />
-              ) : (
-                <span className="text-75 text-gray-600">Not rated</span>
-              )}
-            </div>
-
-            {/* Mirroring where it can be set: an achievement rating is a
-                verdict on a whole list, and cannot honestly be given — or
-                shown — part-way through one. */}
-            {perfect ? (
-              <div className="flex items-center gap-2">
-                <span className="eyebrow text-gray-600">{noun}</span>
-                {game.achievementRating ? (
-                  <RatingValue
-                    value={game.achievementRating}
-                    size="md"
-                    label={`${noun} rated`}
-                  />
-                ) : (
-                  <span className="text-75 text-gray-600">Not rated</span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        {/* Your notes ------------------------------------------------------ */}
-        <section className="space-y-3">
-          <SectionTitle>Notes</SectionTitle>
-
+        {/* Your notes ------------------------------------------------------- */}
+        <section className="flex flex-col gap-3">
+          <SectionRule title="Notes" />
           {game.notes ? (
             // Whitespace kept: a note written as a few lines was written that
             // way on purpose, and reflowing it into a paragraph loses the list
             // someone typed.
-            <p className="panel-inset whitespace-pre-wrap rounded-md p-3 text-75 leading-relaxed text-gray-800">
+            <p className="panel-inset whitespace-pre-wrap rounded-md p-3 text-90 leading-[1.1875rem] text-gray-800">
               {game.notes}
             </p>
           ) : (
-            <p className="text-75 text-gray-600">
-              Nothing written down yet — Edit adds a note.
-            </p>
+            <p className="text-90 text-gray-600">Nothing written down yet — Edit adds a note.</p>
           )}
         </section>
       </div>

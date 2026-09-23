@@ -49,7 +49,7 @@ export const CurrentlyPlayingView: React.FC = () => {
   const totals = aggregateCompletion(playingGames);
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+    <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
       {/* One figure on a phone, in the pill beside the name: how many games
           are on the go. A wide screen says it as a line under the title, with
           the hours and the unlock tally beside it — there is the room there

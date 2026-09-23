@@ -185,7 +185,9 @@ export const Gauge: React.FC<GaugeProps> = ({
             <div
               className={cn(
                 'font-bold uppercase',
-                hero ? 'mt-2 text-250 tracking-[0.03em]' : 'mt-1.5 text-100 tracking-wide',
+                hero
+                  ? 'mt-1.75 text-150 tracking-[0.03em] md:mt-2 md:text-250'
+                  : 'mt-1.5 text-100 tracking-wide',
               )}
               style={{ color }}
             >
@@ -196,7 +198,7 @@ export const Gauge: React.FC<GaugeProps> = ({
             <p
               className={cn(
                 hero
-                  ? 'mt-1.5 max-w-115 text-90 text-gray-700 xl:max-w-80'
+                  ? 'mt-1.5 text-75 text-gray-700 md:max-w-115 md:text-90 xl:max-w-80'
                   : 'mt-1 text-50 leading-snug text-gray-600',
               )}
             >

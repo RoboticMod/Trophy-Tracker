@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { UserGame } from '../types';
 import { useGame } from '../context/GameContext';
 import { DEFAULT_COLLECTION_COLOR } from '../lib/constants';
+import { formatCount, formatHours, sumHours } from '../lib/format';
 import {
   BACKLOG_COLLECTION_ID,
   COMPLETE_COLLECTION_ID,
@@ -38,10 +39,35 @@ const SHELF_ORDER = [
   BACKLOG_COLLECTION_ID,
 ] as const;
 
-const PREVIEW_COUNT = 4;
+/**
+ * Covers in a row's preview. Three portrait previews fill a 390 phone's row
+ * exactly; a fourth was cut off at the edge, which read as a mistake rather
+ * than as "more". The third says how many more there are instead.
+ */
+const PREVIEW_COUNT = 3;
 
 /**
- * Every collection as a row, each showing a few of the games inside it.
+ * What a row says under its name — the one figure each kind of list is read
+ * for: how much a finished shelf earned, how long the one in progress has
+ * taken, how long the queue is, and how big a list of your own is.
+ */
+const countLabel = (permanent: PermanentCollectionId | null, games: UserGame[]): string => {
+  const n = `${games.length} ${games.length === 1 ? 'game' : 'games'}`;
+  switch (permanent) {
+    case COMPLETE_COLLECTION_ID:
+      return `${n} · ${formatCount(games.reduce((t, g) => t + (g.achievementsUnlocked || 0), 0))} awards`;
+    case PLAYING_COLLECTION_ID:
+      return `${n} · ${formatHours(sumHours(games))}h`;
+    case BACKLOG_COLLECTION_ID:
+      return `${n} queued`;
+    default:
+      return n;
+  }
+};
+
+/**
+ * Every list as a row, the three shelves first, each showing a few of the games
+ * inside it.
  *
  * The covers are the point. A list of names and counts tells you what you
  * called things; a strip of posters tells you what is actually in there, which
@@ -77,7 +103,7 @@ export const CollectionsList: React.FC<{
   }, [collections, games]);
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {rows.map((row) => (
         <CollectionListRow
           key={row.id}
@@ -124,7 +150,7 @@ const CollectionListRow: React.FC<{
       <span aria-hidden className="gold-ring rounded-lg" />
     ) : null}
 
-    <div className="flex items-center gap-3">
+    <div className="flex min-h-11 items-center gap-3">
       <span
         aria-hidden
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md"
@@ -133,29 +159,43 @@ const CollectionListRow: React.FC<{
           color,
         }}
       >
-        <CollectionIcon name={icon} size={18} />
+        <CollectionIcon name={icon} size={19} />
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-200 font-bold tracking-tight text-gray-1000">
+        <span className="block truncate text-150 font-bold tracking-tight text-gray-1000">
           {name}
         </span>
-        <span className="block text-75 text-gray-600">
-          {games.length} {games.length === 1 ? 'game' : 'games'}
+        <span className="block text-75 tabular-nums text-gray-700">
+          {countLabel(permanent, games)}
         </span>
       </span>
 
-      <ChevronRight size={18} className="shrink-0 text-gray-600" />
+      <ChevronRight size={20} className="shrink-0 text-gray-600" />
     </div>
 
     {/* Posters, each wearing the game's own lettering — and no figures: this
         is a glance at what is inside, and a count or a meter under each one
         would turn it back into the list of rows the page is trying not to be. */}
     {games.length > 0 ? (
-      <div className="mt-3 flex gap-2 overflow-hidden">
-        {games.slice(0, PREVIEW_COUNT).map((game) => (
-          <PreviewCover key={game.id} game={game} />
-        ))}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {games.slice(0, PREVIEW_COUNT).map((game, index) => {
+          const more = games.length - PREVIEW_COUNT;
+          return (
+            <PreviewCover
+              key={game.id}
+              game={game}
+              portrait
+              className="w-full rounded-control border border-gray-300/70"
+            >
+              {index === PREVIEW_COUNT - 1 && more > 0 ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-gray-25/72 text-90 font-bold tabular-nums text-gray-1000">
+                  +{more}
+                </span>
+              ) : null}
+            </PreviewCover>
+          );
+        })}
       </div>
     ) : null}
   </button>
@@ -176,18 +216,32 @@ const CollectionListRow: React.FC<{
  */
 export const PreviewCover: React.FC<{
   game: UserGame;
-  /** The box. A strip cover by default; the desktop mosaic fills its cell. */
+  /** The box's width and edge. The desktop mosaic fills its cell. */
   className?: string;
+  /**
+   * 2:3 rather than 16:9: a phone row's three previews. The art is cropped to
+   * its middle third to fill it, which is the one place that is allowed — the
+   * preview is a glance at what is inside, carried by the game's own lettering
+   * laid over it, not the picture a card or the details sheet shows.
+   */
+  portrait?: boolean;
   children?: React.ReactNode;
 }> = ({
   game,
   className = 'w-24 shrink-0 rounded-sm border border-gray-300/60',
+  portrait = false,
   children,
 }) => {
   const [logo, setLogo] = useState<'loading' | 'ready' | 'failed'>('loading');
 
   return (
-    <span className={cn('relative block aspect-video overflow-hidden', className)}>
+    <span
+      className={cn(
+        'relative block overflow-hidden',
+        portrait ? 'aspect-[2/3]' : 'aspect-video',
+        className,
+      )}
+    >
       <CoverArt
         src={game.coverImage}
         title={game.title}

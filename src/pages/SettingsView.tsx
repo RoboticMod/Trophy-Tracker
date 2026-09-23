@@ -304,7 +304,7 @@ const ALL_NAV_ITEMS = [
   {
     id: 'collections',
     path: '/collections',
-    name: 'Collections',
+    name: 'Lists',
     icon: FolderKanban,
     configKey: 'showCollections' as const,
     tone: 'bg-gray-200 text-gray-800',

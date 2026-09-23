@@ -88,7 +88,7 @@ export const SectionRule: React.FC<{
   tone?: 'page' | 'panel';
   className?: string;
 }> = ({ icon, title, count, action, tone = 'page', className }) => (
-  <div className={cn('flex items-center gap-3', className)}>
+  <div className={cn('flex items-center gap-2.5 md:gap-3', className)}>
     {icon ? <span className="flex shrink-0 items-center">{icon}</span> : null}
     <h2
       className={cn(

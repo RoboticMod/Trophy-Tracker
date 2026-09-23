@@ -295,7 +295,7 @@
      and the card survives half a 375px screen — it only has to give up some
      padding and a type step to do it. */
   @media (width < 48rem) {
-    gap: --spacing(2.5);
+    gap: --spacing(3);
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

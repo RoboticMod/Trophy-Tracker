@@ -47,12 +47,14 @@ export const Field: React.FC<FieldProps> = ({
  * outward instead of drawing a second ring around the control.
  */
 export const inputClass = cn(
-  'w-full rounded-sm border px-3 text-100 text-gray-900',
-  // 40px, a 10px corner and 13px type on a wide screen: fields, selects and
-  // dialog buttons share one height there. No padding of its own at md — a
-  // field with a leading mark sets its own left inset, and a variant here
-  // would outrank it.
-  'md:rounded-md md:text-90',
+  'w-full border px-3 text-100 text-gray-900',
+  // A 10px corner at every width. 44px tall on a phone and 40 on a desktop,
+  // where fields, selects and dialog buttons share one height. The type stays
+  // at 14 on a phone — anything under 16 already makes iOS zoom on focus, and
+  // 13 only made it worse — and steps to 13 on a desktop. No padding of its
+  // own at md: a field with a leading mark sets its own left inset, and a
+  // variant here would outrank it.
+  'rounded-md md:text-90',
   // Applied to every field rather than to the number ones: it is inert on a
   // text input, and one class here is one fewer thing to remember at each
   // call site.
@@ -66,7 +68,7 @@ export const inputClass = cn(
 
 export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...rest }, ref) => (
-    <input ref={ref} className={cn(inputClass, 'h-9 md:h-10', className)} {...rest} />
+    <input ref={ref} className={cn(inputClass, 'h-11 md:h-10', className)} {...rest} />
   ),
 );
 TextInput.displayName = 'TextInput';

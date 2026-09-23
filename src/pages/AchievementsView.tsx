@@ -55,7 +55,7 @@ export const AchievementsView: React.FC = () => {
   );
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-7 pb-10">
+    <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
       <PageHeader
         title="100% Achievements & Platinum Trophies"
         // The total, then the same total split by platform — each in a pill of

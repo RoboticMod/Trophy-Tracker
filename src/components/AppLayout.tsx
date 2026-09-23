@@ -40,6 +40,7 @@ import { Button } from './ui';
 import { TrophyPair } from './TrophyBadge';
 import { cn } from '../lib/cn';
 import { EASE_OUT } from '../lib/motion';
+import { PhoneHeaderContext } from '../lib/phoneHeader';
 
 /**
  * How long a followed game is given to turn up on the current page before the
@@ -89,6 +90,14 @@ interface NavItem {
   badgeTone?: 'accent' | 'trophy' | 'neutral';
   enabled: boolean;
 }
+
+/** The lit rule along the top edge of the current bottom-bar item. */
+const ActiveRule: React.FC = () => (
+  <span
+    aria-hidden
+    className="absolute inset-x-3.5 top-0 h-0.5 rounded-full bg-accent-800 shadow-[0_0_9px_-1px_var(--color-accent-700)]"
+  />
+);
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
@@ -289,18 +298,19 @@ export const AppLayout: React.FC = () => {
   };
 
   /**
-   * The page being looked at, as its own mark and name, for the phone header.
+   * The page being looked at, by name, for the phone header — with its count
+   * beside it where it has one: the shelves say how many games are on them in
+   * the one place a phone can always see, rather than in a pill at the top of a
+   * page that scrolls away.
    *
    * Read from the full named list rather than from `navItems`, which has had
    * the three shelves folded out of it on a phone — they are still reachable
-   * through Collections, and a page you can open is a page whose name the
-   * header has to be able to say. A custom label from Settings comes with it,
-   * since `named` has already been applied.
+   * through Lists, and a page you can open is a page whose name the header has
+   * to be able to say. A custom label from Settings comes with it, since
+   * `named` has already been applied.
    *
-   * The mark is the destination's own, the same one drawn in the bar along the
-   * bottom and in the desktop tabs, so the two never identify a page with two
-   * different pictures. Settings and setup are not destinations in that list
-   * and carry their own.
+   * No mark beside it any more: the bottom bar already lights the tab you are
+   * on, and a glyph ahead of a 17px title was a second way of saying it.
    */
   const currentNavItem = rawNavItems.map(named).find((item) => item.path === location.pathname);
 
@@ -312,15 +322,12 @@ export const AppLayout: React.FC = () => {
         ? 'Set up your library'
         : APP_NAME);
 
-  const PageIcon = currentNavItem
-    ? currentNavItem.icon
-    : location.pathname === '/settings'
-      ? Settings
-      : location.pathname === '/setup'
-        ? Gamepad2
-        : null;
+  /** A page's own control in the header, rendered there by the page. */
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
-  const pageMark = PageIcon ? <PageIcon size={16} /> : (currentNavItem?.art ?? null);
+  // Statistics puts its reorder toggle where Add would be: nothing is added
+  // from a page of figures, and three controls crowded the title.
+  const headerAddHidden = location.pathname === '/stats';
 
   // The mobile bar has room for four destinations. Everything past them lives
   // in the "More" sheet, so no enabled page is unreachable on a phone.
@@ -492,77 +499,74 @@ export const AppLayout: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile header ------------------------------------------------------ */}
-      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-100/85 px-3 py-3 backdrop-blur-xl md:hidden">
-        <div className="flex min-w-0 items-center gap-1.5">
-          {/* A phone has no sidebar to show where you are, and screens here go
-              two and three deep — a collection, then a game. The platform back
-              gesture exists but is not visible, and a control you can see is
-              the one people reach for. Held open rather than shown
-              conditionally, so the header never changes width under a thumb
-              already on its way to something else. */}
-          <Button
-            buttonStyle="subtle"
-            size="s"
-            iconOnly
-            aria-label="Go back"
-            disabled={!canGoBack}
-            onClick={() => navigate(-1)}
-            // Pulled a little closer to what follows it. An icon button is a
-            // 28px box around an 18px glyph, so it already carries 5px of its
-            // own padding — spaced to its box like everything else, the gap
-            // after it reads 5px wider than the gap before the title, which is
-            // what made this row look off even once the gaps were equal.
-            className={cn('-mr-1 shrink-0', !canGoBack && 'opacity-30')}
-          >
-            <ChevronLeft size={18} />
-          </Button>
+      {/* Mobile header ------------------------------------------------------
+          56px plus the safe area, fixed. Every control in it is a 44px target:
+          the back chevron, the page's name, then sync and add. */}
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-gray-200 bg-gray-100/88 pt-[env(safe-area-inset-top)] backdrop-blur-lg md:hidden">
+        <div className="flex h-14 items-center justify-between gap-2 pl-1 pr-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {/* Screens here go two and three deep — a list, then a game. The
+                platform back gesture exists but is not visible, and a control
+                you can see is the one people reach for. Held open rather than
+                shown conditionally, so the title never moves under a thumb. */}
+            <button
+              type="button"
+              aria-label="Go back"
+              disabled={!canGoBack}
+              onClick={() => navigate(-1)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-gray-800 transition-colors hover:bg-white/5 disabled:text-gray-500"
+            >
+              <ChevronLeft size={20} />
+            </button>
 
-          {/* The page's own mark and title, in the one part of a phone screen
-              that does not scroll. The lockup was here, and on a phone it said
-              the one thing you already know — which app you are in — while the
-              thing you do not, the page you are on, scrolled away with the
-              content. Home is still a tap away in the bar along the bottom. */}
-          {/* No margin of its own: the row's gap is the only spacing, so the
-              mark sits the same distance from the control before it as from the
-              title after it. It carried an `ml-1` to buy the title a few
-              pixels, which took them from one side of the mark and not the
-              other — 8px before it and 4px after, which is what read as off. */}
-          {pageMark ? (
-            <span className="flex shrink-0 items-center text-accent-900">{pageMark}</span>
-          ) : null}
-          <h1 className="min-w-0 truncate text-200 font-bold tracking-tight text-gray-1000">
-            {pageTitle}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            buttonStyle="outline"
-            size="s"
-            iconOnly
-            onClick={runSync}
-            disabled={!isOnline || syncing}
-            title={syncTitle}
-            aria-label={syncTitle}
-          >
-            {isOnline ? (
-              <RefreshCw size={15} className={cn(syncing && 'animate-spin')} />
-            ) : (
-              <CloudOff size={15} className="text-notice-900" />
+            <h1 className="min-w-0 truncate text-250 font-bold tracking-tight text-gray-1000">
+              {pageTitle}
+            </h1>
+
+            {currentNavItem?.badge !== undefined &&
+            (currentNavItem.badgeTone === 'accent' || currentNavItem.badgeTone === 'neutral') ? (
+              <span
+                className={cn(
+                  'inline-flex h-5.5 shrink-0 items-center rounded-full border px-2.25 text-75 font-bold tabular-nums',
+                  currentNavItem.badgeTone === 'accent'
+                    ? 'border-accent-700/45 bg-accent-700/16 text-accent-900'
+                    : 'border-gray-500/50 bg-gray-700/12 text-gray-700',
+                )}
+              >
+                {currentNavItem.badge}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-0.5">
+            <span ref={setHeaderSlot} className="contents" />
+
+            <button
+              type="button"
+              onClick={runSync}
+              disabled={!isOnline || syncing}
+              title={syncTitle}
+              aria-label={syncTitle}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-gray-800 transition-colors hover:bg-white/5"
+            >
+              {isOnline ? (
+                <RefreshCw size={19} className={cn(syncing && 'animate-spin')} />
+              ) : (
+                <CloudOff size={19} className="text-notice-900" />
+              )}
+            </button>
+
+            {headerAddHidden ? null : (
+              <button
+                type="button"
+                onClick={() => setIsQuickAddOpen(true)}
+                aria-label="Add game"
+                className="flex h-11 w-11 items-center justify-center rounded-md bg-gradient-to-br from-accent-700 to-accent-600 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)]"
+              >
+                <Plus size={20} />
+              </button>
             )}
-          </Button>
-          {/* The label goes below sm. A phone header carries a back control,
-              the lockup, a sync button and this, and the lockup's name is worth
-              more of that row than four letters repeating a plus. */}
-          <Button
-            variant="accent"
-            size="s"
-            onClick={() => setIsQuickAddOpen(true)}
-            aria-label="Add game"
-          >
-            <Plus size={15} />
-            <span className="hidden sm:inline">Add</span>
-          </Button>
+          </div>
         </div>
       </header>
 
@@ -575,7 +579,7 @@ export const AppLayout: React.FC = () => {
           started every page a third of a screen down. */}
       {/* From md the gutters belong to the container inside, not to main, so
           the page and the bar above it share one box and one left edge. */}
-      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-20 sm:px-6 md:px-0 md:pb-12 md:pt-8">
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-0 md:pb-12 md:pt-8">
         <div className="md:page-container">
         {/* An account with nothing saved yet is not a failure, and saying so
             was alarming and untrue. A genuine network problem still gets
@@ -606,7 +610,9 @@ export const AppLayout: React.FC = () => {
           </div>
         ) : null}
 
-        <Outlet />
+        <PhoneHeaderContext.Provider value={headerSlot}>
+          <Outlet />
+        </PhoneHeaderContext.Provider>
         </div>
       </main>
 
@@ -631,7 +637,7 @@ export const AppLayout: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
               transition={{ duration: 0.18, ease: EASE_OUT }}
-              className="panel fixed inset-x-3 bottom-20 z-40 space-y-1 rounded-lg bg-gray-100/95 p-2 md:hidden"
+              className="panel fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 space-y-1 rounded-lg bg-gray-100/95 p-2 md:hidden"
             >
               {mobileOverflow.map((item) => {
                 const Icon = item.icon;
@@ -641,7 +647,7 @@ export const AppLayout: React.FC = () => {
                     key={item.path}
                     to={item.path}
                     className={cn(
-                      'flex h-11 items-center gap-3 rounded-md px-3 text-100 font-semibold transition-colors',
+                      'flex h-11 items-center gap-3 rounded-md px-3 text-150 font-bold transition-colors',
                       isActive
                         ? 'bg-accent-700/16 text-accent-900'
                         : 'text-gray-800 hover:bg-white/5',
@@ -663,7 +669,7 @@ export const AppLayout: React.FC = () => {
                 to="/settings"
                 className={({ isActive }) =>
                   cn(
-                    'flex h-11 items-center gap-3 rounded-md px-3 text-100 font-semibold transition-colors',
+                    'flex h-11 items-center gap-3 rounded-md px-3 text-150 font-bold transition-colors',
                     mobileOverflow.length > 0 && 'border-t border-gray-200',
                     isActive ? 'bg-accent-700/16 text-accent-900' : 'text-gray-800 hover:bg-white/5',
                   )
@@ -679,37 +685,45 @@ export const AppLayout: React.FC = () => {
         ) : null}
       </AnimatePresence>
 
-      {/* Mobile bottom bar: four destinations plus "More" -------------------- */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-gray-200 bg-gray-100/85 px-2 py-2 backdrop-blur-xl md:hidden">
-        {mobilePrimary.map((item) => {
-          const isActive = location.pathname === item.path;
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'flex flex-col items-center gap-0.5 rounded-sm px-2.5 py-1 text-50 font-bold uppercase tracking-wide transition-colors',
-                isActive ? 'text-accent-900' : 'text-gray-600',
-              )}
-            >
-              {Icon ? <Icon size={18} /> : item.art}
-              <span className="text-50">{item.short}</span>
-            </NavLink>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => setMoreOpen((open) => !open)}
-          aria-expanded={moreOpen}
-          className={cn(
-            'flex flex-col items-center gap-0.5 rounded-sm px-2.5 py-1 text-50 font-bold uppercase tracking-wide transition-colors',
-            moreOpen || overflowActive ? 'text-accent-900' : 'text-gray-600',
-          )}
-        >
-          <MoreHorizontal size={18} />
-          <span className="text-50">More</span>
-        </button>
+      {/* Mobile bottom bar: four destinations plus "More" --------------------
+          60px plus the safe area. Each item is a full-height column, so the
+          whole slot is the target, and the current one is marked by a lit
+          rule along the top edge — the same mark the desktop bar draws along
+          its bottom. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-gray-100/88 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
+        <div className="flex h-15 items-stretch justify-between px-1">
+          {mobilePrimary.map((item) => {
+            const isActive = location.pathname === item.path;
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  'relative flex flex-1 flex-col items-center justify-center gap-0.75 text-50 font-bold uppercase tracking-[0.06em] transition-colors',
+                  isActive ? 'text-accent-900' : 'text-gray-600',
+                )}
+              >
+                {isActive ? <ActiveRule /> : null}
+                {Icon ? <Icon size={21} /> : item.art}
+                <span>{item.short}</span>
+              </NavLink>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            aria-expanded={moreOpen}
+            className={cn(
+              'relative flex flex-1 flex-col items-center justify-center gap-0.75 text-50 font-bold uppercase tracking-[0.06em] transition-colors',
+              moreOpen || overflowActive ? 'text-accent-900' : 'text-gray-600',
+            )}
+          >
+            {overflowActive ? <ActiveRule /> : null}
+            <MoreHorizontal size={21} />
+            <span>More</span>
+          </button>
+        </div>
       </nav>
 
       <QuickAddModal />
