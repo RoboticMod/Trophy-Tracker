@@ -50,6 +50,13 @@ const PERMANENT_SET: ReadonlySet<string> = new Set(PERMANENT_COLLECTION_IDS);
 export const isPermanentCollection = (id: string): id is PermanentCollectionId =>
   PERMANENT_SET.has(id);
 
+/**
+ * The library filter for games on no shelf at all — in the library, and in any
+ * number of your lists, but not Backlog, Playing, Beaten or 100%. Statistics
+ * counts them as "Unshelved", and this is how that count is opened.
+ */
+export const UNSHELVED_FILTER = 'unshelved';
+
 /** The shelf a game is on, or null when it is only in the library. */
 export const permanentOf = (collections?: string[]): PermanentCollectionId | null =>
   (collections?.find(isPermanentCollection) as PermanentCollectionId | undefined) ?? null;

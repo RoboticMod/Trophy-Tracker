@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
@@ -174,7 +174,11 @@ export const CollectionsView: React.FC = () => {
   // list's games on the page and every other list behind a name.
   const phone = useIsPhone();
 
-  const [activeCollectionId, setActiveCollectionId] = useState<string>('');
+  // Opened on a list by name — Statistics sends Beaten here this way.
+  const [params] = useSearchParams();
+  const [activeCollectionId, setActiveCollectionId] = useState<string>(
+    () => params.get('list') ?? '',
+  );
   /** The collection whose delete has been asked for but not yet confirmed. */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);

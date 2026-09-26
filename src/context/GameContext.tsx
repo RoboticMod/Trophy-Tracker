@@ -30,6 +30,7 @@ import {
   fileInPermanent,
   isPermanentCollection,
   normalizeCollections,
+  UNSHELVED_FILTER,
   permanentOf,
 } from '../lib/collections';
 import { isPerfect } from '../lib/completion';
@@ -476,7 +477,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // device, or by the migration that merged the legacy shelves — would
         // show an empty library with nothing to explain it.
         setActiveCollectionFilter((filter) =>
-          filter !== 'all' && !nextCollections.some((c) => c.id === filter) ? 'all' : filter,
+          filter !== 'all' &&
+          filter !== UNSHELVED_FILTER &&
+          !nextCollections.some((c) => c.id === filter)
+            ? 'all'
+            : filter,
         );
 
         latest.current.games = nextGames;

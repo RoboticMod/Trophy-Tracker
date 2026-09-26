@@ -19,8 +19,10 @@ import {
   BACKLOG_COLLECTION_ID,
   BEATEN_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
+  UNSHELVED_FILTER,
   collectionName,
   isPermanentCollection,
+  permanentOf,
 } from '../lib/collections';
 import { PLATFORM_IDS, UserGame } from '../types';
 import {
@@ -178,6 +180,7 @@ export const DashboardView: React.FC = () => {
       ),
     [games],
   );
+  const unshelvedCount = games.filter((g) => permanentOf(g.collections) === null).length;
   const gaugeTotals = aggregateCompletion(gaugeGames);
   const completion = gaugeTotals.percent;
   const libraryTotals = aggregateCompletion(games);
@@ -185,7 +188,12 @@ export const DashboardView: React.FC = () => {
   const processedGames = useMemo(() => {
     const result = games.filter((g) => {
       if (activePlatformFilter !== 'all' && g.platform !== activePlatformFilter) return false;
-      if (activeCollectionFilter !== 'all' && !g.collections?.includes(activeCollectionFilter)) {
+      if (activeCollectionFilter === UNSHELVED_FILTER) {
+        if (permanentOf(g.collections) !== null) return false;
+      } else if (
+        activeCollectionFilter !== 'all' &&
+        !g.collections?.includes(activeCollectionFilter)
+      ) {
         return false;
       }
 
@@ -338,6 +346,25 @@ export const DashboardView: React.FC = () => {
             </FilterChip>
           ))}
 
+          {/* Games on no shelf: counted by Statistics as Unshelved, and
+              otherwise only findable by scanning the whole library. Shown
+              whenever there are any. */}
+          {unshelvedCount > 0 || activeCollectionFilter === UNSHELVED_FILTER ? (
+            <FilterChip
+              tone="neutral"
+              selected={activeCollectionFilter === UNSHELVED_FILTER}
+              onClick={() =>
+                setActiveCollectionFilter(
+                  activeCollectionFilter === UNSHELVED_FILTER ? 'all' : UNSHELVED_FILTER,
+                )
+              }
+              title="Games on none of Backlog, Playing, Beaten or 100%"
+            >
+              <span aria-hidden className="h-2 w-2 rounded-full bg-gray-500" />
+              Unshelved <span className="tabular-nums">{unshelvedCount}</span>
+            </FilterChip>
+          ) : null}
+
           {orderedCollections
             .filter(
               (c) =>
@@ -398,8 +425,11 @@ export const DashboardView: React.FC = () => {
         </div>
       </section>
 
-      {/* Spotlight ------------------------------------------------------------ */}
-      {currentlyPlaying.length > 0 && (
+      {/* Spotlight ------------------------------------------------------------
+          Not while a list or Unshelved is being filtered to: the page is then
+          answering "which games are in this", and a Playing row above the
+          answer read as part of it. */}
+      {currentlyPlaying.length > 0 && activeCollectionFilter === 'all' && (
         <section className="space-y-3 md:space-y-4">
           <SectionRule
             icon={<Flame className="text-trophy-900" size={phone ? 15 : 17} />}

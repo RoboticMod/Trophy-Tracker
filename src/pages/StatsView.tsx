@@ -7,19 +7,24 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   RotateCcw,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
 import {
   BACKLOG_COLLECTION_ID,
+  BEATEN_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
   PERMANENT_COLOR,
   PERMANENT_COLLECTION_IDS,
   PERMANENT_OVERLAY_CLASS,
   PLAYING_COLLECTION_ID,
+  UNSHELVED_FILTER,
   collectionName,
   permanentOf,
 } from '../lib/collections';
+import { useNavigate } from 'react-router-dom';
 import { aggregateCompletion, completionPercent, isPerfect } from '../lib/completion';
 import { backlogLabel, completionColor } from '../lib/rating';
 import { formatCount, formatHours, relativeTime, sumHours } from '../lib/format';
@@ -66,7 +71,38 @@ const DEFAULT_STATS_ORDER = SECTIONS.map((s) => s.id) as string[];
 const sectionName = (id: string) => SECTIONS.find((s) => s.id === id)?.name ?? id;
 
 export const StatsView: React.FC = () => {
-  const { games, collections, profile, sidebarConfig, updateSidebarConfig } = useGame();
+  const {
+    games,
+    collections,
+    profile,
+    sidebarConfig,
+    updateSidebarConfig,
+    setActivePlatformFilter,
+    setActiveCollectionFilter,
+  } = useGame();
+  const navigate = useNavigate();
+
+  /** Where a Distribution row goes: the page that holds those games. */
+  const openSlice = (key: string) => {
+    switch (key) {
+      case PLAYING_COLLECTION_ID:
+        navigate('/playing');
+        return;
+      case BACKLOG_COLLECTION_ID:
+        navigate('/backlog');
+        return;
+      case COMPLETE_COLLECTION_ID:
+        navigate('/achievements');
+        return;
+      case BEATEN_COLLECTION_ID:
+        navigate(`/collections?list=${BEATEN_COLLECTION_ID}`);
+        return;
+      default:
+        setActivePlatformFilter('all');
+        setActiveCollectionFilter(UNSHELVED_FILTER);
+        navigate('/');
+    }
+  };
   const platformOrder = profile.platformOrder;
 
   const [isReordering, setIsReordering] = useState(false);
@@ -256,7 +292,16 @@ export const StatsView: React.FC = () => {
       </div>
       <div className="grid grid-cols-1 gap-y-2.5 md:grid-cols-2 md:gap-x-6 xl:grid-cols-1 xl:gap-y-3">
         {shelfSlices.map((slice) => (
-          <div key={slice.key} className="flex items-center gap-2.5 md:gap-3">
+          // Each row opens what it counts: a shelf's own page, Beaten in Lists,
+          // and Unshelved as a filter on Home — otherwise those games are only
+          // findable by scanning the whole library.
+          <button
+            key={slice.key}
+            type="button"
+            onClick={() => openSlice(slice.key)}
+            title={`Show ${slice.label.toLowerCase()} games`}
+            className="-mx-2 flex min-h-9 items-center gap-2.5 rounded-sm px-2 text-left transition-colors hover:bg-white/5 md:gap-3"
+          >
             <span
               aria-hidden
               className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -269,7 +314,8 @@ export const StatsView: React.FC = () => {
             <span className="w-9.5 shrink-0 text-right text-75 tabular-nums text-gray-600 md:w-10.5">
               {Math.round((slice.value / totalGames) * 100)}%
             </span>
-          </div>
+            <ChevronRight size={15} className="shrink-0 text-gray-600" />
+          </button>
         ))}
       </div>
     </section>

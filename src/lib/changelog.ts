@@ -21,6 +21,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.2',
+    date: '2026-09-26',
+    title: 'Finding unshelved games',
+    changes: [
+      'Every row of Distribution in Statistics opens the games it counts.',
+      'Unshelved — games on none of Backlog, Playing, Beaten or 100% — opens as a filter on Home.',
+      'Home has an Unshelved chip whenever there are any.',
+      'The Playing row on Home steps aside while a list is being filtered to.',
+    ],
+  },
+  {
     version: '0.10.1',
     date: '2026-09-26',
     title: 'Faster, especially on a phone',
