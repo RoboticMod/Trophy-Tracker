@@ -167,7 +167,7 @@ export const GameAddedDialog: React.FC = () => {
           <Celebration key={`arrival-${game.id}`} platform={game.platform} tone="accent" sparks={false} />
 
           {/* The real thing, on top, when the game arrived already finished. */}
-          {burst !== null && <Celebration key={burst} platform={game.platform} />}
+          {burst !== null && <Celebration key={burst} platform={game.platform} scale="large" />}
         </div>
 
         {/* Whether the platform has it yet. A game added a second ago is

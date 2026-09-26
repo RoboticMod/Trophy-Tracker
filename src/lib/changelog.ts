@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.7',
+    date: '2026-09-26',
+    title: 'Sparks you can see',
+    changes: [
+      'Adding a game that is already finished shows a fuller spray of sparks across the whole preview, instead of a few specks lost in the gold.',
+    ],
+  },
+  {
     version: '0.10.6',
     date: '2026-09-26',
     title: 'Tidier cards',

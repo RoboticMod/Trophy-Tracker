@@ -2,7 +2,17 @@ import React, { useMemo } from 'react';
 import { Platform } from '../types';
 import { PLATFORMS } from '../lib/constants';
 
-const SPARK_COUNT = 18;
+/**
+ * The spray, per surface. A card is a couple of hundred pixels across; the add
+ * dialog's preview is three times that, and the card's 18 small sparks climbing
+ * 190px were lost in it — a few dots in the bottom third, gold on the gold of
+ * the pour, which read as no sparks at all. The large spray is denser, bigger
+ * and climbs the whole preview.
+ */
+const SPRAY = {
+  card: { count: 18, size: [3, 7], rise: [80, 190], drift: 26 },
+  large: { count: 42, size: [5, 10], rise: [150, 300], drift: 60 },
+} as const;
 
 /** How long the celebration runs. The card clears it to match. */
 export const CELEBRATION_MS = 2000;
@@ -36,6 +46,8 @@ interface CelebrationProps {
   tone?: 'trophy' | 'accent';
   /** The rising sparks. Off for an arrival, which is not a fanfare. */
   sparks?: boolean;
+  /** How big a surface it plays over: a card, or a dialog's wide preview. */
+  scale?: keyof typeof SPRAY;
 }
 
 const TONE_TINT: Record<NonNullable<CelebrationProps['tone']>, string> = {
@@ -54,8 +66,10 @@ export const Celebration: React.FC<CelebrationProps> = ({
   platform,
   tone = 'trophy',
   sparks = true,
+  scale = 'card',
 }) => {
   const particles = useMemo(() => {
+    const spray = SPRAY[scale];
     const palette = [
       'var(--color-trophy-900)',
       'var(--color-trophy-700)',
@@ -63,14 +77,14 @@ export const Celebration: React.FC<CelebrationProps> = ({
       'var(--color-gray-1000)',
     ];
 
-    return Array.from({ length: SPARK_COUNT }, (_, i) => ({
+    return Array.from({ length: spray.count }, (_, i) => ({
       id: i,
       // Spread across the card's width, then drift sideways as they climb.
-      dx: `${(5 + (i / SPARK_COUNT) * 90 + (Math.random() - 0.5) * 6).toFixed(1)}%`,
-      drift: `${((Math.random() - 0.5) * 26).toFixed(0)}px`,
-      rise: `${(-80 - Math.random() * 110).toFixed(0)}px`,
+      dx: `${(5 + (i / spray.count) * 90 + (Math.random() - 0.5) * 6).toFixed(1)}%`,
+      drift: `${((Math.random() - 0.5) * spray.drift).toFixed(0)}px`,
+      rise: `${(-spray.rise[0] - Math.random() * (spray.rise[1] - spray.rise[0])).toFixed(0)}px`,
       rot: `${((Math.random() - 0.5) * 200).toFixed(0)}deg`,
-      size: 3 + Math.random() * 4,
+      size: spray.size[0] + Math.random() * (spray.size[1] - spray.size[0]),
       radius: Math.random() > 0.5 ? '9999px' : '1px',
       // Staggered starts and uneven durations, so the spray scatters rather
       // than rising and fading as a single block.
@@ -78,7 +92,7 @@ export const Celebration: React.FC<CelebrationProps> = ({
       duration: `${Math.round(1100 + Math.random() * 600)}ms`,
       color: palette[i % palette.length],
     }));
-  }, [platform]);
+  }, [platform, scale]);
 
   return (
     <div
