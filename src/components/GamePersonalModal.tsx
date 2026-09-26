@@ -18,7 +18,7 @@ import {
 } from '../lib/collections';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
-import { TrophyBadge, awardNoun } from './TrophyBadge';
+import { TrophyBadge, awardNoun, awardNounFor } from './TrophyBadge';
 import { Button, Dialog, Meter, SectionRule } from './ui';
 
 interface GamePersonalModalProps {
@@ -259,7 +259,7 @@ const GamePersonal: React.FC<{
               <p className="text-75 text-gray-600">
                 {perfect
                   ? `Every one of them earned${game.completedAt ? `, finished ${formatDate(game.completedAt)}` : ''}.`
-                  : `${left} left.`}
+                  : `${left} ${awardNounFor(game.platform, left).toLowerCase()} remaining`}
               </p>
             </div>
           </div>
@@ -275,7 +275,7 @@ const GamePersonal: React.FC<{
                   game.lastPlayedAt ? `Played ${relativeTime(game.lastPlayedAt)}` : 'Not played yet',
                 )}
                 {tile(
-                  `Last ${noun.toLowerCase().replace(/s$/, '')}`,
+                  `Last ${awardNounFor(game.platform, 1).toLowerCase()}`,
                   game.lastUnlockedAt
                     ? new Date(game.lastUnlockedAt).toLocaleDateString(undefined, {
                         day: 'numeric',
@@ -459,7 +459,7 @@ const GamePersonal: React.FC<{
               game.lastPlayedAt ? `Played ${relativeTime(game.lastPlayedAt)}` : 'Not played yet',
             )}
             {tile(
-              `Last ${noun.toLowerCase().replace(/s$/, '')}`,
+              `Last ${awardNounFor(game.platform, 1).toLowerCase()}`,
               game.lastUnlockedAt
                 ? new Date(game.lastUnlockedAt).toLocaleDateString(undefined, {
                     day: 'numeric',

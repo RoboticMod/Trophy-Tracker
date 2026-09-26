@@ -21,6 +21,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.3',
+    date: '2026-09-26',
+    title: 'Clearer cover art',
+    changes: [
+      'Cards shade only the top corners that carry a mark, instead of the whole top of the cover.',
+      'Finished games keep a still gold edge; the light circling the rim is gone.',
+      '“Last trophie” now reads “Last trophy”.',
+      'The game window counts what is left as “12 achievements remaining” or “12 trophies remaining”.',
+      'The Game moved dialog no longer adds a line explaining the move.',
+    ],
+  },
+  {
     version: '0.10.2',
     date: '2026-09-26',
     title: 'Finding unshelved games',

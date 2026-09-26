@@ -396,6 +396,39 @@
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), var(--shadow-sm);
 }
 
+/* A pool of shade in one top corner of a cover, under the marks that sit there.
+   Radial, so it falls away in both directions and leaves the middle of the top
+   edge — usually the subject of the picture — untouched. */
+@utility cover-scrim-tl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 48%;
+  height: 58%;
+  pointer-events: none;
+  background: radial-gradient(
+    farthest-side at 0 0,
+    color-mix(in srgb, var(--color-gray-25) 82%, transparent),
+    color-mix(in srgb, var(--color-gray-25) 40%, transparent) 45%,
+    transparent
+  );
+}
+
+@utility cover-scrim-tr {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48%;
+  height: 58%;
+  pointer-events: none;
+  background: radial-gradient(
+    farthest-side at 100% 0,
+    color-mix(in srgb, var(--color-gray-25) 82%, transparent),
+    color-mix(in srgb, var(--color-gray-25) 40%, transparent) 45%,
+    transparent
+  );
+}
+
 @layer components {
   ::-webkit-scrollbar {
     width: 8px;

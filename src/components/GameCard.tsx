@@ -257,8 +257,7 @@ const GameCardImpl: React.FC<GameCardProps> = ({
     game.hoursPlayed > 0 ? `${formatHours(game.hoursPlayed)}h played` : 'Not started';
 
   // Stroke draws the shelf as a coloured edge; fill tints the whole surface.
-  // A finished game is handled by the turning gold rim below instead of a
-  // border, so its stroke variant asks only for the glow.
+  // A finished game has a gold edge and a warm glow in either style.
   //
   // A wide card lays its shelf tint down as a wash over the card's own ground
   // rather than an outer glow: the strip below the art is solid now, and a
@@ -270,8 +269,8 @@ const GameCardImpl: React.FC<GameCardProps> = ({
   // as the shelf.
   const highlight = isMastered
     ? filled
-      ? 'trophy-glow border-transparent bg-trophy-100'
-      : 'trophy-glow border-transparent bg-gradient-to-b from-trophy-100/40 to-gray-100/72'
+      ? 'trophy-glow border-trophy-700/50 bg-trophy-100'
+      : 'trophy-glow border-trophy-700/50 bg-gradient-to-b from-trophy-100/40 to-gray-100/72'
     : shelf === PLAYING_COLLECTION_ID
       ? filled
         ? 'glow-ring border-accent-700/50 bg-accent-100'
@@ -375,15 +374,10 @@ const GameCardImpl: React.FC<GameCardProps> = ({
         className="absolute inset-0 z-20 rounded-lg"
       />
       {/* The finished-game treatment: a warm pool of light in the upper right,
-          and two highlights travelling around the rim. The rim is drawn over
-          the card rather than behind it, because a card paints its own
-          background before any child and would hide a ring drawn underneath. */}
-      {isMastered && (
-        <>
-          <span aria-hidden className="trophy-spot z-0 rounded-lg" />
-          <span aria-hidden className="gold-ring z-30 rounded-lg" />
-        </>
-      )}
+          inside a still gold edge. No light travels around the rim — a pair of
+          arcs forever circling every finished card pulled the eye away from
+          the rest of the grid. */}
+      {isMastered && <span aria-hidden className="trophy-spot z-0 rounded-lg" />}
 
       {/* Cover ------------------------------------------------------------- */}
       {/* 16:9 at every width, because that is the one image a game has — the
@@ -401,14 +395,18 @@ const GameCardImpl: React.FC<GameCardProps> = ({
                 'opacity-85 grayscale group-hover:opacity-100 group-hover:grayscale-0',
             )}
           />
-          {/* Scrims top and bottom guarantee overlay legibility over any art.
+          {/* Scrims keep the overlays legible over any art.
 
-              A share of the box, not a pixel height, so they cover the same
-              part of the art whatever size the card is: the top third under
-              the score, the lower half under the title. One lift per thing on
-              the art — the title carries its own shadow, so the scrim only has
-              to hold the last stretch behind it. */}
-          <div className="absolute inset-x-0 top-0 h-[42%] bg-gradient-to-b from-gray-25/85 via-gray-25/45 via-40% to-transparent" />
+              The top is shaded only in the corners that carry something — the
+              score on the left, the award mark and platform on the right — so
+              the middle of the picture stays clear. A full-width band there
+              hid a third of every cover to lift two small marks. The bottom
+              scrim is a share of the box, not a pixel height, so it holds the
+              same stretch behind the title whatever size the card is. */}
+          {game.rating ? <div aria-hidden className="cover-scrim-tl" /> : null}
+          {isMastered || (!phone && !hidePlatform) ? (
+            <div aria-hidden className="cover-scrim-tr" />
+          ) : null}
           <div className="absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-gray-25/92 via-gray-25/55 via-45% to-transparent" />
 
           {/* Completion celebration: a slow specular sweep across the art. */}
@@ -436,7 +434,7 @@ const GameCardImpl: React.FC<GameCardProps> = ({
             in the strip does.
 
             The award mark stands on the art with no disc behind it, lit gold,
-            at every width. The stronger top scrim is what keeps it legible over
+            at every width. The corner scrim is what keeps it legible over
             a bright picture — the same job the bottom one does for the title.
             Below the card-wide info button, so a medal is not the one patch of
             a clickable card that does nothing. */}

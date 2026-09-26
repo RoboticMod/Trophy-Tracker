@@ -149,12 +149,6 @@ export const GameMovedDialog: React.FC = () => {
             sparks={false}
           />
         </div>
-
-        <p className="text-75 text-gray-700">
-          This happened on its own — {perfect
-            ? 'every award is now unlocked.'
-            : 'its list grew, so there is more to do.'}
-        </p>
       </div>
     </Dialog>
   );
