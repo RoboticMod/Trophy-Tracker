@@ -306,6 +306,47 @@
   }
 }
 
+/* A game card's outer box. Off screen, the browser skips its layout, paint and
+   animations altogether (`content-visibility: auto`) — most of a library, most
+   of the time. The pixel of padding, taken back by the margin, is room for the
+   gold rim drawn just outside the card, since the containment clips at the
+   padding box. The intrinsic size is a first guess until the card has been
+   rendered once, after which the browser remembers the real one. */
+@utility card-shell {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
+  padding: 1px;
+  margin: -1px;
+
+  @media (width >= 48rem) {
+    contain-intrinsic-size: auto 240px;
+  }
+}
+
+/* The same box with its containment lifted, while a burst or a ring spills. */
+@utility card-shell-open {
+  padding: 1px;
+  margin: -1px;
+}
+
+/* A card arriving: a short rise and fade on the compositor. `backwards`, not
+   `both`: holding the end frame would pin the transform and cancel the hover
+   lift for ever after. */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@utility card-enter {
+  animation: card-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 /* The content column from md up: 1440 wide including its gutters, centred.
    Past 1440 the gutters grow and the layout does not. The top bar's contents
    sit in the same box, which is what lines the lockup up with the first card. */
@@ -449,50 +490,32 @@
    The gold ring
 
    A finished game gets a band of gold light turning slowly around its edge,
-   rather than a static border. The angle is a registered custom property, which
-   is what makes a conic-gradient animatable at all — an unregistered --angle is
-   an unanimatable string and the ring would simply sit still.
-
-   Where @property is unsupported the gradient still paints, just without
-   turning, which is the same thing prefers-reduced-motion asks for.
+   rather than a static border — a rotation, so it costs the compositor a
+   transform per frame rather than the page a repaint.
 --------------------------------------------------------------------------- */
-@property --gold-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes gold-spin {
+@keyframes gold-turn {
   to {
-    --gold-angle: 360deg;
+    rotate: 360deg;
   }
 }
 
 /* Rendered as its own absolutely-positioned child of the card, not as a border
-   or a pseudo-element behind it.
+   or a pseudo-element behind it: a card paints its own background before any
+   child, so a ring drawn underneath would be covered by the very surface it is
+   ringing.
 
-   The box is filled edge to edge with the gradient and then masked down to its
-   own 1px padding, so only the rim paints. Drawing it behind the card instead
-   would not work: a card paints its own background before any child, so a
-   negative-z-index ring would be covered by the very surface it is ringing. */
+   The box is masked down to its own 1px padding, so only the rim shows, and the
+   light is a square of conic gradient inside it that *turns* — a transform the
+   compositor runs on its own. It used to animate the gradient's start angle,
+   which is a fresh paint of the whole rim on every frame, for every finished
+   game on screen; on a phone that was a steady tax on scrolling. */
 @utility gold-ring {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
+  overflow: hidden;
   pointer-events: none;
-  /* Mostly transparent, with two short bright arcs. A continuous gold band
-     would just read as a thick border that happens to move; two highlights
-     chasing the rim read as light travelling around a metal edge. */
-  background: conic-gradient(
-    from var(--gold-angle),
-    transparent 0deg,
-    color-mix(in srgb, var(--color-trophy-900) 85%, white) 28deg,
-    transparent 75deg,
-    transparent 178deg,
-    color-mix(in srgb, var(--color-trophy-900) 60%, white) 210deg,
-    transparent 260deg
-  );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -501,10 +524,36 @@
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
-  animation: gold-spin 6s linear infinite;
+
+  /* Square, twice the box's width, centred: whatever the card's shape, the
+     turning square always covers its rim. */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 200%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    /* Mostly transparent, with two short bright arcs. A continuous gold band
+       would just read as a thick border that happens to move; two highlights
+       chasing the rim read as light travelling around a metal edge. */
+    background: conic-gradient(
+      transparent 0deg,
+      color-mix(in srgb, var(--color-trophy-900) 85%, white) 28deg,
+      transparent 75deg,
+      transparent 178deg,
+      color-mix(in srgb, var(--color-trophy-900) 60%, white) 210deg,
+      transparent 260deg
+    );
+    animation: gold-turn 6s linear infinite;
+    will-change: rotate;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    animation: none;
+    &::before {
+      animation: none;
+    }
   }
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { getGamePoster } from './steam';
 import { isUpgrade } from './useGameLogos';
+import { beforeBackgroundStep } from './backgroundWork';
 
 /** Where a game with nothing better to find is asked about again. */
 const RETRY_AFTER_MS = 1000 * 60 * 60 * 24 * 7;
@@ -75,6 +76,9 @@ export function useGamePosters() {
         .filter((game) => now - (misses[game.id] ?? 0) > RETRY_AFTER_MS);
 
       for (const game of pending) {
+        // Only in a visible tab, and only when the page has nothing better to
+        // do: each answer re-renders the app.
+        await beforeBackgroundStep();
         if (unmounted.current) return;
 
         const result = await getGamePoster(game.title, game.steamAppId);

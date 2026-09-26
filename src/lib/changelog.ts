@@ -21,6 +21,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.1',
+    date: '2026-09-26',
+    title: 'Faster, especially on a phone',
+    changes: [
+      'Editing or syncing a game no longer re-renders every card: a change to one game touches only its own card.',
+      'Cards off screen are skipped by the browser until you scroll to them.',
+      'A game’s windows load only when first opened, and are fetched in the background beforehand.',
+      'Pages load on demand, so the app starts with far less code, and every page is fetched in the background once it has.',
+      'The phone header, bottom bar and sheets no longer blur what scrolls behind them.',
+      'The gold rim on finished games turns without repainting the card.',
+      'Artwork lookups wait for idle moments and pause in a background tab.',
+      'Re-sorting a grid now snaps into place instead of gliding.',
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-09-24',
     title: 'Beaten, a changelog, and a round of fixes',

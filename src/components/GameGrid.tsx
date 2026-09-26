@@ -4,6 +4,7 @@ import { Platform, PLATFORM_IDS, UserGame } from '../types';
 import { comparePlatformOrder } from '../lib/constants';
 import { PlatformSectionHeader } from './PlatformSectionHeader';
 import { CardMeta, GameCard } from './GameCard';
+import { useGame } from '../context/GameContext';
 
 type RenderAction = (game: UserGame) => React.ReactNode;
 
@@ -19,21 +20,34 @@ interface GameListProps {
  * of one or two used to become full-width rows on a wide screen; a card that
  * looks like every other card turned out to matter more than a filled row.
  */
-export const GameList: React.FC<GameListProps> = ({ games, renderAction, hidePlatform, meta }) => (
-  <div className="grid-cards">
-    <AnimatePresence>
-      {games.map((game) => (
-        <GameCard
-          key={game.id}
-          game={game}
-          meta={meta}
-          hidePlatform={hidePlatform}
-          action={renderAction?.(game)}
-        />
-      ))}
-    </AnimatePresence>
-  </div>
-);
+export const GameList: React.FC<GameListProps> = ({ games, renderAction, hidePlatform, meta }) => {
+  // Read here, once, and handed to each card as the few values that concern
+  // it — so a card only re-renders when its own game or its own slice of this
+  // changes. See GameCard's props.
+  const { collections, profile, added, follow, celebration, celebrationPlayed } = useGame();
+
+  return (
+    <div className="grid-cards">
+      <AnimatePresence>
+        {games.map((game) => (
+          <GameCard
+            key={game.id}
+            game={game}
+            meta={meta}
+            hidePlatform={hidePlatform}
+            action={renderAction?.(game)}
+            collections={collections}
+            highlightStyle={profile.highlightStyle}
+            announcing={added?.gameId === game.id}
+            followToken={follow?.gameId === game.id ? follow.token : null}
+            celebrationToken={celebration?.gameId === game.id ? celebration.token : null}
+            celebrationPlayed={celebrationPlayed}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 interface GameGridProps {
   games: UserGame[];

@@ -140,7 +140,9 @@ export const Dialog: React.FC<DialogProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 bg-gray-25/72 backdrop-blur-[10px]"
+              // Darker rather than blurred: blurring the whole screen while the
+              // sheet slides in cost a phone the first frames of the slide.
+              className="fixed inset-0 bg-gray-25/80"
             />
 
             <motion.div

@@ -264,6 +264,30 @@ star is retired: see below. What is load-bearing:
 - **`Dialog`'s scroll lock is reference-counted**, because the exit animation
   makes which of two dialogs closes first a matter of timing.
 
+### Performance rules
+
+A library runs to 150 cards, so anything per card is paid 150 times, and again
+on every write. Measured on a 150-game library (production build): a one-game
+edit went from ~70 ms to ~8 ms, Home's mount from ~190 ms to ~85 ms.
+
+- **Cards do not read the game context.** `GameList` reads it once and passes
+  each memoised `GameCard` only its slice (`collections`, `highlightStyle`, and
+  this game's `followToken` / `celebrationToken` / `announcing`); celebration
+  goes through `useCelebrationFor`. A new context read inside the card undoes
+  this.
+- **A card's windows mount on first open** and load through
+  [`lib/lazyDialogs.tsx`](src/lib/lazyDialogs.tsx); pages load through
+  `preloadable` in `App.tsx`. Both are prefetched on idle. Not `React.lazy`: it
+  suspends on first render even when loaded, and React then holds the content
+  back 300 ms.
+- **No `layout` animation, no per-card blur or big shadow.** The entrance is the
+  CSS `card-enter`; the card sits in a `card-shell` (`content-visibility: auto`,
+  with 1px padding for the gold rim, lifted while a burst spills).
+- **No backdrop blur over scrolling content on a phone** (header, bottom bar,
+  sheet scrim). The gold rim rotates a layer instead of animating a gradient.
+- **`useMediaQuery` shares one listener per query** (`useSyncExternalStore`).
+- **Backfills** step only in a visible tab at idle (`lib/backgroundWork.ts`).
+
 ### Conventions worth keeping
 
 - **No star or sparkle icon.** It was used for the achievements emblem and the

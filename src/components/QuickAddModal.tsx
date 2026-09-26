@@ -27,7 +27,7 @@ import { syncFieldsFor } from '../lib/sync';
 import { useSync } from '../context/SyncContext';
 import { ResultPlatforms, VersionChooser } from './CatalogVersions';
 import { CoverArt } from './CoverArt';
-import { EditGameModal } from './EditGameModal';
+import { EditGameModal } from '../lib/lazyDialogs';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { Button, Dialog, TextInput } from './ui';
 import { cn } from '../lib/cn';

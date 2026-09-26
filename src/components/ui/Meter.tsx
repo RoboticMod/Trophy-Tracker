@@ -1,7 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { cn } from '../../lib/cn';
-import { EASE_OUT } from '../../lib/motion';
 import { useInView } from '../../lib/useInView';
 
 interface MeterProps {
@@ -60,18 +58,20 @@ export const Meter: React.FC<MeterProps> = ({
         className,
       )}
     >
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{ width: seen ? `${clamped}%` : 0 }}
-        transition={{ duration: 0.5, ease: EASE_OUT }}
+      {/* A CSS transition, not an animation library: a library of 150 games
+          draws 150 of these, and a JS-driven tween each was real work on a
+          phone for a sweep the browser can run on its own. */}
+      <div
         // A raw colour carries its own bloom inline, since there is no token
         // class to pair it with.
-        style={
-          color
-            ? { backgroundColor: color, boxShadow: `0 0 8px -3px ${color}` }
-            : undefined
-        }
-        className={cn('h-full rounded-full', color ? '' : cn(TONE[tone], TONE_GLOW[tone]))}
+        style={{
+          width: seen ? `${clamped}%` : 0,
+          ...(color ? { backgroundColor: color, boxShadow: `0 0 8px -3px ${color}` } : null),
+        }}
+        className={cn(
+          'h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+          color ? '' : cn(TONE[tone], TONE_GLOW[tone]),
+        )}
       />
     </div>
   );

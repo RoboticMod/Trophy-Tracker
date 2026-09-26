@@ -19,7 +19,7 @@ import {
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
 import { GameMovedDialog } from './GameMovedDialog';
-import { QuickAddModal } from './QuickAddModal';
+import { QuickAddModal, prefetchDialogs } from '../lib/lazyDialogs';
 import { SessionProgressDialog } from './SessionProgressDialog';
 import { UserGame } from '../types';
 import { APP_NAME } from '../lib/constants';
@@ -107,6 +107,7 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const {
     sidebarConfig,
+    isQuickAddOpen,
     setIsQuickAddOpen,
     games,
     collections,
@@ -323,6 +324,13 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => setMoreOpen(false), [location.pathname]);
 
+  // The add dialog, mounted on first use; the game windows warmed on idle.
+  const [addMounted, setAddMounted] = useState(false);
+  useEffect(() => {
+    if (isQuickAddOpen) setAddMounted(true);
+  }, [isQuickAddOpen]);
+  useEffect(() => prefetchDialogs(), []);
+
   /** Where the bar has room for the lockup's name as well as its mark. */
   const wideBar = useMediaQuery('(min-width: 80rem)');
 
@@ -469,7 +477,10 @@ export const AppLayout: React.FC = () => {
       {/* Mobile header ------------------------------------------------------
           56px plus the safe area, fixed. Every control in it is a 44px target:
           the back chevron, the page's name, then sync and add. */}
-      <header className="fixed inset-x-0 top-0 z-30 border-b border-gray-200 bg-gray-100/88 pt-[env(safe-area-inset-top)] backdrop-blur-lg md:hidden">
+      {/* Near-opaque rather than frosted: a backdrop blur over content that
+          scrolls under it is recomputed on every scroll frame, and on a phone
+          that was the single most expensive thing on the screen. */}
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-gray-200 bg-gray-100/96 pt-[env(safe-area-inset-top)] md:hidden">
         <div className="flex h-14 items-center justify-between gap-2 pl-1 pr-2">
           <div className="flex min-w-0 items-center gap-1.5">
             {/* Screens here go two and three deep — a list, then a game. The
@@ -561,7 +572,7 @@ export const AppLayout: React.FC = () => {
             was alarming and untrue. A genuine network problem still gets
             today's wording; a first sign-in gets a way forward instead. */}
         {needsSetup && !error && location.pathname !== '/setup' ? (
-          <div className="mx-auto mb-5 flex max-w-[1760px] flex-wrap items-center gap-3 rounded-md border border-accent-700/45 bg-accent-700/12 p-3 text-75 font-semibold text-accent-900 backdrop-blur-sm">
+          <div className="mx-auto mb-5 flex max-w-[1760px] flex-wrap items-center gap-3 rounded-md border border-accent-700/45 bg-accent-700/12 p-3 text-75 font-semibold text-accent-900">
             <span className="flex-1">Your library isn’t set up yet.</span>
             <Button variant="accent" size="s" onClick={() => navigate('/setup')}>
               Go to setup
@@ -572,7 +583,7 @@ export const AppLayout: React.FC = () => {
         {error ? (
           <div
             role="alert"
-            className="mx-auto mb-5 flex max-w-[1760px] items-start gap-3 rounded-md border border-notice-700/50 bg-notice-700/12 p-3 text-75 font-semibold text-notice-900 backdrop-blur-sm"
+            className="mx-auto mb-5 flex max-w-[1760px] items-start gap-3 rounded-md border border-notice-700/50 bg-notice-700/12 p-3 text-75 font-semibold text-notice-900"
           >
             <span className="flex-1">{error}</span>
             <button
@@ -666,7 +677,7 @@ export const AppLayout: React.FC = () => {
           whole slot is the target, and the current one is marked by a lit
           rule along the top edge — the same mark the desktop bar draws along
           its bottom. */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-gray-100/88 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-gray-100/96 pb-[env(safe-area-inset-bottom)] md:hidden">
         <div className="flex h-15 items-stretch justify-between px-1">
           {mobilePrimary.map((item) => {
             const isActive = location.pathname === item.path;
@@ -702,7 +713,9 @@ export const AppLayout: React.FC = () => {
         </div>
       </nav>
 
-      <QuickAddModal />
+      {/* Mounted the first time it is asked for, then kept — it holds the
+          draft of a game you had started adding. */}
+      {addMounted ? <QuickAddModal /> : null}
 
       {/* What the app says once a game has landed, and the offer to go and see
           it. Mounted here rather than in the add dialog, because a game can be

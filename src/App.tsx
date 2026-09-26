@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2, DatabaseZap } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,16 +7,40 @@ import { SyncProvider } from './context/SyncContext';
 import { isSupabaseConfigured } from './lib/supabase';
 import { APP_NAME } from './lib/constants';
 import { AppLayout } from './components/AppLayout';
-import { AuthView } from './pages/AuthView';
+import { preloadable } from './lib/preloadable';
+// Home is where every session opens, so it ships with the app. Every other
+// page is its own chunk — a phone parses one page's code before first paint
+// rather than all ten — and they are all fetched once the app is idle, so a
+// tab is ready by the time anyone taps it.
 import { DashboardView } from './pages/DashboardView';
-import { CurrentlyPlayingView } from './pages/CurrentlyPlayingView';
-import { AchievementsView } from './pages/AchievementsView';
-import { SearchView } from './pages/SearchView';
-import { BacklogView } from './pages/BacklogView';
-import { CollectionsView } from './pages/CollectionsView';
-import { StatsView } from './pages/StatsView';
-import { SettingsView } from './pages/SettingsView';
-import { SetupView } from './pages/SetupView';
+
+const pages: (() => Promise<unknown>)[] = [];
+const page = <K extends string>(
+  load: () => Promise<Record<K, React.ComponentType>>,
+  name: K,
+  fallback?: React.ReactNode,
+) => {
+  const entry = preloadable(() => load().then((module) => module[name]), fallback);
+  pages.push(entry.preload);
+  return entry.Component;
+};
+
+/** Every page's chunk, at the first idle moment. */
+const prefetchPages = () => {
+  const warm = () => pages.forEach((preload) => void preload());
+  if ('requestIdleCallback' in window) window.requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 2000);
+};
+
+const AuthView = page(() => import('./pages/AuthView'), 'AuthView', <Splash />);
+const CurrentlyPlayingView = page(() => import('./pages/CurrentlyPlayingView'), 'CurrentlyPlayingView');
+const AchievementsView = page(() => import('./pages/AchievementsView'), 'AchievementsView');
+const SearchView = page(() => import('./pages/SearchView'), 'SearchView');
+const BacklogView = page(() => import('./pages/BacklogView'), 'BacklogView');
+const CollectionsView = page(() => import('./pages/CollectionsView'), 'CollectionsView');
+const StatsView = page(() => import('./pages/StatsView'), 'StatsView');
+const SettingsView = page(() => import('./pages/SettingsView'), 'SettingsView');
+const SetupView = page(() => import('./pages/SetupView'), 'SetupView');
 
 /** Shown instead of a broken app when Supabase credentials are absent. */
 function SetupNotice() {
@@ -53,6 +78,8 @@ function Splash() {
 
 function AuthenticatedApp() {
   const { session, loading } = useAuth();
+
+  useEffect(() => prefetchPages(), []);
 
   if (loading) return <Splash />;
   if (!session) return <AuthView />;

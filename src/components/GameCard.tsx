@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock } from 'lucide-react';
-import { UserGame } from '../types';
+import { Collection, HighlightStyle, UserGame } from '../types';
 import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import {
   BACKLOG_COLLECTION_ID,
@@ -10,19 +10,16 @@ import {
   isPermanentCollection,
   permanentOf,
 } from '../lib/collections';
-import { useGame } from '../context/GameContext';
 import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardProgressLabel } from './TrophyBadge';
-import { EditGameModal } from './EditGameModal';
-import { GameInfoModal } from './GameInfoModal';
-import { GamePersonalModal } from './GamePersonalModal';
+import { EditGameModal, GameInfoModal, GamePersonalModal } from '../lib/lazyDialogs';
 import { Celebration } from './Celebration';
 import { Meter, OverlayBadge } from './ui';
 import { formatRating, ratingColor } from '../lib/rating';
 import { completionPercent, isPerfect } from '../lib/completion';
 import { formatHours, relativeTime } from '../lib/format';
-import { useCelebration } from '../lib/useCelebration';
+import { useCelebrationFor } from '../lib/useCelebration';
 import { useInView } from '../lib/useInView';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
@@ -74,6 +71,20 @@ export type CardMeta = 'lists' | 'lastPlayed';
 
 interface GameCardProps {
   game: UserGame;
+  /**
+   * The shared state a card needs, read once by the grid and handed down —
+   * the card itself does not subscribe to the library. With the card memoised,
+   * a write to one game re-renders that game's card and not the other 149.
+   */
+  collections: Collection[];
+  highlightStyle?: HighlightStyle;
+  /** The add dialog is announcing this game, and plays its burst instead. */
+  announcing: boolean;
+  /** This game's follow token, when the app has been asked to bring it into view. */
+  followToken: number | null;
+  /** This game's waiting celebration, if it has one. */
+  celebrationToken: number | null;
+  celebrationPlayed: (token: number) => void;
   /** Rendered below the progress row, for actions specific to one view. */
   action?: React.ReactNode;
   /** Drops the platform chip where a surrounding heading already states it. */
@@ -81,13 +92,18 @@ interface GameCardProps {
   meta?: CardMeta;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({
+const GameCardImpl: React.FC<GameCardProps> = ({
   game,
   action,
   hidePlatform = false,
   meta = 'lists',
+  collections,
+  highlightStyle,
+  announcing,
+  followToken,
+  celebrationToken,
+  celebrationPlayed,
 }) => {
-  const { profile, collections, added, follow } = useGame();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   /**
@@ -97,19 +113,36 @@ export const GameCard: React.FC<GameCardProps> = ({
    */
   const [isPersonalOpen, setIsPersonalOpen] = useState(false);
 
+  /**
+   * Which of the three windows have ever been opened from this card.
+   *
+   * A window is mounted the first time it is asked for, and not before: a
+   * library of 150 cards used to keep 450 closed dialogs mounted — each with
+   * its own state, effects and listeners — and re-render every one of them on
+   * each sync write. Kept mounted once opened, so a closing window still plays
+   * its exit rather than vanishing. Monotonic, so noting it during render is
+   * safe: the flag only ever turns on, in the same render that opens it.
+   */
+  const opened = useRef({ edit: false, info: false, personal: false });
+  if (isEditOpen) opened.current.edit = true;
+  if (isInfoOpen) opened.current.info = true;
+  if (isPersonalOpen) opened.current.personal = true;
+
   const [cardRef, onScreen] = useInView<HTMLDivElement>(0.5);
 
   /** The follow this card is currently ringed for, so a repeat re-lights it. */
   const [found, setFound] = useState<number | null>(null);
-
-  const followToken = follow?.gameId === game.id ? follow.token : null;
 
   /**
    * This card plays a waiting celebration once it is actually being looked at —
    * unless the dialog announcing this very game is open over it, which is the
    * surface in front of someone and plays it instead.
    */
-  const burst = useCelebration(game, onScreen && added?.gameId !== game.id);
+  const burst = useCelebrationFor(
+    onScreen && !announcing ? celebrationToken : null,
+    game.platform,
+    celebrationPlayed,
+  );
 
   /**
    * Sorting and grouping can drop a new game well down the page, so bring it
@@ -230,7 +263,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   // A wide card lays its shelf tint down as a wash over the card's own ground
   // rather than an outer glow: the strip below the art is solid now, and a
   // bloom around a panel that size lit the gap between two cards.
-  const filled = profile.highlightStyle === 'fill';
+  const filled = highlightStyle === 'fill';
   //
   // A phone keeps its playing card lit with a bloom rather than the wash: on a
   // card that narrow the wash reads as a grey-blue tint, where the ring reads
@@ -260,8 +293,13 @@ export const GameCard: React.FC<GameCardProps> = ({
 
       {burst !== null && <Celebration key={burst} platform={game.platform} />}
 
-      <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
+      {/* Each window's code is prefetched while the app is idle; on the rare
+          first tap before that, it simply arrives a moment later. */}
+      {opened.current.edit ? (
+        <EditGameModal game={game} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} />
+      ) : null}
 
+      {opened.current.personal ? (
       <GamePersonalModal
         game={game}
         isOpen={isPersonalOpen}
@@ -276,38 +314,49 @@ export const GameCard: React.FC<GameCardProps> = ({
         }}
         onEdit={() => setIsEditOpen(true)}
       />
+      ) : null}
 
-      <GameInfoModal
-        game={game}
-        isOpen={isInfoOpen}
-        onClose={() => setIsInfoOpen(false)}
-        onEdit={() => setIsEditOpen(true)}
-      />
+      {opened.current.info ? (
+        <GameInfoModal
+          game={game}
+          isOpen={isInfoOpen}
+          onClose={() => setIsInfoOpen(false)}
+          onEdit={() => setIsEditOpen(true)}
+        />
+      ) : null}
     </>
   );
 
-  const motionProps = {
-    ref: cardRef,
-    'data-game-id': game.id,
-    layout: true,
-    initial: { opacity: 0, y: 12 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, scale: 0.97, transition: { duration: 0.2, ease: EASE_OUT } },
-    // Entrances and re-flows share the app's easing; a re-sorted grid glides
-    // to its new places rather than springing there.
-    transition: { duration: 0.45, ease: EASE_OUT, layout: { duration: 0.45, ease: EASE_OUT } },
-  } as const;
+  /**
+   * The card is two boxes. The outer one is what the grid and the page see:
+   * it is keyed for its exit, measured for being on screen, and skipped by the
+   * browser entirely while it is off screen (`card-shell`, content-visibility)
+   * — which is most of a library at any moment. That containment clips at the
+   * padding box, so the shell carries a pixel of padding for the gold rim to
+   * sit in, and drops the containment while a burst or a ring needs to spill
+   * past the card.
+   *
+   * No `layout` animation and no JS entrance: measuring every card's box on
+   * every render was the most expensive thing a sync did, and the entrance is
+   * a CSS keyframe on the compositor. A re-sorted grid now settles at once.
+   */
+  const spilling = burst !== null || found !== null;
 
   return (
     <motion.div
-      {...motionProps}
-      whileHover={{ y: -3, transition: { duration: 0.2, ease: EASE_OUT } }}
+      ref={cardRef}
+      data-game-id={game.id}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.2, ease: EASE_OUT } }}
+      className={cn('card-enter flex', spilling ? 'card-shell-open' : 'card-shell')}
+    >
+    <div
       // A playing card lights its own edge in the accent; every other state
       // leaves --glow unset and glow-ring goes unused.
       style={{ '--glow': 'var(--color-accent-700)' } as React.CSSProperties}
       className={cn(
         // Full height of its grid row, so a row of cards always ends level.
-        'group relative flex h-full flex-col rounded-lg border shadow-lg backdrop-blur-sm transition-colors',
+        // The lift on hover is CSS, from md, where there is a pointer.
+        'group relative flex flex-1 flex-col rounded-lg border transition-[translate,border-color] duration-200 md:hover:-translate-y-0.75',
         highlight,
       )}
     >
@@ -490,6 +539,15 @@ export const GameCard: React.FC<GameCardProps> = ({
       ) : null}
 
       {extras}
+    </div>
     </motion.div>
   );
 };
+
+/**
+ * Memoised: a card re-renders when its game, its action or the shared state it
+ * reads changes — not whenever a parent does. With context the card still
+ * hears about every library change, but a page filtering or a sort menu
+ * opening no longer walks 150 of them.
+ */
+export const GameCard = memo(GameCardImpl);

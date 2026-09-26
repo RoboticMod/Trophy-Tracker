@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { getGameLogo } from './steam';
+import { beforeBackgroundStep } from './backgroundWork';
 
 /**
  * Where a game with nothing better to find is asked about again.
@@ -137,6 +138,9 @@ export function useGameLogos() {
         .filter((game) => now - (misses[game.id] ?? 0) > RETRY_AFTER_MS);
 
       for (const game of pending) {
+        // Only in a visible tab, and only when the page has nothing better to
+        // do: each answer re-renders the app.
+        await beforeBackgroundStep();
         if (unmounted.current) return;
 
         const result = await getGameLogo(game.title, game.steamAppId);

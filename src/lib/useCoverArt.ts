@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { canSearchRawg, needsCover, rawgCover, useCatalogSettings } from './catalog';
+import { beforeBackgroundStep } from './backgroundWork';
 
 /**
  * Bringing the library's covers over to RAWG.
@@ -47,6 +48,9 @@ export function useCoverArt() {
       const pending = latest.current.getGames().filter((game) => needsCover(game.coverImage));
 
       for (const game of pending) {
+        // Only in a visible tab, and only when the page has nothing better to
+        // do: each answer re-renders the app.
+        await beforeBackgroundStep();
         if (unmounted.current) return;
 
         const cover = await rawgCover(game.title, latest.current.rawgKey);

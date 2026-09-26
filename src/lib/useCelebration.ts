@@ -22,11 +22,25 @@ export function useCelebration(
   ready: boolean,
 ): number | null {
   const { celebration, celebrationPlayed } = useGame();
+  const token = game && celebration?.gameId === game.id ? celebration.token : null;
+  return useCelebrationFor(ready ? token : null, game?.platform, celebrationPlayed);
+}
+
+/**
+ * The same, for a caller that has already read the shared state and passes in
+ * only its own part of it — a game card, which must not subscribe to the whole
+ * library for the sake of one token that is almost always null.
+ *
+ * `pending` is this game's celebration token once it is ready to be seen, and
+ * null otherwise.
+ */
+export function useCelebrationFor(
+  pending: number | null,
+  platform: Platform | undefined,
+  celebrationPlayed: (token: number) => void,
+): number | null {
   const [burst, setBurst] = useState<number | null>(null);
   const timer = useRef<number | null>(null);
-
-  const pending = game && ready && celebration?.gameId === game.id ? celebration.token : null;
-  const platform = game?.platform;
 
   useEffect(
     () => () => {
