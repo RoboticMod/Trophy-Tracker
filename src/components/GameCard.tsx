@@ -253,8 +253,17 @@ const GameCardImpl: React.FC<GameCardProps> = ({
   // own completion announcement.
   const awardLabel = awardProgressLabel(game.platform, isMastered);
 
-  const hoursLabel =
-    game.hoursPlayed > 0 ? `${formatHours(game.hoursPlayed)}h played` : 'Not started';
+  // Short, to share a line with the count: the clock beside it already says
+  // what the figure is.
+  const hoursLabel = game.hoursPlayed > 0 ? `${formatHours(game.hoursPlayed)}h` : 'Not started';
+
+  const meter = (
+    <Meter
+      value={progress}
+      tone={progress === 100 ? 'trophy' : 'accent'}
+      label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
+    />
+  );
 
   // Stroke draws the shelf as a coloured edge; fill tints the whole surface.
   // A finished game has a gold edge and a warm glow in either style.
@@ -472,61 +481,74 @@ const GameCardImpl: React.FC<GameCardProps> = ({
       </div>
 
       {/* Strip ------------------------------------------------------------- */}
-      {/* Solid, below the art: the count and the percentage, then the meter.
-          A wide card adds playtime and one list; a phone stops there, which is
-          what lets its type stay at 12 rather than shrinking to fit a picture.
-          Always the same lines whatever the state, so a row of cards ends
-          level. */}
+      {/* Solid, below the art, and two lines at every width. A phone has the
+          count and the percentage over the meter, which is what lets its type
+          stay at 12 rather than shrinking to fit a picture. A wide card puts
+          playtime beside the count and one list at the end of that line, and
+          moves the percentage to the end of the meter — the same facts it had
+          over three lines, a line shorter. Always the same lines whatever the
+          state, so a row of cards ends level. */}
       <div className="flex flex-1 flex-col gap-1.75 p-2.5 md:gap-2.25 md:p-3">
-        <div className="flex items-center gap-1.75 text-75 tabular-nums md:gap-2 md:text-90">
-          {/* The platform's own award, dimmed until it is actually earned. */}
-          <TrophyBadge platform={game.platform} size={phone ? 14 : 15} muted={!isMastered} />
-          <span className="font-bold text-gray-900">
-            {game.achievementsUnlocked} / {game.achievementsTotal}
-          </span>
-          <span className="ml-auto text-gray-700">{progress}%</span>
-        </div>
-
-        <Meter
-          value={progress}
-          tone={progress === 100 ? 'trophy' : 'accent'}
-          label={`${game.title} ${awardNoun(game.platform).toLowerCase()} progress`}
-        />
-
         {phone ? (
-          // A phone's per-card action lives in the strip, full width — its own
-          // target, lifted above the card's info button.
-          action ? <div className="relative z-30 mt-0.25">{action}</div> : null
+          <>
+            <div className="flex items-center gap-1.75 text-75 tabular-nums">
+              {/* The platform's own award, dimmed until it is actually earned. */}
+              <TrophyBadge platform={game.platform} size={14} muted={!isMastered} />
+              <span className="font-bold text-gray-900">
+                {game.achievementsUnlocked} / {game.achievementsTotal}
+              </span>
+              <span className="ml-auto text-gray-700">{progress}%</span>
+            </div>
+            {meter}
+            {/* A phone's per-card action lives in the strip, full width — its
+                own target, lifted above the card's info button. */}
+            {action ? <div className="relative z-30 mt-0.25">{action}</div> : null}
+          </>
         ) : (
-          <div className="flex h-5.5 min-w-0 items-center gap-2 text-75 tabular-nums text-gray-700">
-            <Clock size={13} className="shrink-0 text-gray-600" />
-            <span className="shrink-0">{hoursLabel}</span>
+          <>
+            <div className="flex h-5.5 min-w-0 items-center gap-2 tabular-nums">
+              <TrophyBadge platform={game.platform} size={15} muted={!isMastered} />
+              <span className="shrink-0 text-90 font-bold text-gray-900">
+                {game.achievementsUnlocked} / {game.achievementsTotal}
+              </span>
+              <span className="flex shrink-0 items-center gap-1.25 pl-1 text-75 text-gray-700">
+                <Clock size={13} className="shrink-0 text-gray-600" />
+                {hoursLabel}
+              </span>
 
-            {meta === 'lastPlayed' ? (
-              <span className="ml-auto shrink-0 text-gray-600">
-                {relativeTime(game.lastPlayedAt)}
-              </span>
-            ) : firstList ? (
-              // The list's own colour on the text as well as the dot — a grey
-              // label beside a coloured dot made the colour look like
-              // decoration rather than the thing naming the list.
-              <span
-                className="ml-auto flex min-w-0 items-center gap-1.5"
-                title={lists.map((m) => m.name).join(', ')}
-              >
-                <span
-                  className="inline-flex h-5.5 min-w-0 items-center gap-1.5 rounded-full border border-gray-300 px-2.25 font-bold"
-                  style={{ color: firstList.color }}
-                >
-                  <span className="h-1.75 w-1.75 shrink-0 rounded-full bg-current" />
-                  <span className="truncate">{firstList.name}</span>
+              {meta === 'lastPlayed' ? (
+                <span className="ml-auto shrink-0 text-75 text-gray-600">
+                  {relativeTime(game.lastPlayedAt)}
                 </span>
-                {moreLists.length > 0 ? (
-                  <span className="shrink-0 font-bold text-gray-600">+{moreLists.length}</span>
-                ) : null}
+              ) : firstList ? (
+                // The list's own colour on the text as well as the dot — a grey
+                // label beside a coloured dot made the colour look like
+                // decoration rather than the thing naming the list.
+                <span
+                  className="ml-auto flex min-w-0 items-center gap-1.5 text-75"
+                  title={lists.map((m) => m.name).join(', ')}
+                >
+                  <span
+                    className="inline-flex h-5.5 min-w-0 items-center gap-1.5 rounded-full border border-gray-300 px-2.25 font-bold"
+                    style={{ color: firstList.color }}
+                  >
+                    <span className="h-1.75 w-1.75 shrink-0 rounded-full bg-current" />
+                    <span className="truncate">{firstList.name}</span>
+                  </span>
+                  {moreLists.length > 0 ? (
+                    <span className="shrink-0 font-bold text-gray-600">+{moreLists.length}</span>
+                  ) : null}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              {meter}
+              <span className="w-8.5 shrink-0 text-right text-75 tabular-nums text-gray-700">
+                {progress}%
               </span>
-            ) : null}
-          </div>
+            </div>
+          </>
         )}
       </div>
 

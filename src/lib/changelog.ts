@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.4',
+    date: '2026-09-26',
+    title: 'Shorter cards',
+    changes: [
+      'On a wide screen, hours played sit beside the award count and the percentage beside the meter, so every card is a line shorter.',
+    ],
+  },
+  {
     version: '0.10.3',
     date: '2026-09-26',
     title: 'Clearer cover art',
