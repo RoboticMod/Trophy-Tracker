@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.5',
+    date: '2026-09-26',
+    title: 'A golden finish',
+    changes: [
+      'Completing a game now pours gold up its card from the meter, with the sparks still rising through it.',
+    ],
+  },
+  {
     version: '0.10.4',
     date: '2026-09-26',
     title: 'Shorter cards',

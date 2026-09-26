@@ -44,8 +44,8 @@ const TONE_TINT: Record<NonNullable<CelebrationProps['tone']>, string> = {
 };
 
 /**
- * Plays over the card that was just completed: a band of light sweeping up the
- * artwork, with sparkles rising and drifting in its wake.
+ * Plays over the card that was just completed: gold pouring up the card from
+ * the meter and draining away, with sparkles rising and drifting through it.
  *
  * Mount it with a fresh key per celebration — the spread is randomised once on
  * mount, so no two runs land the same way, and the CSS animations restart.
@@ -88,20 +88,24 @@ export const Celebration: React.FC<CelebrationProps> = ({
       // switching tone moves a variable rather than duplicating the gradients.
       style={{ '--celebration-tint': TONE_TINT[tone] } as React.CSSProperties}
     >
+      {/* The pour: colour filling the card from the bottom up, as though the
+          meter that just reached full had overflowed, then draining away. */}
       <div
-        className="celebration-glow absolute inset-0"
+        className="celebration-pour absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--celebration-tint) 24%, transparent), transparent 70%)',
+            'linear-gradient(to top, color-mix(in srgb, var(--celebration-tint) 55%, transparent), color-mix(in srgb, var(--celebration-tint) 25%, transparent) 60%, color-mix(in srgb, var(--celebration-tint) 5%, transparent))',
         }}
       />
 
+      {/* Its bright leading edge, a card-height box with the light along its
+          top, so a translate of its own height carries the edge from the
+          bottom of the card to the top. */}
       <div
-        className="celebration-shine absolute inset-x-0 h-1/2"
+        className="celebration-pour-edge absolute inset-0"
         style={{
-          top: '50%',
           background:
-            'linear-gradient(to top, transparent, color-mix(in srgb, var(--celebration-tint) 34%, transparent) 55%, transparent)',
+            'linear-gradient(to bottom, transparent, color-mix(in srgb, var(--celebration-tint) 45%, white) 3px, color-mix(in srgb, var(--celebration-tint) 30%, transparent) 7px, transparent 16px)',
         }}
       />
 
