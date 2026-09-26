@@ -404,18 +404,10 @@ const GameCardImpl: React.FC<GameCardProps> = ({
                 'opacity-85 grayscale group-hover:opacity-100 group-hover:grayscale-0',
             )}
           />
-          {/* Scrims keep the overlays legible over any art.
-
-              The top is shaded only in the corners that carry something — the
-              score on the left, the award mark and platform on the right — so
-              the middle of the picture stays clear. A full-width band there
-              hid a third of every cover to lift two small marks. The bottom
-              scrim is a share of the box, not a pixel height, so it holds the
-              same stretch behind the title whatever size the card is. */}
-          {game.rating ? <div aria-hidden className="cover-scrim-tl" /> : null}
-          {isMastered || (!phone && !hidePlatform) ? (
-            <div aria-hidden className="cover-scrim-tr" />
-          ) : null}
+          {/* The title's scrim. A share of the box, not a pixel height, so it
+              holds the same stretch behind the title whatever size the card
+              is. The top of the art has none: the marks up there carry their
+              own shadows, so the picture is left whole. */}
           <div className="absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-gray-25/92 via-gray-25/55 via-45% to-transparent" />
 
           {/* Completion celebration: a slow specular sweep across the art. */}
@@ -425,12 +417,15 @@ const GameCardImpl: React.FC<GameCardProps> = ({
         {/* The score, top left, on the same edge as the title and the strip:
             a scrim with a hairline ring in the score's own colour, so the
             verdict reads from across the grid before the digits do. White
-            figures inside it — the ring already says how good. */}
+            figures inside it — the ring already says how good. A dark shadow
+            with no offset lifts it off a bright picture. */}
         {game.rating ? (
           <span
             title={`Game rated ${formatRating(game.rating)} out of 10`}
-            className="absolute left-2.5 top-2.5 z-10 inline-flex h-5.5 min-w-8 items-center justify-center rounded-sm bg-gray-25/55 px-1.5 text-75 font-bold tabular-nums text-gray-1000 md:left-3 md:top-3 md:h-6 md:min-w-9 md:text-90"
-            style={{ boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}` }}
+            className="absolute left-2.5 top-2.5 z-10 inline-flex h-5.5 min-w-8 items-center justify-center rounded-sm bg-gray-25/55 px-1.5 text-75 font-bold tabular-nums text-gray-1000 [text-shadow:0_0_4px_rgb(3_5_10/0.8)] md:left-3 md:top-3 md:h-6 md:min-w-9 md:text-90"
+            style={{
+              boxShadow: `inset 0 0 0 1px ${ratingColor(game.rating)}, 0 0 8px rgb(3 5 10 / 0.75)`,
+            }}
           >
             {formatRating(game.rating)}
           </span>
@@ -442,19 +437,15 @@ const GameCardImpl: React.FC<GameCardProps> = ({
             sections already name it, and in the mixed spotlight the award mark
             in the strip does.
 
-            The award mark stands on the art with no disc behind it, lit gold,
-            at every width. The corner scrim is what keeps it legible over
-            a bright picture — the same job the bottom one does for the title.
-            Below the card-wide info button, so a medal is not the one patch of
-            a clickable card that does nothing. */}
+            The award mark stands on the art with no disc behind it and no
+            halo, at every width. Its own dark shadow is what keeps it legible
+            over a bright picture. Below the card-wide info button, so a medal
+            is not the one patch of a clickable card that does nothing. */}
         {isMastered || (!phone && !hidePlatform) ? (
           <div className="absolute right-2.5 top-2.25 z-10 flex items-center gap-2 md:right-3 md:top-2.75">
             {isMastered ? (
-              <span
-                title={awardLabel}
-                className="flex drop-shadow-[0_0_6px_color-mix(in_srgb,var(--color-trophy-900)_55%,transparent)]"
-              >
-                <TrophyBadge platform={game.platform} size={phone ? 24 : 28} />
+              <span title={awardLabel} className="overlay-mark-shadow flex">
+                <TrophyBadge platform={game.platform} size={phone ? 24 : 28} glow={false} />
               </span>
             ) : null}
             {!phone && !hidePlatform ? (
@@ -481,14 +472,13 @@ const GameCardImpl: React.FC<GameCardProps> = ({
       </div>
 
       {/* Strip ------------------------------------------------------------- */}
-      {/* Solid, below the art, and two lines at every width. A phone has the
-          count and the percentage over the meter, which is what lets its type
-          stay at 12 rather than shrinking to fit a picture. A wide card puts
-          playtime beside the count and one list at the end of that line, and
-          moves the percentage to the end of the meter — the same facts it had
-          over three lines, a line shorter. Always the same lines whatever the
-          state, so a row of cards ends level. */}
-      <div className="flex flex-1 flex-col gap-1.75 p-2.5 md:gap-2.25 md:p-3">
+      {/* Solid, below the art, and two lines at every width: the figures, then
+          the meter under them, full width. A phone has the count and the
+          percentage, which is what lets its type stay at 12 rather than
+          shrinking to fit a picture; a wide card adds playtime and one list
+          between them. Always the same lines whatever the state, so a row of
+          cards ends level. */}
+      <div className="flex flex-1 flex-col gap-1.75 p-2.5 md:gap-2.5 md:p-3">
         {phone ? (
           <>
             <div className="flex items-center gap-1.75 text-75 tabular-nums">
@@ -506,48 +496,54 @@ const GameCardImpl: React.FC<GameCardProps> = ({
           </>
         ) : (
           <>
-            <div className="flex h-5.5 min-w-0 items-center gap-2 tabular-nums">
+            {/* One line, three weights: the count is the headline, the
+                percentage answers it at the far end in the same size, and
+                playtime — and the list, or when it was last played — sit
+                between them a step smaller and quieter. */}
+            <div className="flex h-5 min-w-0 items-center gap-2 leading-none tabular-nums">
               <TrophyBadge platform={game.platform} size={15} muted={!isMastered} />
-              <span className="shrink-0 text-90 font-bold text-gray-900">
+              <span className="shrink-0 text-90 font-bold text-gray-1000">
                 {game.achievementsUnlocked} / {game.achievementsTotal}
               </span>
-              <span className="flex shrink-0 items-center gap-1.25 pl-1 text-75 text-gray-700">
-                <Clock size={13} className="shrink-0 text-gray-600" />
-                {hoursLabel}
+              <span className="flex min-w-0 items-center gap-1 text-75 text-gray-600">
+                <Clock size={12} className="shrink-0" />
+                <span className="truncate">
+                  {hoursLabel}
+                  {meta === 'lastPlayed' && game.lastPlayedAt
+                    ? ` · ${relativeTime(game.lastPlayedAt)}`
+                    : null}
+                </span>
               </span>
 
-              {meta === 'lastPlayed' ? (
-                <span className="ml-auto shrink-0 text-75 text-gray-600">
-                  {relativeTime(game.lastPlayedAt)}
-                </span>
-              ) : firstList ? (
+              {meta !== 'lastPlayed' && firstList ? (
                 // The list's own colour on the text as well as the dot — a grey
                 // label beside a coloured dot made the colour look like
                 // decoration rather than the thing naming the list.
                 <span
-                  className="ml-auto flex min-w-0 items-center gap-1.5 text-75"
+                  className="ml-auto flex min-w-0 items-center gap-1 text-75 font-bold"
+                  style={{ color: firstList.color }}
                   title={lists.map((m) => m.name).join(', ')}
                 >
-                  <span
-                    className="inline-flex h-5.5 min-w-0 items-center gap-1.5 rounded-full border border-gray-300 px-2.25 font-bold"
-                    style={{ color: firstList.color }}
-                  >
-                    <span className="h-1.75 w-1.75 shrink-0 rounded-full bg-current" />
-                    <span className="truncate">{firstList.name}</span>
-                  </span>
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+                  <span className="truncate">{firstList.name}</span>
                   {moreLists.length > 0 ? (
-                    <span className="shrink-0 font-bold text-gray-600">+{moreLists.length}</span>
+                    <span className="shrink-0 text-gray-600">+{moreLists.length}</span>
                   ) : null}
                 </span>
               ) : null}
-            </div>
 
-            <div className="flex items-center gap-2.5">
-              {meter}
-              <span className="w-8.5 shrink-0 text-right text-75 tabular-nums text-gray-700">
+              <span
+                className={cn(
+                  'shrink-0 text-90 font-bold',
+                  meta !== 'lastPlayed' && firstList ? 'pl-1' : 'ml-auto',
+                  isMastered ? 'text-trophy-900' : 'text-gray-800',
+                )}
+              >
                 {progress}%
               </span>
             </div>
+
+            {meter}
           </>
         )}
       </div>

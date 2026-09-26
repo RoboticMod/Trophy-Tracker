@@ -109,20 +109,16 @@ export const GameAddedDialog: React.FC = () => {
               )}
             </div>
 
+            {/* The award mark where the card has it — top right, bare on the
+                art, lifted by its own shadow — so the dialog and the card it
+                announces show a finished game the same way. */}
             {perfect && (
-              <div className="absolute bottom-3 right-3 z-10">
-                <OverlayBadge
-                  circle
-                  size={40}
-                  title={awardLabel}
-                  className="trophy-emblem badge-shine overflow-hidden ring-1 ring-trophy-700/60"
-                >
-                  <TrophyBadge platform={game.platform} size={24} />
-                </OverlayBadge>
-              </div>
+              <span title={awardLabel} className="overlay-mark-shadow absolute right-3 top-2.75 z-10 flex">
+                <TrophyBadge platform={game.platform} size={28} glow={false} />
+              </span>
             )}
 
-            <div className={cn('absolute inset-x-3.5 bottom-2.5 z-10', perfect && 'pr-12')}>
+            <div className="absolute inset-x-3.5 bottom-2.5 z-10">
               <h3 className="text-200 font-bold tracking-tight text-gray-1000">
                 <MarqueeText lines={2}>{game.title}</MarqueeText>
               </h3>

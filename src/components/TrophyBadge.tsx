@@ -70,6 +70,12 @@ interface TrophyBadgeProps {
    * game that has not earned it yet, so it never reads as unlocked.
    */
   muted?: boolean;
+  /**
+   * The platform-blue halo around an earned mark. Off where the mark stands on
+   * cover art, which gives it a dark shadow instead: a halo over a busy picture
+   * reads as a smear rather than as light.
+   */
+  glow?: boolean;
   className?: string;
 }
 
@@ -86,6 +92,7 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
   platform,
   size = 20,
   muted = false,
+  glow = true,
   className,
 }) => {
   const resolved = normalizePlatform(platform) ?? 'steam';
@@ -109,11 +116,11 @@ export const TrophyBadge: React.FC<TrophyBadgeProps> = ({
         draggable={false}
         // The halo picks up this platform's own blue, the colour already in the
         // artwork, rather than a tint borrowed from somewhere else.
-        style={muted ? undefined : ({ '--glow': PLATFORMS[resolved].color } as React.CSSProperties)}
+        style={muted || !glow ? undefined : ({ '--glow': PLATFORMS[resolved].color } as React.CSSProperties)}
         className={cn(
           'pointer-events-none h-full w-full object-contain',
           // An unearned mark is a placeholder, so it stays flat and unlit.
-          muted ? 'opacity-45 grayscale' : 'trophy-icon-glow',
+          muted ? 'opacity-45 grayscale' : glow && 'trophy-icon-glow',
         )}
       />
     </span>

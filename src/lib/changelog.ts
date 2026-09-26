@@ -21,6 +21,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.6',
+    date: '2026-09-26',
+    title: 'Tidier cards',
+    changes: [
+      'A card’s strip is one line of figures — the count, playtime, then the percentage at the end — over a full-width meter.',
+      'The rating and the award mark on a cover carry their own dark shadow instead of darkening the corners of the art, and the award mark no longer glows.',
+      'The Game added dialog shows a finished game’s award mark top right, as its card does.',
+    ],
+  },
+  {
     version: '0.10.5',
     date: '2026-09-26',
     title: 'A golden finish',
