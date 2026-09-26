@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { UserGame } from '../types';
 import { useGame } from '../context/GameContext';
@@ -161,7 +161,7 @@ const CollectionListRow: React.FC<{
           color,
         }}
       >
-        <CollectionIcon name={icon} size={19} />
+        <CollectionIcon name={icon} shelf={permanent} size={19} />
       </span>
 
       <span className="min-w-0 flex-1">
@@ -204,17 +204,11 @@ const CollectionListRow: React.FC<{
 );
 
 /**
- * One cover in a row's preview strip, wearing the game's own lettering.
+ * One cover in a list's preview: the same art a game card shows.
  *
- * Three states rather than two, because a logo that is *on its way* must not
- * look like one that arrived. An `<img>` with a source it has not fetched yet
- * draws the browser's own placeholder — a pale frame with a torn-page glyph —
- * and over a 96px cover that reads as damage rather than as loading. So the
- * mark and the shade under it stay hidden until the file is actually decoded,
- * and a source that never arrives leaves the artwork exactly as it was.
- *
- * That last part is not hypothetical: a stored URL is only ever checked when it
- * is resolved, and a logo can be withdrawn from its host long afterwards.
+ * No logo over it. The desktop mosaic used to set each game's own lettering in
+ * the middle of its art, which made the Lists page the one place a game looked
+ * different from its card — and most key art already carries the title.
  */
 export const PreviewCover: React.FC<{
   game: UserGame;
@@ -234,74 +228,30 @@ export const PreviewCover: React.FC<{
   className = 'w-24 shrink-0 rounded-sm border border-gray-300/60',
   portrait = false,
   children,
-}) => {
-  const [logo, setLogo] = useState<'loading' | 'ready' | 'failed'>('loading');
+}) => (
+  <span
+    className={cn(
+      'relative block overflow-hidden',
+      portrait ? 'aspect-[2/3]' : 'aspect-video',
+      className,
+    )}
+  >
+    <CoverArt
+      src={
+        portrait
+          ? [
+              game.posterImage,
+              game.steamAppId
+                ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId}/library_600x900.jpg`
+                : undefined,
+              game.coverImage,
+            ]
+          : game.coverImage
+      }
+      title={game.title}
+      className="h-full w-full object-cover object-center"
+    />
 
-  return (
-    <span
-      className={cn(
-        'relative block overflow-hidden',
-        portrait ? 'aspect-[2/3]' : 'aspect-video',
-        className,
-      )}
-    >
-      <CoverArt
-        src={
-          portrait
-            ? [
-                game.posterImage,
-                game.steamAppId
-                  ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId}/library_600x900.jpg`
-                  : undefined,
-                game.coverImage,
-              ]
-            : game.coverImage
-        }
-        title={game.title}
-        className="h-full w-full object-cover object-center"
-      />
-
-      {!portrait && game.logoImage && logo !== 'failed' ? (
-        <span
-          className={cn(
-            'absolute inset-0 flex items-center justify-center p-1.5 transition-opacity',
-            logo === 'ready' ? 'opacity-100' : 'opacity-0',
-          )}
-        >
-          {/* A pool of shade under the mark, so it is not read against whatever
-              the artwork has painted there — key art usually carries the title
-              already, and without this the two sets of lettering fight. */}
-          <span
-            aria-hidden
-            className="absolute inset-x-2 inset-y-1 rounded-full bg-gray-25/55 blur-md"
-          />
-
-          {/* Sized by height, not by box.
- 
-              Filling the box with `object-contain` looks like it equalises
-              these and does the opposite: the box is 2.05 wide, so a logo
-              taller than that fits to height and fills it, while a wider one
-              fits to width and ends up short. Steam's own logo art runs from
-              1.78 to 6.53 — Spider-Man against Elden Ring — so the same box
-              drew one at 40px tall and the other at 13px.
- 
-              A fixed height gives every mark the same cap height, which is how
-              a row of logos is normally set. `max-w-full` still catches the
-              extreme wordmarks, which have nowhere else to go in 96px. */}
-          <img
-            src={game.logoImage}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            onLoad={() => setLogo('ready')}
-            onError={() => setLogo('failed')}
-            className="relative h-[65%] w-auto max-w-full object-contain drop-shadow-[0_1px_4px_rgb(3_5_10/0.9)]"
-          />
-        </span>
-      ) : null}
-
-      {children}
-    </span>
-  );
-};
+    {children}
+  </span>
+);

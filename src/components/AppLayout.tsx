@@ -7,9 +7,6 @@ import {
   Settings,
   Search,
   Plus,
-  FolderKanban,
-  Play,
-  Gamepad2,
   CloudOff,
   RefreshCw,
   X,
@@ -31,12 +28,13 @@ import { relativeTime } from '../lib/format';
 import {
   BACKLOG_COLLECTION_ID,
   BEATEN_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
   collectionName,
   permanentOf,
 } from '../lib/collections';
 import { Button } from './ui';
-import { TrophyPair } from './TrophyBadge';
+import { LISTS_ICON, SHELF_ICONS } from './CollectionIcon';
 import { cn } from '../lib/cn';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { Wordmark } from './Wordmark';
@@ -140,7 +138,7 @@ export const AppLayout: React.FC = () => {
       name: collectionName(PLAYING_COLLECTION_ID, collections),
       short: 'Playing',
       path: '/playing',
-      icon: Play,
+      icon: SHELF_ICONS[PLAYING_COLLECTION_ID],
       badge: playingCount || undefined,
       badgeTone: 'accent',
       enabled: sidebarConfig?.showCurrentlyPlaying ?? true,
@@ -149,8 +147,7 @@ export const AppLayout: React.FC = () => {
       name: 'Achievements & Trophies',
       short: 'Trophies',
       path: '/achievements',
-      icon: null,
-      art: <TrophyPair size={15} />,
+      icon: SHELF_ICONS[COMPLETE_COLLECTION_ID],
       badge: perfectCount || undefined,
       badgeTone: 'trophy',
       enabled: sidebarConfig?.showAchievements ?? true,
@@ -166,7 +163,7 @@ export const AppLayout: React.FC = () => {
       name: collectionName(BACKLOG_COLLECTION_ID, collections),
       short: 'Backlog',
       path: '/backlog',
-      icon: Gamepad2,
+      icon: SHELF_ICONS[BACKLOG_COLLECTION_ID],
       badge: backlogCount || undefined,
       // Neutral, not gold: gold is what a finished game earns, and a queue of
       // games you have not started yet has earned nothing. This matches how the
@@ -178,7 +175,7 @@ export const AppLayout: React.FC = () => {
       name: 'Lists',
       short: 'Lists',
       path: '/collections',
-      icon: FolderKanban,
+      icon: LISTS_ICON,
       enabled: sidebarConfig?.showCollections ?? true,
     },
     {

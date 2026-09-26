@@ -78,7 +78,7 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     id: BACKLOG_COLLECTION_ID,
     name: DEFAULT_PERMANENT_NAMES[BACKLOG_COLLECTION_ID],
     description: 'Games queued to play',
-    icon: 'Clock',
+    icon: 'Hourglass',
     // Neutral, matching the backlog everywhere else in the app.
     color: '#a5a5ad',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -87,7 +87,7 @@ export const DEFAULT_COLLECTIONS: Collection[] = [
     id: PLAYING_COLLECTION_ID,
     name: DEFAULT_PERMANENT_NAMES[PLAYING_COLLECTION_ID],
     description: 'Games on the go',
-    icon: 'Gamepad2',
+    icon: 'Play',
     color: '#4d9bf0',
     createdAt: '2026-01-02T00:00:00.000Z',
   },

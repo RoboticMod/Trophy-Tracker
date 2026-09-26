@@ -6,7 +6,6 @@ import { PsnSyncReport, PsnSyncState, usePsnSync } from '../lib/usePsnSync';
 import { PsnError, PsnTitle } from '../lib/psn';
 import { isSyncLinked } from '../lib/sync';
 import { useCoverArt } from '../lib/useCoverArt';
-import { useGameLogos } from '../lib/useGameLogos';
 import { useGamePosters } from '../lib/useGamePosters';
 
 interface SyncContextType {
@@ -50,9 +49,10 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // "keep the library current on its own" job.
   useCoverArt();
 
-  // And each game's own lettering, for the middle of its card. Same job, same
-  // shape; a different upstream behind the same edge function.
-  useGameLogos();
+  // And each game's portrait poster, for the phone's Lists rows. Same job,
+  // same shape; a different upstream behind the same edge function. Logos are
+  // no longer fetched: nothing draws them since the desktop Lists cards went
+  // back to plain cover art.
   useGamePosters();
 
   const [reloading, setReloading] = useState(false);

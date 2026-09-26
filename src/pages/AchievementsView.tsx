@@ -4,7 +4,9 @@ import { useGame } from '../context/GameContext';
 import { IntroNotice } from '../components/IntroNotice';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
-import { TrophyBadge, TrophyPair } from '../components/TrophyBadge';
+import { TrophyBadge } from '../components/TrophyBadge';
+import { SHELF_ICONS } from '../components/CollectionIcon';
+import { COMPLETE_COLLECTION_ID } from '../lib/collections';
 import { PLATFORMS } from '../lib/constants';
 import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
 import { isPerfect } from '../lib/completion';
@@ -12,6 +14,8 @@ import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { Platform, PLATFORM_IDS } from '../types';
 import { Badge, EmptyState, FilterChip, PageHeader, Select } from '../components/ui';
+
+const CompleteIcon = SHELF_ICONS[COMPLETE_COLLECTION_ID];
 
 /**
  * Completion is not offered here: every game on this page is at 100%, so
@@ -153,7 +157,7 @@ export const AchievementsView: React.FC = () => {
 
       {displayedGames.length === 0 && (
         <EmptyState
-          icon={<TrophyPair size={24} />}
+          icon={<CompleteIcon size={24} />}
           title="Nothing at 100% yet"
           description={
             selectedPlatform !== 'all'

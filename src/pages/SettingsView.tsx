@@ -11,8 +11,6 @@ import {
   User,
   Sliders,
   Play,
-  Gamepad2,
-  FolderKanban,
   BarChart3,
   Search,
   Copy,
@@ -69,7 +67,13 @@ import {
 import { PLATFORM_IDS } from '../types';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { ConnectedAccounts } from '../components/ConnectedAccounts';
-import { TrophyBadge, TrophyPair, awardNoun } from '../components/TrophyBadge';
+import { TrophyBadge, awardNoun } from '../components/TrophyBadge';
+import { LISTS_ICON, SHELF_ICONS } from '../components/CollectionIcon';
+import {
+  BACKLOG_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
+  PLAYING_COLLECTION_ID,
+} from '../lib/collections';
 import {
   Button,
   Card,
@@ -244,7 +248,7 @@ const NavReorderRow: React.FC<{
             item.tone,
           )}
         >
-          {Icon ? <Icon size={16} /> : <TrophyPair size={15} />}
+          <Icon size={16} />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -293,7 +297,7 @@ const ALL_NAV_ITEMS = [
     id: 'playing',
     path: '/playing',
     name: 'Currently playing',
-    icon: Play,
+    icon: SHELF_ICONS[PLAYING_COLLECTION_ID],
     configKey: 'showCurrentlyPlaying' as const,
     tone: 'bg-accent-700/16 text-accent-900',
   },
@@ -301,9 +305,9 @@ const ALL_NAV_ITEMS = [
     id: 'achievements',
     path: '/achievements',
     name: 'Achievements & trophies',
-    icon: null,
+    icon: SHELF_ICONS[COMPLETE_COLLECTION_ID],
     configKey: 'showAchievements' as const,
-    tone: 'bg-trophy-100',
+    tone: 'bg-trophy-100 text-trophy-900',
   },
   {
     id: 'search',
@@ -317,7 +321,7 @@ const ALL_NAV_ITEMS = [
     id: 'backlog',
     path: '/backlog',
     name: 'Backlog',
-    icon: Gamepad2,
+    icon: SHELF_ICONS[BACKLOG_COLLECTION_ID],
     configKey: 'showBacklog' as const,
     tone: 'bg-gray-300 text-gray-800',
   },
@@ -325,7 +329,7 @@ const ALL_NAV_ITEMS = [
     id: 'collections',
     path: '/collections',
     name: 'Lists',
-    icon: FolderKanban,
+    icon: LISTS_ICON,
     configKey: 'showCollections' as const,
     tone: 'bg-gray-200 text-gray-800',
   },

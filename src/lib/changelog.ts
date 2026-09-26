@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.9',
+    date: '2026-09-26',
+    title: 'One icon per shelf',
+    changes: [
+      'Every shelf has one icon everywhere: a play button for Playing, an hourglass for Backlog, a trophy for 100% and a plain folder for Lists.',
+      'List cards on a wide screen show the same cover art as game cards, without a logo laid over it.',
+    ],
+  },
+  {
     version: '0.10.8',
     date: '2026-09-26',
     title: 'New platform colours',

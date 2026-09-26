@@ -3,7 +3,6 @@ import {
   Gamepad2,
   Plus,
   Search,
-  Flame,
   ListFilter,
   ArrowUpDown,
   Loader2,
@@ -25,6 +24,7 @@ import {
   permanentOf,
 } from '../lib/collections';
 import { PLATFORM_IDS, UserGame } from '../types';
+import { SHELF_ICONS } from '../components/CollectionIcon';
 import {
   Button,
   Card,
@@ -43,6 +43,8 @@ import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone, useMediaQuery } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
+
+const PlayingIcon = SHELF_ICONS[PLAYING_COLLECTION_ID];
 
 type RatingFilterOption = 'all' | '9+' | '7.5+' | '6+' | '4+' | 'unrated';
 
@@ -432,7 +434,7 @@ export const DashboardView: React.FC = () => {
       {currentlyPlaying.length > 0 && activeCollectionFilter === 'all' && (
         <section className="space-y-3 md:space-y-4">
           <SectionRule
-            icon={<Flame className="text-trophy-900" size={phone ? 15 : 17} />}
+            icon={<PlayingIcon className="text-accent-900" size={phone ? 15 : 17} />}
             title={collectionName(PLAYING_COLLECTION_ID, collections)}
             count={currentlyPlaying.length}
           />
