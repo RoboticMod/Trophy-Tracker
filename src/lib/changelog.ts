@@ -21,6 +21,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.8',
+    date: '2026-09-26',
+    title: 'New platform colours',
+    changes: ['Steam is now a dark navy blue and PlayStation a bright blue.'],
+  },
+  {
     version: '0.10.7',
     date: '2026-09-26',
     title: 'Sparks you can see',

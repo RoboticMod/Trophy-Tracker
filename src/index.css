@@ -74,14 +74,14 @@
   --color-violet-700: #7c3aed;
   --color-violet-900: #a78bfa;
 
-  /* Steam takes the deeper blue and PlayStation the lighter one, so the two
-     platforms stay apart at a glance rather than sitting a shade from each.
-     Both are desaturated next to the accent, which keeps platform identity
-     from competing with interactive state. */
-  --color-steam-700: #1f5f96;
-  --color-steam-900: #2f7fc1;
-  --color-playstation-700: #5fb4f5;
-  --color-playstation-900: #8fd0ff;
+  /* Steam is a dark navy and PlayStation a bright, electric blue, so the two
+     platforms sit at opposite ends of the blues and read apart at a glance.
+     PlayStation leans towards cyan rather than matching the accent, so a
+     platform mark never looks like something to press. */
+  --color-steam-700: #1d4287;
+  --color-steam-900: #2d5fb4;
+  --color-playstation-700: #0095e0;
+  --color-playstation-900: #14b4ff;
 
   /* -- Type ramp ----------------------------------------------------------- */
   --text-50: 0.6875rem; /* 11px */
