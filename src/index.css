@@ -306,6 +306,17 @@
   }
 }
 
+/* The same cards in half the width: one platform's column when two sit side
+   by side. The page's tablet rule of three across would leave a card a third
+   of a half, so this is the track alone at every width — one card a column on
+   a tablet, two from a laptop up. */
+@utility grid-cards-half {
+  display: grid;
+  gap: --spacing(4);
+  align-items: stretch;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
+}
+
 /* A game card's outer box. Off screen, the browser skips its layout, paint and
    animations altogether (`content-visibility: auto`) — most of a library, most
    of the time. The padding, taken back by the margin, is room for everything

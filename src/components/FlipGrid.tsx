@@ -72,15 +72,18 @@ export class FlipGrid extends React.Component<FlipGridProps> {
     // Cards on their way out keep fading where they were, but out of the flow:
     // left in it, they hold their slots open until the fade ends, the others
     // land beside the gaps, and then everything jumps once more to close them.
-    const rootRect = root.getBoundingClientRect();
+    // Placed against whatever box they are positioned in — the grid, or a
+    // platform column that scrolls, whose scroll has to be counted back in.
     cards.forEach((el) => {
       const id = el.dataset.gameId;
       const was = id ? before.get(id) : undefined;
       if (!id || staying.has(id) || !was) return;
+      const holder = (el.offsetParent as HTMLElement | null) ?? root;
+      const box = holder.getBoundingClientRect();
       Object.assign(el.style, {
         position: 'absolute',
-        left: `${was.left - rootRect.left}px`,
-        top: `${was.top - rootRect.top}px`,
+        left: `${was.left - box.left - holder.clientLeft + holder.scrollLeft}px`,
+        top: `${was.top - box.top - holder.clientTop + holder.scrollTop}px`,
         width: `${was.width}px`,
         height: `${was.height}px`,
         margin: '0',

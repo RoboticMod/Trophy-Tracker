@@ -1,20 +1,46 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Folder, Check, Pencil } from 'lucide-react';
+import {
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Folder,
+  Check,
+  Pencil,
+} from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
-import {
-  COLLECTION_COLORS,
-  DEFAULT_COLLECTION_COLOR,
-  comparePlatformOrder,
-} from '../lib/constants';
+import { COLLECTION_COLORS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
 import { BEATEN_COLLECTION_ID, isPermanentCollection } from '../lib/collections';
 import { CollectionsList, PreviewCover } from '../components/CollectionsList';
 import { aggregateCompletion } from '../lib/completion';
 import { formatHours, sumHours } from '../lib/format';
 import { Collection, UserGame } from '../types';
 import { useIsPhone } from '../lib/useMediaQuery';
-import { Badge, Button, Card, EmptyState, Field, PageHeader, TextInput } from '../components/ui';
+import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { oneOf } from '../lib/usePersistentState';
+import { useSyncedPreference } from '../lib/useSyncedPreference';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  PageHeader,
+  Select,
+  TextInput,
+} from '../components/ui';
+
+/** One order for every list: a list is a list, whatever it holds. */
+const LIST_SORT_OPTIONS = [
+  'title-asc',
+  'recent',
+  'achievement-rating-desc',
+  'hours-desc',
+  'completion-desc',
+] as const satisfies readonly GameSortOption[];
 import { cn } from '../lib/cn';
 
 /**
@@ -222,15 +248,20 @@ export const CollectionsView: React.FC = () => {
     updateCollection(next.id, { description: next.description }),
   );
 
+  const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
+    'list-sort',
+    'title-asc',
+    oneOf(LIST_SORT_OPTIONS),
+  );
+
+  // Platform order is the grid's to apply: it splits the list into its
+  // platforms and keeps this order inside each.
   const collectionGames = useMemo(() => {
     if (!activeCollection) return [];
     return games
       .filter((g) => g.collections?.includes(activeCollection.id))
-      .sort((a, b) => {
-        const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-        return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
-      });
-  }, [games, activeCollection, platformOrder]);
+      .sort((a, b) => compareGames(a, b, sortBy) || a.title.localeCompare(b.title));
+  }, [games, activeCollection, sortBy]);
 
   /**
    * Deleting the collection being looked at, and then landing somewhere real.
@@ -401,7 +432,19 @@ export const CollectionsView: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                id="list-sort"
+                aria-label="Sort"
+                value={sortBy}
+                onChange={setSortBy}
+                leading={<ArrowUpDown size={15} className="text-accent-900" />}
+                className="w-40"
+                options={LIST_SORT_OPTIONS.map((option) => ({
+                  value: option,
+                  label: SORT_LABELS[option],
+                }))}
+              />
               <Button
                 variant={isEditing ? 'accent' : 'secondary'}
                 buttonStyle={isEditing ? 'fill' : 'outline'}

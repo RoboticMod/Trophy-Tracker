@@ -21,6 +21,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.11.0',
+    date: '2026-09-28',
+    title: 'Platforms side by side',
+    changes: [
+      'With both Steam and PlayStation games on a page, a tablet or computer shows them in two columns side by side, each scrolling on its own.',
+      'On a phone, a platform heading you have scrolled past stays at the top of the screen, and the next one waits at the bottom. Tap either to jump to that platform.',
+      'Backlog and every list can now be sorted, by title, recent play, rating or playtime (lists by completion too).',
+      'A page with only one platform keeps the single grid.',
+    ],
+  },
+  {
     version: '0.10.10',
     date: '2026-09-27',
     title: 'Cards that glide',

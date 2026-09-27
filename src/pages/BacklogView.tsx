@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Hourglass, Plus, Play } from 'lucide-react';
+import { ArrowUpDown, Hourglass, Plus, Play } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { Platform, PLATFORM_IDS } from '../types';
-import { PLATFORMS, comparePlatformOrder } from '../lib/constants';
+import { PLATFORMS } from '../lib/constants';
 import {
   BACKLOG_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
@@ -13,29 +13,46 @@ import {
 } from '../lib/collections';
 import { aggregateCompletion } from '../lib/completion';
 import { formatCount } from '../lib/format';
+import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { oneOf } from '../lib/usePersistentState';
+import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
 import { IntroNotice } from '../components/IntroNotice';
-import { Badge, Button, EmptyState, PageHeader } from '../components/ui';
+import { Badge, Button, EmptyState, PageHeader, Select } from '../components/ui';
+
+/** Completion is left out: almost everything queued is still at zero. */
+const SORT_OPTIONS = [
+  'title-asc',
+  'recent',
+  'achievement-rating-desc',
+  'hours-desc',
+] as const satisfies readonly GameSortOption[];
 
 export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
   const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
   const platformOrder = profile.platformOrder;
   const phone = useIsPhone();
+  const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
+    'backlog-sort',
+    'title-asc',
+    oneOf(SORT_OPTIONS),
+  );
 
   const backlogGames = useMemo(
     () => games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)),
     [games],
   );
 
+  // Platform order is the grid's to apply: it splits the list into its
+  // platforms and keeps this order inside each.
   const sorted = useMemo(
     () =>
-      [...backlogGames].sort((a, b) => {
-        const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-        return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
-      }),
-    [backlogGames, platformOrder],
+      [...backlogGames].sort(
+        (a, b) => compareGames(a, b, sortBy) || a.title.localeCompare(b.title),
+      ),
+    [backlogGames, sortBy],
   );
 
   const filtered = sorted.filter((g) => platformFilter === 'all' || g.platform === platformFilter);
@@ -91,6 +108,18 @@ export const BacklogView: React.FC = () => {
     </div>
   );
 
+  const sort = (
+    <Select
+      id="backlog-sort"
+      aria-label="Sort"
+      value={sortBy}
+      onChange={setSortBy}
+      leading={<ArrowUpDown size={15} className="text-accent-900" />}
+      className="w-36 shrink-0 md:w-40"
+      options={SORT_OPTIONS.map((option) => ({ value: option, label: SORT_LABELS[option] }))}
+    />
+  );
+
   return (
     <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
       {/* How many are queued. A phone says only that, beside the page's name
@@ -105,7 +134,14 @@ export const BacklogView: React.FC = () => {
         title={collectionName(BACKLOG_COLLECTION_ID, collections)}
         badge={<Badge tone="neutral">{backlogGames.length} queued</Badge>}
         subtitle={`${formatCount(backlogGames.length)} games queued · ${formatCount(unlockable - unlocked)} awards waiting`}
-        action={phone ? undefined : segmented}
+        action={
+          phone ? undefined : (
+            <div className="flex items-center gap-2">
+              {segmented}
+              {sort}
+            </div>
+          )
+        }
       />
 
       <IntroNotice id="backlog">
@@ -113,7 +149,12 @@ export const BacklogView: React.FC = () => {
         “{collectionName(PLAYING_COLLECTION_ID, collections)}”.
       </IntroNotice>
 
-      {phone ? segmented : null}
+      {phone ? (
+        <div className="flex items-center gap-2 [&>[role=radiogroup]]:min-w-0 [&>[role=radiogroup]]:flex-1">
+          {segmented}
+          {sort}
+        </div>
+      ) : null}
 
       <GameGrid
         games={filtered}
