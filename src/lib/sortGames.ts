@@ -20,16 +20,22 @@ export type GameSortOption =
   | 'completed-asc'
   | 'title-asc';
 
-/** Option labels, so two views offering the same sort never word it differently. */
+/**
+ * Option labels, so two views offering the same sort never word it differently.
+ *
+ * A word or two each: they fill a chip-sized trigger, and the direction goes
+ * without saying — nobody sorts by fewest hours played. Only completion date
+ * runs both ways, so only it says which.
+ */
 export const SORT_LABELS: Record<GameSortOption, string> = {
-  recent: 'Recently played',
-  'achievement-rating-desc': 'Achievement rating: highest first',
-  'hours-desc': 'Playtime: most hours',
-  'completion-desc': 'Completion: highest',
-  'unlocked-desc': 'Unlocks: most earned',
-  'completed-desc': 'Completed: newest first',
-  'completed-asc': 'Completed: oldest first',
-  'title-asc': 'Title: A to Z',
+  recent: 'Recent',
+  'achievement-rating-desc': 'Rating',
+  'hours-desc': 'Playtime',
+  'completion-desc': 'Completion',
+  'unlocked-desc': 'Unlocks',
+  'completed-desc': 'Newest done',
+  'completed-asc': 'Oldest done',
+  'title-asc': 'Title A–Z',
 };
 
 const lastTouched = (g: UserGame) => new Date(g.lastPlayedAt || g.addedAt || 0).getTime();

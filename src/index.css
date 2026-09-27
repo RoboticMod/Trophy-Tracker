@@ -308,15 +308,25 @@
 
 /* A game card's outer box. Off screen, the browser skips its layout, paint and
    animations altogether (`content-visibility: auto`) — most of a library, most
-   of the time. The pixel of padding, taken back by the margin, is room for the
-   gold rim drawn just outside the card, since the containment clips at the
-   padding box. The intrinsic size is a first guess until the card has been
+   of the time. The padding, taken back by the margin, is room for everything
+   drawn just outside the card, since the containment clips at the padding box:
+   the gold rim, the glow round a playing card, and the 3px the card rises on
+   hover. With a single pixel, the lift pushed the card's top edge out of its
+   own box and the top was sliced off flat, as if it had slid under the
+   heading above. The shell lets pointers through, so where two padded boxes
+   overlap across a narrow gap neither steals the other's clicks. The intrinsic
+   size is a first guess until the card has been
    rendered once, after which the browser remembers the real one. */
 @utility card-shell {
   content-visibility: auto;
   contain-intrinsic-size: auto 150px;
-  padding: 1px;
-  margin: -1px;
+  padding: 10px;
+  margin: -10px;
+  pointer-events: none;
+
+  & > * {
+    pointer-events: auto;
+  }
 
   @media (width >= 48rem) {
     contain-intrinsic-size: auto 240px;
@@ -325,8 +335,13 @@
 
 /* The same box with its containment lifted, while a burst or a ring spills. */
 @utility card-shell-open {
-  padding: 1px;
-  margin: -1px;
+  padding: 10px;
+  margin: -10px;
+  pointer-events: none;
+
+  & > * {
+    pointer-events: auto;
+  }
 }
 
 /* A card arriving: a short rise and fade on the compositor. `backwards`, not

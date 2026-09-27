@@ -21,6 +21,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.10',
+    date: '2026-09-27',
+    title: 'Cards that glide',
+    changes: [
+      'Picking a filter chip, searching or re-sorting slides every card to its new place instead of cutting to it.',
+      'A card lifting on hover keeps its top edge instead of being cut off under the heading above it.',
+      'Sort options are a word or two ("Rating", "Playtime", "Title A–Z"), so the sort button shows its choice in full.',
+      'The "While you were away" dialog fades out when you press OK.',
+    ],
+  },
+  {
     version: '0.10.9',
     date: '2026-09-26',
     title: 'One icon per shelf',

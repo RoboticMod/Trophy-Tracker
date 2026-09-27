@@ -4,6 +4,7 @@ import { Platform, PLATFORM_IDS, UserGame } from '../types';
 import { comparePlatformOrder } from '../lib/constants';
 import { PlatformSectionHeader } from './PlatformSectionHeader';
 import { CardMeta, GameCard } from './GameCard';
+import { FlipGrid } from './FlipGrid';
 import { useGame } from '../context/GameContext';
 
 type RenderAction = (game: UserGame) => React.ReactNode;
@@ -84,18 +85,28 @@ export const GameGrid: React.FC<GameGridProps> = ({
       .filter((group) => group.games.length > 0);
   }, [games, grouped, platformOrder]);
 
+  // In the order they are drawn: grouped, that is section by section.
+  const ids = useMemo(
+    () => (groups ? groups.flatMap((group) => group.games) : games).map((game) => game.id),
+    [groups, games],
+  );
+
   if (!groups) {
-    return <GameList games={games} renderAction={renderAction} meta={meta} />;
+    return (
+      <FlipGrid ids={ids}>
+        <GameList games={games} renderAction={renderAction} meta={meta} />
+      </FlipGrid>
+    );
   }
 
   return (
-    <div className="space-y-6 md:space-y-7">
+    <FlipGrid ids={ids} className="space-y-6 md:space-y-7">
       {groups.map(({ platform, games: list }) => (
         <section key={platform} className="space-y-3 md:space-y-4">
           <PlatformSectionHeader platform={platform} count={list.length} />
           <GameList games={list} renderAction={renderAction} meta={meta} hidePlatform />
         </section>
       ))}
-    </div>
+    </FlipGrid>
   );
 };

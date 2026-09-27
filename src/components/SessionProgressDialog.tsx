@@ -105,6 +105,14 @@ export const SessionProgressDialog: React.FC = () => {
   const open = progress.length > 0;
   const finished = progress.find((entry) => entry.completed);
 
+  /**
+   * What the dialog shows, held past the moment it is dismissed. Dismissing
+   * empties the list, and a dialog that returned nothing at that point was
+   * gone before its exit could play: OK cut it off the screen in one frame.
+   */
+  const [shown, setShown] = useState(progress);
+  if (open && shown !== progress) setShown(progress);
+
   useEffect(
     () => () => {
       if (burstTimer.current !== null) window.clearTimeout(burstTimer.current);
@@ -137,10 +145,8 @@ export const SessionProgressDialog: React.FC = () => {
     return () => window.clearTimeout(start);
   }, [open, finished]);
 
-  if (!open) return null;
-
-  const total = progress.reduce((sum, entry) => sum + entry.gained, 0);
-  const completedCount = progress.filter((entry) => entry.completed).length;
+  const total = shown.reduce((sum, entry) => sum + entry.gained, 0);
+  const completedCount = shown.filter((entry) => entry.completed).length;
 
   return (
     <Dialog
@@ -149,8 +155,8 @@ export const SessionProgressDialog: React.FC = () => {
       title="While you were away"
       description={
         completedCount > 0
-          ? `${total} earned across ${progress.length} game${progress.length === 1 ? '' : 's'} — ${completedCount} finished`
-          : `${total} earned across ${progress.length} game${progress.length === 1 ? '' : 's'}`
+          ? `${total} earned across ${shown.length} game${shown.length === 1 ? '' : 's'} — ${completedCount} finished`
+          : `${total} earned across ${shown.length} game${shown.length === 1 ? '' : 's'}`
       }
       icon={<FileText size={18} />}
       footer={
@@ -166,7 +172,7 @@ export const SessionProgressDialog: React.FC = () => {
           edges rather than the rows'. */}
       <div className="relative">
         <div className="space-y-2">
-          {progress.map((entry) => (
+          {shown.map((entry) => (
             <ProgressRow
               key={entry.game.id}
               entry={entry}
