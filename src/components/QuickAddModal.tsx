@@ -10,7 +10,7 @@ import {
   Eraser,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { UserGame } from '../types';
+import { Platform, UserGame } from '../types';
 import {
   CATALOG_SOURCE_LABELS,
   CatalogError,
@@ -21,11 +21,14 @@ import {
   searchCatalog,
   steamDetails,
   useCatalogSettings,
+  versionFor,
 } from '../lib/catalog';
 import { fromDateInput } from '../lib/format';
 import { syncFieldsFor } from '../lib/sync';
 import { useSync } from '../context/SyncContext';
-import { ResultPlatforms, VersionChooser } from './CatalogVersions';
+import { ResultPlatforms } from './CatalogVersions';
+import { usePlatformRead } from '../lib/usePlatformRead';
+import { PlatformReadNote, progressPatch } from './PlatformReadNote';
 import { CoverArt } from './CoverArt';
 import { EditGameModal } from '../lib/lazyDialogs';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
@@ -68,8 +71,28 @@ export const QuickAddModal: React.FC = () => {
   const [searchError, setSearchError] = useState<CatalogError | undefined>();
   const [showingRecent, setShowingRecent] = useState(false);
   const [rawgSkipped, setRawgSkipped] = useState<CatalogError | undefined>();
-  /** A result both catalogs returned, waiting on which version to use. */
-  const [choosing, setChoosing] = useState<CatalogResult | null>(null);
+  /**
+   * The search result the form was filled from, with its other catalog's
+   * version when both had it — so switching platform in the form can switch
+   * to the details that go with it.
+   */
+  const [picked, setPicked] = useState<CatalogResult | null>(null);
+  /** Which of those versions the form currently shows. */
+  const [applied, setApplied] = useState<CatalogResult | null>(null);
+  const platformRead = usePlatformRead();
+  const startRead = platformRead.start;
+
+  /**
+   * Reads a platform into the form: its counts, playtime and dates, applied
+   * only if the form is still on that platform when the reply comes back.
+   */
+  const readPlatform = useCallback(
+    (platform: Platform, target: { title: string; steamAppId?: number }) =>
+      startRead(platform, target, (progress) =>
+        setValues((v) => (v.platform === platform ? { ...v, ...progressPatch(progress) } : v)),
+      ),
+    [startRead],
+  );
   const [isSearching, setIsSearching] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
 
@@ -91,7 +114,6 @@ export const QuickAddModal: React.FC = () => {
       setSearchError(res.error);
       setShowingRecent(Boolean(res.recent));
       setRawgSkipped(res.rawgSkipped);
-      setChoosing(null);
       setIsSearching(false);
     }, 250);
 
@@ -107,6 +129,9 @@ export const QuickAddModal: React.FC = () => {
     setReleaseDate(undefined);
     setGenres([]);
     setRawgId(undefined);
+    setPicked(null);
+    setApplied(null);
+    platformRead.reset();
   };
 
   /**
@@ -146,6 +171,7 @@ export const QuickAddModal: React.FC = () => {
    * count, so the form does not open at 0 / 0.
    */
   const selectGameFromSearch = useCallback((game: CatalogResult) => {
+    setApplied(game);
     setReleaseDate(game.releaseDate);
     setGenres(game.genres);
     setRawgId(game.rawgId);
@@ -160,6 +186,10 @@ export const QuickAddModal: React.FC = () => {
       // look like a rating you had given.
     }));
     setTab('custom');
+
+    // The platform the result lands on is read straight away, as if it had
+    // been clicked in the form.
+    void readPlatform(game.platform, { title: game.title, steamAppId: game.steamAppId });
 
     // A result the search could not find art for — a Steam game whose name RAWG
     // spells differently — gets one more look, by name.
@@ -185,7 +215,7 @@ export const QuickAddModal: React.FC = () => {
       setReleaseDate((d) => d ?? details.releaseDate);
       setGenres((g) => (g.length ? g : details.genres));
     });
-  }, [rawgKey]);
+  }, [rawgKey, readPlatform]);
 
   /**
    * The game this result already is, if the library has it.
@@ -225,11 +255,50 @@ export const QuickAddModal: React.FC = () => {
         return;
       }
 
-      if (game.twin) setChoosing(game);
-      else selectGameFromSearch(game);
+      // Found in both catalogs: no question about which to use. The form opens
+      // on Steam's version, and picking PlayStation in it switches to RAWG's.
+      setPicked(game.twin ? game : null);
+      selectGameFromSearch(game.twin ? versionFor(game, 'steam') : game);
     },
     [selectGameFromSearch, setIsQuickAddOpen],
   );
+
+  /**
+   * Every change to the form. A platform click is also a sync with that
+   * platform, and — for a game both catalogs had — a switch to the details
+   * that go with it; the title and cover follow only where they have not been
+   * edited by hand. Linking a Steam page reads Steam the same way.
+   */
+  const changeDetails = (patch: Partial<GameDetailsValues>) => {
+    const platform = patch.platform;
+    if (platform && platform !== values.platform) {
+      const next: GameDetailsValues = { ...values, ...patch };
+      const version = picked ? versionFor(picked, platform) : null;
+      if (version && version.source !== applied?.source) {
+        if (values.title === applied?.title) next.title = version.title;
+        if (!values.coverImage || values.coverImage === (applied?.image ?? '')) {
+          next.coverImage = version.image || values.coverImage;
+        }
+        next.steamAppId = version.steamAppId;
+        if (version.genres.length) setGenres(version.genres);
+        if (version.releaseDate) setReleaseDate(version.releaseDate);
+        setRawgId(version.rawgId);
+        setApplied(version);
+      }
+      setValues(next);
+      void readPlatform(platform, { title: next.title, steamAppId: next.steamAppId });
+      return;
+    }
+
+    setValues((v) => ({ ...v, ...patch }));
+    if (
+      patch.steamAppId &&
+      patch.steamAppId !== values.steamAppId &&
+      values.platform === 'steam'
+    ) {
+      void readPlatform('steam', { title: values.title, steamAppId: patch.steamAppId });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,6 +319,12 @@ export const QuickAddModal: React.FC = () => {
       return;
     }
 
+    // What the platform said when it was picked, if the form is still on it.
+    const fromPlatform =
+      platformRead.read.status === 'done' && platformRead.read.platform === values.platform
+        ? platformRead.read.progress
+        : null;
+
     const added = addGame({
       rawgId,
       title: values.title.trim(),
@@ -266,6 +341,9 @@ export const QuickAddModal: React.FC = () => {
       notes: values.notes.trim() || undefined,
       completedAt: fromDateInput(values.completedAt),
       steamAppId: values.steamAppId,
+      psnCommunicationId: fromPlatform?.psnCommunicationId,
+      lastUnlockedAt: fromPlatform?.lastUnlockedAt ?? undefined,
+      lastPlayedAt: fromPlatform?.lastPlayedAt ?? undefined,
       ...syncFieldsFor(values),
     });
 
@@ -353,16 +431,7 @@ export const QuickAddModal: React.FC = () => {
             </p>
           ) : null}
 
-          {choosing ? (
-            <VersionChooser
-              result={choosing}
-              onPick={(version) => {
-                setChoosing(null);
-                selectGameFromSearch(version);
-              }}
-              onCancel={() => setChoosing(null)}
-            />
-          ) : isSearching ? (
+          {isSearching ? (
             <div className="flex flex-col items-center gap-2 py-8 text-gray-700 sm:py-12">
               <Loader2 size={22} className="animate-spin" />
               <p className="text-75">Searching…</p>
@@ -395,9 +464,12 @@ export const QuickAddModal: React.FC = () => {
           formId="quick-add-form"
           onSubmit={handleSubmit}
           values={values}
-          onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
+          onChange={changeDetails}
           collections={collections}
         >
+          {platformRead.read.status !== 'idle' ? (
+            <PlatformReadNote read={platformRead.read} saved="once it is added" />
+          ) : (
           <p className="flex items-center gap-1.5 text-50 text-gray-600">
             {fetchingDetails ? (
               <Loader2 size={12} className="animate-spin" />
@@ -408,6 +480,7 @@ export const QuickAddModal: React.FC = () => {
               ? 'Reading the Steam store page…'
               : 'Added games sync to your account automatically.'}
           </p>
+          )}
         </GameDetailsFields>
       )}
     </Dialog>

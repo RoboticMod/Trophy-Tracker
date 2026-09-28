@@ -9,6 +9,8 @@ interface FlipGridProps {
    * now is, instead of vanishing and reappearing.
    */
   ids: readonly string[];
+  /** Takes the height left on a page held to the window (see mainFill). */
+  fill?: boolean;
   className?: string;
   children: React.ReactNode;
 }
@@ -118,7 +120,11 @@ export class FlipGrid extends React.Component<FlipGridProps> {
 
   render() {
     return (
-      <div ref={this.root} className={cn('relative', this.props.className)}>
+      <div
+        ref={this.root}
+        data-fill-grid={this.props.fill ? '' : undefined}
+        className={cn('relative', this.props.className)}
+      >
         {this.props.children}
       </div>
     );

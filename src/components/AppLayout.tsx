@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -41,6 +41,7 @@ import { Wordmark } from './Wordmark';
 import { ProfileMenu } from './ProfileMenu';
 import { EASE_OUT } from '../lib/motion';
 import { PhoneHeaderContext } from '../lib/phoneHeader';
+import { MainFillContext } from '../lib/mainFill';
 
 /**
  * How long a followed game is given to turn up on the current page before the
@@ -340,6 +341,14 @@ export const AppLayout: React.FC = () => {
    * scrolling to the group a link asked for would otherwise be undone by it.
    */
   const mainRef = useRef<HTMLElement>(null);
+
+  /** Pages holding main to the window's height; see mainFill. */
+  const [fillClaims, setFillClaims] = useState(0);
+  const claimFill = useCallback(() => {
+    setFillClaims((n) => n + 1);
+    return () => setFillClaims((n) => n - 1);
+  }, []);
+
   useLayoutEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [location.pathname]);
@@ -563,7 +572,7 @@ export const AppLayout: React.FC = () => {
           started every page a third of a screen down. */}
       {/* From md the gutters belong to the container inside, not to main, so
           the page and the bar above it share one box and one left edge. */}
-      <main ref={mainRef} className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-0 md:pb-12 md:pt-8">
+      <main ref={mainRef} data-fill={fillClaims > 0 ? '' : undefined} className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-0 md:pb-12 md:pt-8">
         <div className="md:page-container">
         {/* An account with nothing saved yet is not a failure, and saying so
             was alarming and untrue. A genuine network problem still gets
@@ -595,7 +604,9 @@ export const AppLayout: React.FC = () => {
         ) : null}
 
         <PhoneHeaderContext.Provider value={headerSlot}>
-          <Outlet />
+          <MainFillContext.Provider value={claimFill}>
+            <Outlet />
+          </MainFillContext.Provider>
         </PhoneHeaderContext.Provider>
         </div>
       </main>

@@ -115,6 +115,20 @@ export function pickVersion(result: CatalogResult, source: ResultSource): Catalo
   };
 }
 
+/**
+ * The version of a result found in both catalogs that goes with a platform.
+ *
+ * Steam's details for a Steam game — its store name, and the app the sync
+ * reads. RAWG's for a PlayStation one, since RAWG is the catalog that knows
+ * consoles. There used to be a screen asking which version to use; the
+ * platform picked in the form now answers it, and switching platform there
+ * switches the details with it.
+ */
+export function versionFor(result: CatalogResult, platform: Platform): CatalogResult {
+  if (!result.twin) return { ...result, platform };
+  return { ...pickVersion(result, platform === 'steam' ? 'steam' : 'rawg'), platform };
+}
+
 export type CatalogError = 'missing-key' | 'request-failed' | 'not-signed-in';
 
 export interface CatalogResponse {

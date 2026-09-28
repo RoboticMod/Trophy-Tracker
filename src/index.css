@@ -317,6 +317,53 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
 }
 
+/* A page held to the window's height (see mainFill.ts): main, the content
+   column inside it and the page itself become one flex column down to the
+   platform columns, which take the height that is left. Main keeps its own
+   scroll only as a fallback — where the page's header is so tall that the
+   columns would drop below their minimum, rather than cutting anything off. */
+@media (width >= 48rem) {
+  main[data-fill] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  main[data-fill] > div,
+  main[data-fill] > div > :last-child {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+  }
+
+  /* Everything above the columns keeps its own height. As flex items they
+     would otherwise give up height to make room — a gauge card or a header
+     squeezed flat — before the columns gave up any. */
+  main[data-fill] > div > :not(:last-child),
+  main[data-fill] > div > :last-child > * {
+    flex-shrink: 0;
+  }
+
+  /* The page's own bottom padding goes: main's is room enough under the
+     columns, and both together left a band of nothing below them. */
+  main[data-fill] > div > :last-child {
+    padding-bottom: 0;
+  }
+
+  main[data-fill] > div > :last-child > [data-fill-grid] {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 20rem;
+
+    & > * {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+  }
+}
+
 /* A game card's outer box. Off screen, the browser skips its layout, paint and
    animations altogether (`content-visibility: auto`) — most of a library, most
    of the time. The padding, taken back by the margin, is room for everything

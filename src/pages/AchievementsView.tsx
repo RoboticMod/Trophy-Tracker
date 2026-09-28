@@ -95,11 +95,9 @@ export const AchievementsView: React.FC = () => {
           No rule of its own: the header block above already ends in one, and
           with the intro notice dismissed the two sat a bare gap apart and read
           as a mistake. The gap is the separation. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="eyebrow text-gray-600">
-          {displayedGames.length} game{displayedGames.length === 1 ? '' : 's'} at 100%
-        </p>
-
+      {/* No count of its own: the header above already says how many games
+          are at 100%, and the platform chips say how many on each. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <label

@@ -9,6 +9,7 @@ import { PlatformSectionHeader } from './PlatformSectionHeader';
 import { PlatformIcon } from './PlatformIcon';
 import { CardMeta, GameCard } from './GameCard';
 import { FlipGrid } from './FlipGrid';
+import { useMainFill } from '../lib/mainFill';
 import { useGame } from '../context/GameContext';
 
 type RenderAction = (game: UserGame) => React.ReactNode;
@@ -89,22 +90,25 @@ type SectionProps = Pick<GameGridProps, 'renderAction' | 'meta'> & { groups: Gro
  * One long page put every Steam game above every PlayStation one, so the
  * second platform was a scroll past the whole of the first before any of it
  * showed. Side by side, both are in view at once and each is read down its own
- * column, in the page's chosen order. Each column is held to the height of the
- * window, so scrolling one never pushes the other out of sight.
+ * column, in the page's chosen order. The page itself stops scrolling while
+ * they are up (useMainFill): the columns take the height under the page's
+ * header, and they are the only two things that scroll.
  */
-const PlatformColumns: React.FC<SectionProps> = ({ groups, renderAction, meta }) => (
+const PlatformColumns: React.FC<SectionProps> = ({ groups, renderAction, meta }) => {
+  useMainFill();
+  return (
   <div
-    className="grid gap-6 lg:gap-8"
+    className="grid grid-rows-[minmax(0,1fr)] gap-6 lg:gap-8"
     style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))` }}
   >
     {groups.map(({ platform, games }) => (
-      <section key={platform} className="flex min-w-0 flex-col gap-3 md:gap-4">
+      <section key={platform} className="flex min-h-0 min-w-0 flex-col gap-3 md:gap-4">
         <PlatformSectionHeader platform={platform} count={games.length} />
         {/* The padding, taken back by the margin, is the room a card's hover
             lift and glow need: a scrolling box clips at its padding edge.
             Positioned, so a card fading out while the list changes is placed
             inside the column it was in. */}
-        <div className="relative -mx-2.5 max-h-[max(24rem,calc(100dvh-11.5rem))] overflow-y-auto overscroll-contain px-2.5 pb-3 pt-2.5">
+        <div className="relative -mx-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 pb-3 pt-2.5">
           <GameList
             games={games}
             renderAction={renderAction}
@@ -116,7 +120,8 @@ const PlatformColumns: React.FC<SectionProps> = ({ groups, renderAction, meta })
       </section>
     ))}
   </div>
-);
+  );
+};
 
 /**
  * Where a stuck heading sits: half a rem clear of the phone's fixed top bar
@@ -303,7 +308,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
 
   if (groups.length > 1) {
     return (
-      <FlipGrid ids={ids}>
+      <FlipGrid ids={ids} fill={!phone}>
         {phone ? (
           <PhoneSections groups={groups} renderAction={renderAction} meta={meta} />
         ) : (

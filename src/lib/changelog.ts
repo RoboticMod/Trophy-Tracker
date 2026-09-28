@@ -21,6 +21,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.0',
+    date: '2026-09-28',
+    title: 'Pick a platform, get its progress',
+    changes: [
+      'Adding a game that is on both Steam and PlayStation no longer asks which version to use. The form opens on Steam, and picking PlayStation switches the name, cover and details to the PlayStation version.',
+      'Choosing a platform in the add or edit form syncs with it straight away: trophies or achievements, playtime and dates fill in from that platform before you save, with a line saying what it found.',
+      'On a computer or tablet, when Steam and PlayStation are shown side by side, the page no longer scrolls: the two columns fill the window and are the only things that scroll.',
+      'The 100% page says how many games are finished once, in its header, instead of twice.',
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-09-28',
     title: 'Platforms side by side',

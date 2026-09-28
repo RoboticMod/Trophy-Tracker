@@ -11,6 +11,8 @@ import { PlatformIcon } from './PlatformIcon';
 import { GameDetailsFields, GameDetailsValues } from './GameDetailsFields';
 import { PsnSyncStatus } from './PsnSyncStatus';
 import { SteamSyncStatus } from './SteamSyncStatus';
+import { PlatformReadNote, progressPatch } from './PlatformReadNote';
+import { usePlatformRead } from '../lib/usePlatformRead';
 import { Button, Dialog } from './ui';
 import { useIsPhone } from '../lib/useMediaQuery';
 
@@ -53,6 +55,32 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     steamAppId: game.steamAppId,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const platformRead = usePlatformRead();
+
+  /**
+   * Switching platform syncs with the new one there and then: the counts and
+   * playtime below change to what that platform says, before anything is
+   * saved, so Save stores what you can see. Linking a Steam page does the same.
+   */
+  const changeDetails = (patch: Partial<GameDetailsValues>) => {
+    const next = { ...values, ...patch };
+    setValues(next);
+
+    const platform =
+      patch.platform && patch.platform !== values.platform
+        ? patch.platform
+        : patch.steamAppId && patch.steamAppId !== values.steamAppId && next.platform === 'steam'
+          ? 'steam'
+          : null;
+    if (!platform) return;
+
+    void platformRead.start(
+      platform,
+      { title: next.title, steamAppId: next.steamAppId },
+      (progress) =>
+        setValues((v) => (v.platform === platform ? { ...v, ...progressPatch(progress) } : v)),
+    );
+  };
   // A phone's footer is 358px: the question and four buttons fit on one row
   // only if the question is short and Save says just that while confirming.
   const phone = useIsPhone();
@@ -61,7 +89,18 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
     e.preventDefault();
     if (!values.title.trim()) return;
 
+    // What the platform said when it was picked, if the form is still on it.
+    const fromPlatform =
+      platformRead.read.status === 'done' && platformRead.read.platform === values.platform
+        ? platformRead.read.progress
+        : null;
+
     const patch = {
+      ...(fromPlatform?.psnCommunicationId
+        ? { psnCommunicationId: fromPlatform.psnCommunicationId }
+        : {}),
+      ...(fromPlatform?.lastUnlockedAt ? { lastUnlockedAt: fromPlatform.lastUnlockedAt } : {}),
+      ...(fromPlatform?.lastPlayedAt ? { lastPlayedAt: fromPlatform.lastPlayedAt } : {}),
       title: values.title.trim(),
       platform: values.platform,
       coverImage: values.coverImage.trim() || undefined,
@@ -163,7 +202,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
         formId="edit-game-form"
         onSubmit={handleSubmit}
         values={values}
-        onChange={patch => setValues(v => ({ ...v, ...patch }))}
+        onChange={changeDetails}
         collections={collections}
         // Keyed on the platform being edited rather than the saved one, so
         // switching a game across in this dialog shows the panel that belongs
@@ -175,7 +214,9 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
             <PsnSyncStatus game={game} />
           )
         }
-      />
+      >
+        <PlatformReadNote read={platformRead.read} saved="when you save" />
+      </GameDetailsFields>
     </Dialog>
   );
 };
