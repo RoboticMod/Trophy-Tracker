@@ -7,9 +7,8 @@ import { useIsPhone } from '../../lib/useMediaQuery';
  *
  * Five pages hand-rolled the same shape — one of them said so in a comment —
  * which is five places to change when the shape does. They also each carried a
- * paragraph under the title restating what the title already said; that text
- * now lives in a dismissable `IntroNotice` instead, so it can be read once and
- * then be gone for good.
+ * paragraph under the title restating what the title already said; that went,
+ * and so did the dismissable banner it moved into after.
  */
 export const PageHeader: React.FC<{
   title: React.ReactNode;

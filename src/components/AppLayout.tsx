@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Home,
@@ -17,7 +17,7 @@ import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
 import { GameMovedDialog } from './GameMovedDialog';
 import { QuickAddModal, prefetchDialogs } from '../lib/lazyDialogs';
-import { SessionProgressDialog } from './SessionProgressDialog';
+import { NotificationBell } from './NotificationBell';
 import { UserGame } from '../types';
 import { APP_NAME } from '../lib/constants';
 import { useIsPhone } from '../lib/useMediaQuery';
@@ -349,9 +349,64 @@ export const AppLayout: React.FC = () => {
     return () => setFillClaims((n) => n - 1);
   }, []);
 
+  /**
+   * Where each history entry was left, by its key — so back returns to the
+   * place you scrolled to, rather than the top of the page. A new entry (a
+   * push or a replace) still opens at the top.
+   */
+  const navigationType = useNavigationType();
+  const scrollPositions = useRef(new Map<string, number>());
+  const currentKey = useRef(location.key);
+  currentKey.current = location.key;
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    let frame = 0;
+    const save = () => {
+      frame = 0;
+      scrollPositions.current.set(currentKey.current, main.scrollTop);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(save);
+    };
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      main.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
   useLayoutEffect(() => {
-    mainRef.current?.scrollTo({ top: 0 });
-  }, [location.pathname]);
+    const main = mainRef.current;
+    if (!main) return;
+    const saved = navigationType === 'POP' ? scrollPositions.current.get(location.key) : undefined;
+    if (saved === undefined) {
+      main.scrollTo({ top: 0 });
+      return;
+    }
+
+    // The page being returned to may still be mounting its grid, and a scroll
+    // past the end of what exists is clamped short. Try again each frame until
+    // it lands, the user scrolls themselves, or enough time has passed.
+    const until = performance.now() + 600;
+    let frame = 0;
+    const restore = () => {
+      main.scrollTop = saved;
+      if (Math.abs(main.scrollTop - saved) > 1 && performance.now() < until) {
+        frame = requestAnimationFrame(restore);
+      }
+    };
+    restore();
+    const stop = () => cancelAnimationFrame(frame);
+    main.addEventListener('wheel', stop, { once: true, passive: true });
+    main.addEventListener('touchstart', stop, { once: true, passive: true });
+    return () => {
+      stop();
+      main.removeEventListener('wheel', stop);
+      main.removeEventListener('touchstart', stop);
+    };
+  }, [location.key, navigationType]);
 
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-gray-50 text-gray-900">
@@ -465,6 +520,8 @@ export const AppLayout: React.FC = () => {
               </span>
             </button>
 
+            <NotificationBell variant="bar" />
+
             <button
               type="button"
               onClick={() => setIsQuickAddOpen(true)}
@@ -533,6 +590,8 @@ export const AppLayout: React.FC = () => {
 
           <div className="flex shrink-0 items-center gap-0.5">
             <span ref={setHeaderSlot} className="contents" />
+
+            <NotificationBell variant="phone" />
 
             <button
               type="button"
@@ -732,9 +791,6 @@ export const AppLayout: React.FC = () => {
       <GameAddedDialog />
       <GameMovedDialog />
 
-      {/* What the opening sync brought back that this device had not seen. Shows
-          itself once a session, and only when there is something to say. */}
-      <SessionProgressDialog />
     </div>
   );
 };

@@ -1,23 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import {
-  Gamepad2,
-  Plus,
-  Search,
-  ListFilter,
-  ArrowUpDown,
-  Loader2,
-} from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { ChevronRight, Gamepad2, Plus, Search, ListFilter, Loader2 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid, GameList } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge } from '../components/TrophyBadge';
 import { DEFAULT_COLLECTION_COLOR, PLATFORMS } from '../lib/constants';
 import { aggregateCompletion, isPerfect } from '../lib/completion';
-import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { GameSortOption, compareGames } from '../lib/sortGames';
 import {
   BACKLOG_COLLECTION_ID,
   BEATEN_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
+  PERMANENT_COLOR,
   PLAYING_COLLECTION_ID,
+  PermanentCollectionId,
   UNSHELVED_FILTER,
   collectionName,
   isPermanentCollection,
@@ -36,7 +33,7 @@ import {
   Select,
   TextInput,
 } from '../components/ui';
-import { IntroNotice } from '../components/IntroNotice';
+import { SortControl } from '../components/SortControl';
 import { completionColor, completionLabel } from '../lib/rating';
 import { formatCount, formatHours, sumHours } from '../lib/format';
 import { oneOf } from '../lib/usePersistentState';
@@ -102,14 +99,72 @@ const SummaryTile: React.FC<{
   </div>
 );
 
-/** A phone tile's split: each platform's mark and its count, no words. */
-const platformMarks = (subset: UserGame[]) =>
-  platformSplit(subset).map(({ platform, count }) => (
-    <span key={platform} className="flex items-center gap-1">
-      <PlatformIcon platform={platform} size={13} className="text-gray-600" />
-      {count}
-    </span>
-  ));
+/**
+ * A phone's summary: the three shelves as rows of one panel, each the way to
+ * its page.
+ *
+ * Three tiles a third of a phone wide each were cramped and empty at once —
+ * an eyebrow, a numeral and two tiny marks with nothing to fill the box. A row
+ * has the width to lay the same facts out side by side, and these shelves
+ * have no tab of their own on a phone, so a row you can tap earns its height.
+ */
+const ShelfRows: React.FC<{
+  rows: {
+    shelf: PermanentCollectionId;
+    label: string;
+    to: string;
+    games: UserGame[];
+    gold?: boolean;
+  }[];
+}> = ({ rows }) => (
+  <div className="panel col-span-3 divide-y divide-gray-200 overflow-hidden rounded-lg">
+    {rows.map(({ shelf, label, to, games, gold }) => {
+      const Icon = SHELF_ICONS[shelf];
+      const color = PERMANENT_COLOR[shelf];
+      return (
+        <NavLink
+          key={shelf}
+          to={to}
+          className="flex min-h-15 items-center gap-3 px-3.5 py-2.5 transition-colors active:bg-white/5"
+        >
+          <span
+            aria-hidden
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+            style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`, color }}
+          >
+            <Icon size={18} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-150 font-bold tracking-tight text-gray-1000">
+              {label}
+            </span>
+            <span className="mt-0.5 flex items-center gap-3 text-75 tabular-nums text-gray-700">
+              {platformSplit(games).map(({ platform, count }) => (
+                <span key={platform} className="flex items-center gap-1.25">
+                  {gold ? (
+                    <TrophyBadge platform={platform} size={14} />
+                  ) : (
+                    <PlatformIcon platform={platform} size={13} className="text-gray-600" />
+                  )}
+                  {count}
+                </span>
+              ))}
+            </span>
+          </span>
+          <span
+            className={cn(
+              'text-400 font-bold leading-none tabular-nums',
+              gold ? 'text-trophy-900' : 'text-gray-1000',
+            )}
+          >
+            {games.length}
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-gray-600" />
+        </NavLink>
+      );
+    })}
+  </div>
+);
 
 export const DashboardView: React.FC = () => {
   const {
@@ -222,22 +277,25 @@ export const DashboardView: React.FC = () => {
     return result;
   }, [games, activePlatformFilter, activeCollectionFilter, ratingFilter, localSearch, sortBy]);
 
+  const sort = (
+    <SortControl id="library-sort" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+  );
+
   return (
     <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
       <PageHeader
         title="Home"
         subtitle={`${formatCount(games.length)} games tracked · ${formatCount(libraryTotals.unlocked)} of ${formatCount(libraryTotals.unlockable)} awards · ${formatHours(sumHours(games))}h played`}
+        action={phone ? undefined : sort}
       />
 
-      <IntroNotice id="library">
-        Progress and achievement unlocks across Steam and PlayStation.
-      </IntroNotice>
+      {phone ? sort : null}
 
       {/* Summary -------------------------------------------------------------
           The completion gauge, then the three counts the library breaks into.
           One row of four from 1280; below that the gauge takes a row of its
-          own and the counts share the next — on a phone as three narrow
-          tiles, each figure over its split by platform. */}
+          own and the counts share the next — on a phone as one panel of
+          three rows, each the way to its shelf. */}
       <section className="grid grid-cols-3 gap-2 md:gap-3 xl:grid-cols-[1.7fr_1fr_1fr_1fr] xl:gap-4">
         <Card bare className="col-span-3 flex items-center p-4 md:p-4.5 xl:col-span-1 xl:px-5 xl:py-4">
           <Gauge
@@ -249,51 +307,67 @@ export const DashboardView: React.FC = () => {
             suffix="%"
             verdict={completionLabel(completion)}
             color={completionColor(completion)}
-            caption={`across ${formatCount(gaugeGames.length)} games in playing, beaten, backlog and 100%`}
+            caption={`${formatCount(gaugeGames.length)} games`}
             size={wide ? 96 : 104}
           />
         </Card>
 
-        <SummaryTile
-          label="100%"
-          value={perfectGames.length}
-          valueClassName="text-trophy-900"
-          detail={platformSplit(perfectGames).map(({ platform, count }) => (
-            <span key={platform} className="flex items-center gap-1 md:gap-1.25">
-              <TrophyBadge platform={platform} size={phone ? 14 : 16} />
-              {count}
-              {phone ? null : ` ${PLATFORMS[platform].name}`}
-            </span>
-          ))}
-        />
-        <SummaryTile
-          label={collectionName(PLAYING_COLLECTION_ID, collections)}
-          value={currentlyPlaying.length}
-          detail={
-            phone
-              ? platformMarks(currentlyPlaying)
-              : [
-                  `${formatHours(sumHours(currentlyPlaying))}h played`,
-                  ...platformSplit(currentlyPlaying).map(
-                    ({ platform, count }) => `${count} ${PLATFORMS[platform].name}`,
-                  ),
-                ].join(' · ')
-          }
-        />
-        <SummaryTile
-          label={collectionName(BACKLOG_COLLECTION_ID, collections)}
-          value={backlogGames.length}
-          detail={
-            phone
-              ? platformMarks(backlogGames)
-              : [
-                  'Queued',
-                  ...platformSplit(backlogGames).map(
-                    ({ platform, count }) => `${count} ${PLATFORMS[platform].name}`,
-                  ),
-                ].join(' · ')
-          }
-        />
+        {phone ? (
+          <ShelfRows
+            rows={[
+              {
+                shelf: COMPLETE_COLLECTION_ID,
+                label: '100%',
+                to: '/achievements',
+                games: perfectGames,
+                gold: true,
+              },
+              {
+                shelf: PLAYING_COLLECTION_ID,
+                label: collectionName(PLAYING_COLLECTION_ID, collections),
+                to: '/playing',
+                games: currentlyPlaying,
+              },
+              {
+                shelf: BACKLOG_COLLECTION_ID,
+                label: collectionName(BACKLOG_COLLECTION_ID, collections),
+                to: '/backlog',
+                games: backlogGames,
+              },
+            ]}
+          />
+        ) : (
+          <>
+            <SummaryTile
+              label="100%"
+              value={perfectGames.length}
+              valueClassName="text-trophy-900"
+              detail={platformSplit(perfectGames).map(({ platform, count }) => (
+                <span key={platform} className="flex items-center gap-1.25">
+                  <TrophyBadge platform={platform} size={16} />
+                  {count} {PLATFORMS[platform].name}
+                </span>
+              ))}
+            />
+            <SummaryTile
+              label={collectionName(PLAYING_COLLECTION_ID, collections)}
+              value={currentlyPlaying.length}
+              detail={[
+                `${formatHours(sumHours(currentlyPlaying))}h played`,
+                ...platformSplit(currentlyPlaying).map(
+                  ({ platform, count }) => `${count} ${PLATFORMS[platform].name}`,
+                ),
+              ].join(' · ')}
+            />
+            <SummaryTile
+              label={collectionName(BACKLOG_COLLECTION_ID, collections)}
+              value={backlogGames.length}
+              detail={platformSplit(backlogGames)
+                .map(({ platform, count }) => `${count} ${PLATFORMS[platform].name}`)
+                .join(' · ')}
+            />
+          </>
+        )}
       </section>
 
       {/* Controls ------------------------------------------------------------
@@ -399,32 +473,18 @@ export const DashboardView: React.FC = () => {
             })}
         </div>
 
-        <div className="flex gap-2 md:contents">
+        {/* The sort is in the header, where every page keeps it. */}
+        {phone || wide || ratingFilter !== 'all' ? (
           <Select
-            id="library-sort"
-            aria-label="Sort"
-            value={sortBy}
-            onChange={setSortBy}
-            leading={<ArrowUpDown size={15} className="text-accent-900" />}
-            className="min-w-0 flex-1 md:w-42.5 md:flex-none md:shrink-0 xl:w-50"
-            options={SORT_OPTIONS.map((option) => ({
-              value: option,
-              label: SORT_LABELS[option],
-            }))}
+            id="library-rating"
+            aria-label="Rating"
+            value={ratingFilter}
+            onChange={setRatingFilter}
+            leading={<ListFilter size={15} className="text-trophy-900" />}
+            className="min-w-0 md:w-40 md:flex-none md:shrink-0"
+            options={RATING_FILTER_OPTIONS}
           />
-
-          {phone || wide || ratingFilter !== 'all' ? (
-            <Select
-              id="library-rating"
-              aria-label="Rating"
-              value={ratingFilter}
-              onChange={setRatingFilter}
-              leading={<ListFilter size={15} className="text-trophy-900" />}
-              className="min-w-0 flex-1 md:w-40 md:flex-none md:shrink-0"
-              options={RATING_FILTER_OPTIONS}
-            />
-          ) : null}
-        </div>
+        ) : null}
       </section>
 
       {/* Spotlight ------------------------------------------------------------
@@ -458,11 +518,6 @@ export const DashboardView: React.FC = () => {
         <EmptyState
           icon={<Gamepad2 size={24} />}
           title={games.length === 0 ? 'Your library is empty' : 'No games match these filters'}
-          description={
-            games.length === 0
-              ? 'Search the catalog or add a game by hand to start tracking achievements and platinums.'
-              : 'Try clearing a filter or searching for a different title.'
-          }
           action={
             <Button variant="accent" onClick={() => setIsQuickAddOpen(true)}>
               <Plus size={14} />

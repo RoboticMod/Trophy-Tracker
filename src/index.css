@@ -1075,3 +1075,58 @@
     }
   }
 }
+
+/* The notification bell, while something is waiting: a short ring every six
+   seconds — straight away first, so it is seen as soon as it arrives — and
+   the rest of the time still, so it never becomes wallpaper. */
+@keyframes bell-ring {
+  0%,
+  16%,
+  100% {
+    transform: rotate(0);
+  }
+  2% {
+    transform: rotate(16deg);
+  }
+  5% {
+    transform: rotate(-13deg);
+  }
+  8% {
+    transform: rotate(9deg);
+  }
+  11% {
+    transform: rotate(-5deg);
+  }
+  14% {
+    transform: rotate(2deg);
+  }
+}
+
+@utility bell-ring {
+  transform-origin: 50% 3px;
+  animation: bell-ring 6s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* A ring of the badge's own colour spreading out and fading, on a loop, so a
+   count waiting on the bell is noticed without flashing. */
+@keyframes notify-halo {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+@utility notify-halo {
+  animation: notify-halo 2.2s ease-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}

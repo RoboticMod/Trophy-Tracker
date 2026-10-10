@@ -188,8 +188,7 @@ const TrophyListPicker: React.FC<{ game: UserGame; onDone: () => void }> = ({ ga
           tracks depends on the scope chosen in Settings, so the two need not
           read the same. */}
       <p className="text-50 text-gray-600">
-        Counts below always include add-on trophies. What a game tracks follows
-        “PlayStation trophy counts” in Settings.
+        Counts include add-ons.
       </p>
 
       {loading ? (
@@ -199,7 +198,7 @@ const TrophyListPicker: React.FC<{ game: UserGame; onDone: () => void }> = ({ ga
         </div>
       ) : error ? (
         <p className="text-50 text-notice-900">
-          {ERROR_TEXT[error] ?? 'PlayStation could not be reached. Try again in a moment.'}
+          {ERROR_TEXT[error] ?? 'Couldn’t reach PlayStation. Try again.'}
         </p>
       ) : shown.length === 0 ? (
         <p className="text-50 text-gray-600">No trophy list on your account matches that.</p>

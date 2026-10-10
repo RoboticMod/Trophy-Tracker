@@ -1,19 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpDown } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { IntroNotice } from '../components/IntroNotice';
 import { GameGrid } from '../components/GameGrid';
+import { SortControl } from '../components/SortControl';
+import { useIsPhone } from '../lib/useMediaQuery';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { TrophyBadge } from '../components/TrophyBadge';
 import { SHELF_ICONS } from '../components/CollectionIcon';
 import { COMPLETE_COLLECTION_ID } from '../lib/collections';
 import { PLATFORMS } from '../lib/constants';
-import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { GameSortOption, compareGames } from '../lib/sortGames';
 import { isPerfect } from '../lib/completion';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { Platform, PLATFORM_IDS } from '../types';
-import { Badge, EmptyState, FilterChip, PageHeader, Select } from '../components/ui';
+import { Badge, EmptyState, FilterChip, PageHeader } from '../components/ui';
 
 const CompleteIcon = SHELF_ICONS[COMPLETE_COLLECTION_ID];
 
@@ -44,6 +44,16 @@ export const AchievementsView: React.FC = () => {
   );
 
   const platformOrder = profile.platformOrder;
+  const phone = useIsPhone();
+
+  const sort = (
+    <SortControl
+      id="achievements-sort"
+      value={sortBy}
+      onChange={setSortBy}
+      options={SORT_OPTIONS}
+    />
+  );
 
   /** Games where every achievement or trophy has been unlocked. */
   const completedGames = useMemo(() => games.filter(isPerfect), [games]);
@@ -84,41 +94,14 @@ export const AchievementsView: React.FC = () => {
             (p) => `${completedGames.filter((g) => g.platform === p).length} ${PLATFORMS[p].name}`,
           ),
         ].join(' · ')}
+        action={phone ? undefined : sort}
       />
 
-      <IntroNotice id="achievements">
-        Every game where you have unlocked all achievements — Steam perfect games and PlayStation
-        platinums.
-      </IntroNotice>
+      {phone ? sort : null}
 
-      {/* Filter and sort ----------------------------------------------------
-          No rule of its own: the header block above already ends in one, and
-          with the intro notice dismissed the two sat a bare gap apart and read
-          as a mistake. The gap is the separation. */}
-      {/* No count of its own: the header above already says how many games
-          are at 100%, and the platform chips say how many on each. */}
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="achievements-sort"
-              className="eyebrow flex items-center gap-1 text-gray-600"
-            >
-              <ArrowUpDown size={12} className="text-trophy-900" />
-              Sort
-            </label>
-            <Select
-              id="achievements-sort"
-              value={sortBy}
-              onChange={setSortBy}
-              options={SORT_OPTIONS.map((option) => ({
-                value: option,
-                label: SORT_LABELS[option],
-              }))}
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5">
+      {/* The platform filter. The sort is in the header, where every page
+          keeps it. */}
+      <div className="scroll-row flex items-center gap-1.5">
           <FilterChip
             tone="trophy"
             selected={selectedPlatform === 'all'}
@@ -143,8 +126,6 @@ export const AchievementsView: React.FC = () => {
               </FilterChip>
             );
           })}
-          </div>
-        </div>
       </div>
 
       <GameGrid
@@ -156,11 +137,10 @@ export const AchievementsView: React.FC = () => {
       {displayedGames.length === 0 && (
         <EmptyState
           icon={<CompleteIcon size={24} />}
-          title="Nothing at 100% yet"
-          description={
-            selectedPlatform !== 'all'
-              ? `No ${PLATFORMS[selectedPlatform].name} game is fully unlocked yet.`
-              : 'Unlock every achievement in a game to earn its Steam perfect-game ribbon or PlayStation platinum here.'
+          title={
+            selectedPlatform === 'all'
+              ? 'Nothing at 100% yet'
+              : `No ${PLATFORMS[selectedPlatform].name} game at 100% yet`
           }
         />
       )}

@@ -92,3 +92,16 @@ export function compareGames(a: UserGame, b: UserGame, sortBy: GameSortOption): 
       return lastTouched(b) - lastTouched(a);
   }
 }
+
+/**
+ * Best first: the game's own score — the one on the corner of its card — then
+ * the award-list score to break a tie, then the title. Unrated games go last,
+ * which is where a zero puts them. What a list's preview covers are chosen by.
+ */
+export function byRating(a: UserGame, b: UserGame): number {
+  return (
+    (b.rating || 0) - (a.rating || 0) ||
+    (b.achievementRating || 0) - (a.achievementRating || 0) ||
+    a.title.localeCompare(b.title)
+  );
+}

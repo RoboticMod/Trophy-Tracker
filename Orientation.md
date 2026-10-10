@@ -194,9 +194,10 @@ papercuts grown around the old one. `status`, `GameStatus`, `statusNames`,
 `(user_id, id)`: as `id` alone the fixed starter ids could only be seeded once
 **across the whole project**, so every account after the first was told its
 library would not load. Also landed: `/setup`, delete-account through a
-service-role route, Settings in five groups, a dragged sidebar order, and page
-descriptions as dismissable `IntroNotice` banners — which is why a page's first
-rule can end up beside its second.
+service-role route, Settings in five groups, and a dragged sidebar order. Page
+descriptions went to dismissable `IntroNotice` banners and then (0.13) went
+altogether: **copy is a few words, or none** — kept only for an error, what a
+destructive action costs, or something you must do.
 
 Passes since then, each cutting a surface down to what it is read for. The
 achievement rating is asked for only at 100%, being a verdict on a whole list;
@@ -218,13 +219,29 @@ star is retired: see below. What is load-bearing:
   then a 248px track (five at 1440). **Always cards** — a sparse section once
   became full-width rows, and a card unlike every other read as a bug.
 - **Chrome.** A phone: 56px fixed header (back — not on Home — 17px title, the
-  shelf's count badge, sync, add — all 44px) and a 60px bottom bar lit on its top
-  edge. A page can put a control in that header through `PhoneHeaderAction`
-  (`lib/phoneHeader.tsx`, a portal target, no state lifted). From 768: a 64px
-  top bar in the same 1440 `page-container` as the page, the `Wordmark` lockup,
-  and `ProfileMenu` (Settings, Log out). `<main>` is reset to the top on every
-  route change (a layout effect, so a page's own scroll-to still wins). The app
-  always opens on Home — the start-page setting is gone.
+  shelf's count badge, the page's slot, bell, sync, add — all 44px) and a 60px
+  bottom bar lit on its top edge. A page can put a control in that header
+  through `PhoneHeaderAction` (`lib/phoneHeader.tsx`, a portal target, no state
+  lifted). From 768: a 64px top bar in the same 1440 `page-container` as the
+  page, the `Wordmark` lockup, sync, the bell, Add and `ProfileMenu` (Settings,
+  Log out). **Scroll is per history entry**: `AppLayout` saves `<main>`'s
+  scroll by `location.key`, restores it on a POP and opens a push at the top
+  (a layout effect, so a page's own scroll-to still wins). An open list is
+  `/collections?list=<id>`, a push, so back returns to Lists. The app always
+  opens on Home — the start-page setting is gone.
+- **Sort lives in one place** (`SortControl`): an icon in the phone header
+  opening a sheet (`Select`'s `iconTrigger`), the trailing pill of
+  `PageHeader`'s action from 768. Every sorting page uses it; Stats' reorder
+  toggle is a grip, not ⇅, so the two never read alike.
+- **Notifications** (`NotificationsContext`, `NotificationBell`,
+  `NotificationsPanel`): each settled sync pass compares award counts with the
+  device's progress marks and files what moved — merged into an unread entry
+  for the same game, kept 30 days, 50 max, per device in `localCache`. Nothing
+  pops up: the bell rings and counts (gold for a 100%), and opening it plays
+  each new 100% on its own before the list, furthest-moved first.
+- **Phone platform headings** (`PhoneSections`) stick at the top one at a
+  time — a heading superseded by a later one stuck there fades out — and stack
+  at the bottom.
 - **Figures sit with the title, not in the page.** A phone shows the count in
   the fixed header; `PageHeader` there renders only a page's own control. A wide
   screen gets the title at 24 and a `subtitle` line of figures.

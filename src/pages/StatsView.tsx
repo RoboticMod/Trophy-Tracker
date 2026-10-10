@@ -4,7 +4,7 @@ import {
   Gamepad2,
   Calendar,
   TrendingUp,
-  ArrowUpDown,
+  GripVertical,
   ChevronUp,
   ChevronDown,
   ChevronRight,
@@ -43,7 +43,6 @@ import {
 } from '../components/ui';
 import { useIsPhone, useMediaQuery } from '../lib/useMediaQuery';
 import { PhoneHeaderAction } from '../lib/phoneHeader';
-import { IntroNotice } from '../components/IntroNotice';
 
 /**
  * The three shelves plus everything on none of them. That last slice is what
@@ -205,7 +204,7 @@ export const StatsView: React.FC = () => {
         <EmptyState
           icon={<BarChart3 size={24} />}
           title="No statistics yet"
-          description="Add a few games and log some progress — the breakdowns fill in from your library."
+          description="Add a few games to see them here."
         />
       </div>
     );
@@ -441,14 +440,8 @@ export const StatsView: React.FC = () => {
       <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
         <PageHeader
           title="Statistics"
-          subtitle={`Across ${formatCount(totalGames)} games, ${platformStats.length} ${
-            platformStats.length === 1 ? 'platform' : 'platforms'
-          } and ${formatHours(totalHours)} hours.`}
+          subtitle={`${formatCount(totalGames)} games · ${formatHours(totalHours)}h`}
         />
-
-        <IntroNotice id="stats">
-          Progress, achievements and hours played across your library.
-        </IntroNotice>
 
         {wide ? (
           <div className="grid grid-cols-2 items-start gap-4">
@@ -501,13 +494,9 @@ export const StatsView: React.FC = () => {
               : 'text-gray-800 hover:bg-white/5',
           )}
         >
-          <ArrowUpDown size={19} />
+          <GripVertical size={19} />
         </button>
       </PhoneHeaderAction>
-
-      <IntroNotice id="stats">
-        Progress, achievements and hours played across your library.
-      </IntroNotice>
 
       {isReordering && storedOrder?.length ? (
         <Button

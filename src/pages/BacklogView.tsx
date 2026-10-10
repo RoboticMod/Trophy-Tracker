@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpDown, Hourglass, Plus, Play } from 'lucide-react';
+import { Hourglass, Plus, Play } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { PlatformIcon } from '../components/PlatformIcon';
@@ -13,13 +13,13 @@ import {
 } from '../lib/collections';
 import { aggregateCompletion } from '../lib/completion';
 import { formatCount } from '../lib/format';
-import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { GameSortOption, compareGames } from '../lib/sortGames';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
-import { IntroNotice } from '../components/IntroNotice';
-import { Badge, Button, EmptyState, PageHeader, Select } from '../components/ui';
+import { SortControl } from '../components/SortControl';
+import { Badge, Button, EmptyState, PageHeader } from '../components/ui';
 
 /** Completion is left out: almost everything queued is still at zero. */
 const SORT_OPTIONS = [
@@ -109,15 +109,7 @@ export const BacklogView: React.FC = () => {
   );
 
   const sort = (
-    <Select
-      id="backlog-sort"
-      aria-label="Sort"
-      value={sortBy}
-      onChange={setSortBy}
-      leading={<ArrowUpDown size={15} className="text-accent-900" />}
-      className="w-36 shrink-0 md:w-40"
-      options={SORT_OPTIONS.map((option) => ({ value: option, label: SORT_LABELS[option] }))}
-    />
+    <SortControl id="backlog-sort" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
   );
 
   return (
@@ -144,13 +136,8 @@ export const BacklogView: React.FC = () => {
         }
       />
 
-      <IntroNotice id="backlog">
-        Games queued and waiting to be played. Starting one from its card moves it to
-        “{collectionName(PLAYING_COLLECTION_ID, collections)}”.
-      </IntroNotice>
-
       {phone ? (
-        <div className="flex items-center gap-2 [&>[role=radiogroup]]:min-w-0 [&>[role=radiogroup]]:flex-1">
+        <div className="flex items-center [&>[role=radiogroup]]:min-w-0 [&>[role=radiogroup]]:flex-1">
           {segmented}
           {sort}
         </div>
@@ -161,12 +148,12 @@ export const BacklogView: React.FC = () => {
         grouped={platformFilter === 'all'}
         platformOrder={platformOrder}
         renderAction={(game) => (
-          // Spans the card. On a phone it is a target of its own at a field's
-          // height, inside the card's strip, saying only "Start" in the width
-          // it has.
+          // Spans the card. On a phone it sits in the card's strip at 32px —
+          // a field's 44 made it the bulkiest thing on the card — saying only
+          // "Start" in the width it has.
           <Button
             variant="positive"
-            size={phone ? 'l' : 's'}
+            size={phone ? 'm' : 's'}
             className="w-full"
             onClick={() =>
               updateGame(game.id, {
@@ -174,7 +161,7 @@ export const BacklogView: React.FC = () => {
               })
             }
           >
-            <Play size={phone ? 16 : 14} />
+            <Play size={14} />
             {phone ? 'Start' : startLabel}
           </Button>
         )}
@@ -184,7 +171,6 @@ export const BacklogView: React.FC = () => {
         <EmptyState
           icon={<Hourglass size={24} />}
           title="Your backlog is clear"
-          description="Nothing is waiting under this filter. Add games from the catalog to queue them up."
           action={
             <Button variant="accent" onClick={() => setIsQuickAddOpen(true)}>
               <Plus size={14} />

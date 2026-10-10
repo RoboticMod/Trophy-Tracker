@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { UserGame } from '../types';
 import { useGame } from '../context/GameContext';
 import { DEFAULT_COLLECTION_COLOR } from '../lib/constants';
+import { byRating } from '../lib/sortGames';
 import { formatCount, formatHours, sumHours } from '../lib/format';
 import {
   BACKLOG_COLLECTION_ID,
@@ -99,7 +100,8 @@ export const CollectionsList: React.FC<{
       color: isPermanentCollection(id)
         ? PERMANENT_COLOR[id]
         : (byId.get(id)?.color ?? DEFAULT_COLLECTION_COLOR),
-      games: games.filter((g) => g.collections?.includes(id)),
+      // Best rated first, so the previews lead with the games worth showing.
+      games: games.filter((g) => g.collections?.includes(id)).sort(byRating),
       route: SHELF_ROUTES[id],
     }));
   }, [collections, games]);

@@ -12,6 +12,7 @@ const NS = 'trophytracker';
 const cacheKey = (userId: string) => `${NS}:cache:${userId}`;
 const queueKey = (userId: string) => `${NS}:queue:${userId}`;
 const progressKey = (userId: string) => `${NS}:progress:${userId}`;
+const notificationsKey = (userId: string) => `${NS}:notifications:${userId}`;
 
 /**
  * The shape of a cached library, so an old one can be recognised and thrown
@@ -143,12 +144,38 @@ export const readProgressMarks = (userId: string): ProgressMarks | null =>
 export const writeProgressMarks = (userId: string, marks: ProgressMarks): void =>
   write(progressKey(userId), marks);
 
+/**
+ * One game's progress since this device last looked, kept in the bell until
+ * it is cleared or ages out. Per device, like the marks it is worked out from.
+ */
+export interface ProgressNotification {
+  id: string;
+  gameId: string;
+  /** Unlocked count when this run of progress began. */
+  from: number;
+  /** Unlocked count now. */
+  to: number;
+  total: number;
+  /** Those awards finished the game. */
+  completed: boolean;
+  /** ISO time it was last added to. */
+  at: string;
+  read: boolean;
+}
+
+export const readNotifications = (userId: string): ProgressNotification[] =>
+  read<ProgressNotification[]>(notificationsKey(userId)) ?? [];
+
+export const writeNotifications = (userId: string, list: ProgressNotification[]): void =>
+  write(notificationsKey(userId), list);
+
 /** Clears everything held for a user. Called on sign-out. */
 export function clearUserCache(userId: string): void {
   try {
     localStorage.removeItem(cacheKey(userId));
     localStorage.removeItem(queueKey(userId));
     localStorage.removeItem(progressKey(userId));
+    localStorage.removeItem(notificationsKey(userId));
   } catch {
     // ignore
   }

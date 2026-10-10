@@ -426,7 +426,7 @@ export const QuickAddModal: React.FC = () => {
             <p className="flex items-center gap-1.5 text-50 text-gray-600">
               <KeyRound size={12} />
               {rawgSkipped === 'missing-key'
-                ? 'Showing Steam only — add a RAWG key in Settings to search both.'
+                ? 'Steam only — add a RAWG key in Settings.'
                 : 'Showing Steam only — RAWG could not be reached.'}
             </p>
           ) : null}
@@ -478,7 +478,7 @@ export const QuickAddModal: React.FC = () => {
             )}
             {fetchingDetails
               ? 'Reading the Steam store page…'
-              : 'Added games sync to your account automatically.'}
+              : 'Syncs automatically'}
           </p>
           )}
         </GameDetailsFields>
@@ -561,20 +561,18 @@ const SearchEmptyState: React.FC<{
       ? [
           <KeyRound size={20} key="k" />,
           'No RAWG key configured',
-          'Add a RAWG API key in Settings, switch the catalog back to Steam, or use “Enter details” to add the game yourself.',
+          'Add one in Settings, or use “Enter details”.',
         ]
       : error
         ? [
             <WifiOff size={20} key="w" />,
             `Could not reach ${name}`,
-            'The catalog request failed. Check your connection, or use “Enter details” to add the game yourself.',
+            'Check your connection, or use “Enter details”.',
           ]
         : [
             <Search size={20} key="s" />,
-            trimmed ? 'No matches' : 'Search for a game',
-            trimmed
-              ? `${name} has no games matching “${trimmed}”.`
-              : `Type a title to search ${name}.`,
+            trimmed ? `No matches for “${trimmed}”` : `Search ${name}`,
+            '',
           ];
 
   return (
@@ -583,7 +581,7 @@ const SearchEmptyState: React.FC<{
         {icon}
       </div>
       <h4 className="text-100 font-bold text-gray-1000">{title}</h4>
-      <p className="max-w-sm text-75 text-gray-700">{body}</p>
+      {body ? <p className="max-w-sm text-75 text-gray-700">{body}</p> : null}
     </div>
   );
 };

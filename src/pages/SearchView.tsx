@@ -36,7 +36,6 @@ import { CoverArt } from '../components/CoverArt';
 import { EditGameModal } from '../components/EditGameModal';
 import { PlatformIcon } from '../components/PlatformIcon';
 import { RatingValue } from '../components/Rating';
-import { IntroNotice } from '../components/IntroNotice';
 import {
   Button,
   EmptyState,
@@ -162,21 +161,7 @@ export const SearchView: React.FC = () => {
     <div className="mx-auto max-w-[1760px] space-y-6 pb-10">
       {/* A plus, matching the Add button and the add dialog — the three ways to
           add a game were a sparkle, a sparkle and a plus. */}
-      <PageHeader
-        title="Search & add"
-        subtitle="Find a game on Steam or PlayStation and put it on a shelf."
-      />
-
-      {/* Kept as a note rather than dropped outright: which catalog is being
-          searched, and where to change it, is not something the title says. */}
-      <IntroNotice id="search">
-        Search {sourceName} and add games to your Steam or PlayStation library. The catalog can be
-        changed in{' '}
-        <Link to="/settings" className="font-semibold text-accent-900 hover:text-accent-1000">
-          Settings
-        </Link>
-        .
-      </IntroNotice>
+      <PageHeader title="Search & add" />
 
       {phone ? (
       <div className="space-y-4">
@@ -188,7 +173,7 @@ export const SearchView: React.FC = () => {
           <TextInput
             type="search"
             aria-label={`Search ${sourceName}`}
-            placeholder="Search by title — Elden Ring, Hollow Knight, Balatro…"
+            placeholder={`Search ${sourceName}`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-11 pl-11 text-100 sm:h-12 sm:pl-12 sm:text-200"
@@ -234,7 +219,7 @@ export const SearchView: React.FC = () => {
             <input
               type="search"
               aria-label={`Search ${sourceName}`}
-              placeholder="Search by title — Elden Ring, Hollow Knight, Balatro…"
+              placeholder={`Search ${sourceName}`}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="no-spinner h-12 w-full rounded-tile border border-accent-700/50 bg-black/30 pl-12 pr-4 text-150 text-gray-900 shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent-700)_12%,transparent)] placeholder:text-gray-600 focus:border-accent-700 focus:outline-none"
@@ -542,7 +527,7 @@ const CatalogEmptyState: React.FC<{
       <EmptyState
         icon={<KeyRound size={20} />}
         title="No RAWG key configured"
-        description="Searching RAWG needs an API key of your own. Add one in Settings, or switch the catalog back to Steam."
+        description="Add one in Settings, or switch the catalog to Steam."
         action={
           <Link
             to="/settings"
@@ -560,7 +545,7 @@ const CatalogEmptyState: React.FC<{
       <EmptyState
         icon={<WifiOff size={20} />}
         title={`Could not reach ${name}`}
-        description="The catalog request failed. Check your connection and try the search again."
+        description="Check your connection and try again."
       />
     );
   }
@@ -569,13 +554,11 @@ const CatalogEmptyState: React.FC<{
   return (
     <EmptyState
       icon={<Search size={20} />}
-      title={trimmed ? 'No matches' : 'Search for a game'}
+      title={trimmed ? `No matches for “${trimmed}”` : `Search ${name}`}
       description={
-        trimmed
-          ? `${name} has no games matching “${trimmed}”. Try a shorter or differently spelled search.`
-          : source === 'steam' && !linked
-            ? 'Type a title to search Steam. Link your Steam account in Settings to see your recently played games here.'
-            : `Type a title to search ${name}.`
+        !trimmed && source === 'steam' && !linked
+          ? 'Link Steam in Settings to see your recent games here.'
+          : undefined
       }
     />
   );

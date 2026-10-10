@@ -139,7 +139,7 @@ const EditGameForm: React.FC<{ game: UserGame; isOpen: boolean; onClose: () => v
       isOpen={isOpen}
       onClose={onClose}
       title={game.title}
-      description={`${PLATFORMS[values.platform].name} • edit tracked details`}
+      description={PLATFORMS[values.platform].name}
       icon={<PlatformIcon platform={values.platform} size={18} />}
       footer={
         // One row, always. The question wraps onto a second line inside its

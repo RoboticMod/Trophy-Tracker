@@ -21,6 +21,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.0',
+    date: '2026-10-10',
+    title: 'A bell for your progress',
+    changes: [
+      'Progress made while you were away now goes to a bell in the top bar instead of a pop-up. It rings and shows a count while something is new, and turns gold when a game hit 100%.',
+      'Opening the bell plays any 100% first, one game at a time with its celebration, then lists everything else by how much it moved. Notifications stay for 30 days, and progress during a session lands there too.',
+      'Sorting sits in the same place on every page: an icon in the top bar on a phone, the right of the page header on a computer. Playing can now be sorted on a phone.',
+      'Going back from inside a list returns to Lists where you left it, instead of jumping to Home. Going back anywhere returns to where you had scrolled.',
+      'On a phone, only the platform you are in stays pinned at the top while scrolling.',
+      'Home on a phone shows 100%, Playing and Backlog as three rows you can tap.',
+      'List previews lead with your highest-rated games.',
+      'New list opens as a sheet on a phone. The Start button on Backlog cards is slimmer.',
+      'Much less explanatory text across the app: the intro banners and the "Permanent" label are gone, and descriptions are a few words at most.',
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-09-28',
     title: 'Pick a platform, get its progress',

@@ -6,7 +6,6 @@ import {
   Cloud,
   CloudOff,
   Gamepad2,
-  Plug,
   Plus,
   RefreshCw,
 } from 'lucide-react';
@@ -90,8 +89,7 @@ export const SetupView: React.FC = () => {
         <div className="min-w-0">
           <h1 className="text-600 font-bold tracking-tight text-gray-1000">Set up your library</h1>
           <p className="text-75 text-gray-700">
-            Four things, and only the first two matter. You can change any of them later in
-            Settings.
+            Only the first two are needed.
           </p>
         </div>
       </div>
@@ -101,7 +99,7 @@ export const SetupView: React.FC = () => {
       <Step
         index={1}
         title="Cloud storage"
-        description="Your library lives in Supabase, scoped to your account"
+        description="Supabase"
         done={isOnline && !error}
       >
         <Card className="space-y-4">
@@ -111,7 +109,7 @@ export const SetupView: React.FC = () => {
             description={
               isOnline
                 ? 'Changes save as you make them.'
-                : 'Changes queue locally and are sent when the connection returns.'
+                : 'Offline — changes are queued.'
             }
             iconClassName={
               isOnline
@@ -137,7 +135,7 @@ export const SetupView: React.FC = () => {
       <Step
         index={2}
         title="Game catalog"
-        description="Where searching for a game to add looks it up"
+        description="Where search looks"
       >
         <GameCatalogCard />
       </Step>
@@ -145,7 +143,7 @@ export const SetupView: React.FC = () => {
       <Step
         index={3}
         title="Connect Steam or PlayStation"
-        description="Linked games keep their own playtime and unlocks up to date"
+        description="Keeps linked games up to date"
         optional
         done={linked}
       >
@@ -155,7 +153,7 @@ export const SetupView: React.FC = () => {
       <Step
         index={4}
         title="Add your first game"
-        description="Search the catalog, or type one in by hand"
+        description="Search, or add by hand"
         done={games.length > 0}
       >
         <div className="flex flex-wrap gap-2">
@@ -170,10 +168,6 @@ export const SetupView: React.FC = () => {
         </div>
       </Step>
 
-      <p className="flex items-center gap-1.5 border-t border-gray-200 pt-5 text-75 text-gray-600">
-        <Plug size={13} />
-        Everything here lives in Settings too, whenever you want to change it.
-      </p>
     </div>
   );
 };

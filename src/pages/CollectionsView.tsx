@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import {
-  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -19,17 +19,18 @@ import { aggregateCompletion } from '../lib/completion';
 import { formatHours, sumHours } from '../lib/format';
 import { Collection, UserGame } from '../types';
 import { useIsPhone } from '../lib/useMediaQuery';
-import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { GameSortOption, byRating, compareGames } from '../lib/sortGames';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
+import { EASE_OUT } from '../lib/motion';
+import { SortControl } from '../components/SortControl';
 import {
-  Badge,
   Button,
   Card,
+  Dialog,
   EmptyState,
   Field,
   PageHeader,
-  Select,
   TextInput,
 } from '../components/ui';
 
@@ -200,11 +201,24 @@ export const CollectionsView: React.FC = () => {
   // list's games on the page and every other list behind a name.
   const phone = useIsPhone();
 
-  // Opened on a list by name — Statistics sends Beaten here this way.
-  const [params] = useSearchParams();
-  const [activeCollectionId, setActiveCollectionId] = useState<string>(
-    () => params.get('list') ?? '',
-  );
+  /**
+   * The open list lives in the URL, not in state.
+   *
+   * As state, opening a list was not a step in history at all: back — the
+   * phone header's, or the browser's — skipped straight past the lists to
+   * whatever page came before them, often Home. As `?list=`, opening one is a
+   * push, back is a pop to the lists, and the layout restores where they were
+   * scrolled to. Statistics sends Beaten here the same way.
+   */
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const activeCollectionId = params.get('list') ?? '';
+  const openList = (id: string) => setParams({ list: id }, { state: { fromLists: true } });
+  /** Back to the lists: a pop when that is where this came from, so its scroll returns. */
+  const closeList = () => {
+    if ((location.state as { fromLists?: boolean } | null)?.fromLists) navigate(-1);
+    else setParams({}, { replace: true });
+  };
   /** The collection whose delete has been asked for but not yet confirmed. */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -264,20 +278,16 @@ export const CollectionsView: React.FC = () => {
   }, [games, activeCollection, sortBy]);
 
   /**
-   * Deleting the collection being looked at, and then landing somewhere real.
-   *
-   * The tab strip is about to lose a tab; without this the page would sit on an
-   * id that no longer exists and fall back to whichever collection happened to
-   * be first, which reads as the page jumping about on its own.
+   * Deleting the list being looked at lands back on the lists — replacing the
+   * entry rather than adding one, so back does not return to a list that is
+   * gone.
    */
   const handleDelete = () => {
     if (!activeCollection) return;
     deleteCollection(activeCollection.id);
     setConfirmDeleteId(null);
     setEditingId(null);
-    setActiveCollectionId(
-      customCollections.find((c) => c.id !== activeCollection.id)?.id ?? '',
-    );
+    setParams({}, { replace: true });
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -289,6 +299,64 @@ export const CollectionsView: React.FC = () => {
     setIsCreating(false);
   };
 
+  /** Focused the moment the form shows, so the press visibly did something. */
+  const nameRef = useRef<HTMLInputElement>(null);
+  const createCardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isCreating || phone) return;
+    createCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    nameRef.current?.focus({ preventScroll: true });
+  }, [isCreating, phone]);
+
+  const createForm = (
+    <form id="create-list" onSubmit={handleCreate} className="space-y-4">
+      <Field label="Name">
+        {(props) => (
+          <TextInput
+            {...props}
+            ref={nameRef}
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Soulsborne, speedruns, couch co-op…"
+          />
+        )}
+      </Field>
+
+      <Field label="Description" description="Optional">
+        {(props) => (
+          <TextInput
+            {...props}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        )}
+      </Field>
+
+      <ColourSwatches value={color} onChange={setColor} />
+
+      {phone ? null : (
+        <div className="flex justify-end gap-2 pt-1">
+          <Button buttonStyle="subtle" onClick={() => setIsCreating(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="accent">
+            Save list
+          </Button>
+        </div>
+      )}
+    </form>
+  );
+
+  const sort = (
+    <SortControl
+      id="list-sort"
+      value={sortBy}
+      onChange={setSortBy}
+      options={LIST_SORT_OPTIONS}
+    />
+  );
+
   return (
     <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
       {phone ? (
@@ -299,7 +367,14 @@ export const CollectionsView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsCreating(true)}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-accent-700/50 bg-accent-700/8 text-90 font-bold text-accent-900 transition-colors hover:bg-accent-700/12"
+            aria-expanded={isCreating}
+            className={cn(
+              'flex h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed text-90 font-bold text-accent-900',
+              'transition-[background-color,border-color,transform] duration-150 active:scale-[0.98] active:bg-accent-700/24',
+              isCreating
+                ? 'border-accent-700/80 bg-accent-700/18'
+                : 'border-accent-700/50 bg-accent-700/8 hover:bg-accent-700/12',
+            )}
           >
             <Plus size={16} />
             New list
@@ -308,61 +383,54 @@ export const CollectionsView: React.FC = () => {
       ) : (
         <PageHeader
           title="Lists"
-          subtitle="Lists you make. Playing, Backlog and 100% live in the top bar."
           action={
-            <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
-              <Plus size={16} />
-              <span>New list</span>
-            </Button>
+            activeCollectionId ? (
+              sort
+            ) : (
+              <Button variant="accent" size="l" onClick={() => setIsCreating(true)}>
+                <Plus size={16} />
+                <span>New list</span>
+              </Button>
+            )
           }
         />
       )}
 
-      {isCreating && (
-        <Card className="max-w-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="eyebrow text-gray-1000">Create list</h2>
-            <Button buttonStyle="subtle" size="s" onClick={() => setIsCreating(false)}>
-              Cancel
+      {phone && activeCollectionId ? sort : null}
+
+      {/* A sheet on a phone, which rises from the bottom where the thumb is and
+          leaves no doubt the press landed; the inline card on a wide screen. */}
+      {phone ? (
+        <Dialog
+          isOpen={isCreating}
+          onClose={() => setIsCreating(false)}
+          title="New list"
+          initialFocusRef={nameRef}
+          footer={
+            <Button type="submit" form="create-list" variant="accent">
+              Save list
             </Button>
-          </div>
-
-          <form onSubmit={handleCreate} className="space-y-4">
-            <Field label="Name">
-              {(props) => (
-                <TextInput
-                  {...props}
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Soulsborne, speedruns, couch co-op…"
-                />
-              )}
-            </Field>
-
-            <Field label="Description" description="Optional">
-              {(props) => (
-                <TextInput
-                  {...props}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What belongs in here?"
-                />
-              )}
-            </Field>
-
-            <ColourSwatches value={color} onChange={setColor} />
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button buttonStyle="subtle" onClick={() => setIsCreating(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="accent">
-                Save list
-              </Button>
-            </div>
-          </form>
-        </Card>
+          }
+        >
+          {createForm}
+        </Dialog>
+      ) : (
+        <AnimatePresence initial={false}>
+          {isCreating ? (
+            <motion.div
+              ref={createCardRef}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: EASE_OUT }}
+            >
+              <Card className="max-w-lg space-y-4">
+                <h2 className="eyebrow text-gray-1000">New list</h2>
+                {createForm}
+              </Card>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       )}
 
       {/* On a phone this page is the way to every shelf as well as every list,
@@ -373,7 +441,7 @@ export const CollectionsView: React.FC = () => {
         <CollectionsList
           onOpen={(target) => {
             if (target.startsWith('/')) navigate(target);
-            else setActiveCollectionId(target);
+            else openList(target);
           }}
         />
       ) : null}
@@ -388,8 +456,8 @@ export const CollectionsView: React.FC = () => {
               collection={col}
               games={games
                 .filter((g) => g.collections?.includes(col.id))
-                .sort((a, b) => a.title.localeCompare(b.title))}
-              onOpen={() => setActiveCollectionId(col.id)}
+                .sort(byRating)}
+              onOpen={() => openList(col.id)}
             />
           ))}
         </section>
@@ -404,8 +472,8 @@ export const CollectionsView: React.FC = () => {
           size="s"
           className="-ml-2"
           onClick={() => {
-            setActiveCollectionId('');
             setEditingId(null);
+            closeList();
           }}
         >
           <ChevronLeft size={15} />
@@ -425,7 +493,6 @@ export const CollectionsView: React.FC = () => {
                 <h2 className="text-200 font-bold tracking-tight text-gray-1000">
                   {activeCollection.name}
                 </h2>
-                {isPermanent && <Badge>Permanent</Badge>}
               </div>
               {activeCollection.description && (
                 <p className="text-75 text-gray-600">{activeCollection.description}</p>
@@ -433,18 +500,6 @@ export const CollectionsView: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                id="list-sort"
-                aria-label="Sort"
-                value={sortBy}
-                onChange={setSortBy}
-                leading={<ArrowUpDown size={15} className="text-accent-900" />}
-                className="w-40"
-                options={LIST_SORT_OPTIONS.map((option) => ({
-                  value: option,
-                  label: SORT_LABELS[option],
-                }))}
-              />
               <Button
                 variant={isEditing ? 'accent' : 'secondary'}
                 buttonStyle={isEditing ? 'fill' : 'outline'}
@@ -533,19 +588,12 @@ export const CollectionsView: React.FC = () => {
                           description: e.target.value || undefined,
                         });
                       }}
-                      placeholder="What belongs in here?"
                     />
                   )}
                 </Field>
               </div>
 
-              {isPermanent ? (
-                <p className="text-50 text-gray-600">
-                  A shelf keeps the app&rsquo;s own colour, so it stays
-                  recognisable everywhere it appears, and it cannot be deleted — it is where
-                  your games live. Its name and description are yours to change.
-                </p>
-              ) : (
+              {isPermanent ? null : (
                 <ColourSwatches
                   value={activeCollection.color || DEFAULT_COLLECTION_COLOR}
                   onChange={(next) => updateCollection(activeCollection.id, { color: next })}
@@ -565,11 +613,6 @@ export const CollectionsView: React.FC = () => {
         <EmptyState
           icon={<Folder size={24} />}
           title={activeCollectionId ? 'This list is empty' : 'No lists yet'}
-          description={
-            activeCollectionId
-              ? 'Assign a game to this list from its edit dialog, or add a new one.'
-              : 'Make a list to group games however you like.'
-          }
           action={
             <Button variant="accent" onClick={() => setIsQuickAddOpen(true)}>
               <Plus size={14} />

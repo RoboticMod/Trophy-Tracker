@@ -189,7 +189,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
             </div>
           </fieldset>
 
-          <Field label="Cover image URL" description="Optional — blank leaves a plain lettered tile">
+          <Field label="Cover image URL" description="Optional">
             {(props) => (
               <TextInput
                 {...props}
@@ -419,7 +419,7 @@ export const GameDetailsFields: React.FC<GameDetailsFieldsProps> = ({
           <div className="border-t border-gray-200 pt-4">
             <Field
               label="Date completed"
-              description={`The day the last of the ${nounLower} was earned. The 100% tab is ordered by this.`}
+              description="Optional"
               action={
                 completedAt ? (
                   <Button

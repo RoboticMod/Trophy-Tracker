@@ -313,9 +313,7 @@ const GamePersonal: React.FC<{
                   {game.notes}
                 </p>
               ) : (
-                <p className="text-90 text-gray-600">
-                  Nothing written down yet — Edit adds a note.
-                </p>
+                <p className="text-90 text-gray-600">No notes</p>
               )}
             </section>
           </div>
@@ -499,7 +497,7 @@ const GamePersonal: React.FC<{
               {game.notes}
             </p>
           ) : (
-            <p className="text-90 text-gray-600">Nothing written down yet — Edit adds a note.</p>
+            <p className="text-90 text-gray-600">No notes</p>
           )}
         </section>
       </div>

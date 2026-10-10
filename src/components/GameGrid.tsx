@@ -158,9 +158,13 @@ type Stuck = 'top' | 'bottom' | null;
  *
  * Every heading is sticky both ways. Scrolled past, it holds under the top bar
  * as a bar pointing back up to where its platform starts; still ahead, it waits
- * above the bottom bar pointing down to it. Tapping either goes there. The
- * headings stack rather than cover one another, so deep into PlayStation the
- * way back to Steam is still on screen above it.
+ * above the bottom bar pointing down to it. Tapping either goes there.
+ *
+ * At the top only one is shown: the platform you are in. They used to stack,
+ * and at the foot of the page both Steam and PlayStation sat pinned up there
+ * at once, which read as being in both. The one scrolled past steps aside for
+ * the one below it, and comes back once you scroll up above that one's start.
+ * Waiting at the bottom they still stack, since each points somewhere different.
  *
  * The headings are siblings in one box rather than each inside its own
  * section: a sticky element never leaves its parent, and a heading waiting at
@@ -211,7 +215,9 @@ const PhoneSections: React.FC<SectionProps> = ({ groups, renderAction, meta }) =
     <>
       {groups.map(({ platform, games }, i) => {
         const state = stuck[i] ?? null;
-        const top = offset(STICK_TOP, i);
+        // Stuck to the top while a later section is stuck there too: that one
+        // is where you are, and this one stands aside for it.
+        const superseded = state === 'top' && stuck.slice(i + 1).some((s) => s === 'top');
         const Arrow = state === 'bottom' ? ArrowDown : ArrowUp;
         return (
           <React.Fragment key={platform}>
@@ -221,7 +227,7 @@ const PhoneSections: React.FC<SectionProps> = ({ groups, renderAction, meta }) =
               }}
               aria-hidden
               className={i > 0 ? 'mt-6' : undefined}
-              style={{ scrollMarginTop: offset(JUMP_TOP, i) }}
+              style={{ scrollMarginTop: JUMP_TOP }}
             />
             <button
               type="button"
@@ -232,10 +238,13 @@ const PhoneSections: React.FC<SectionProps> = ({ groups, renderAction, meta }) =
                 marks.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }
               aria-label={`Go to ${PLATFORMS[platform].name}`}
-              style={{ top, bottom: offset(STICK_BOTTOM, count - 1 - i) }}
+              aria-hidden={superseded || undefined}
+              tabIndex={superseded ? -1 : undefined}
+              style={{ top: STICK_TOP, bottom: offset(STICK_BOTTOM, count - 1 - i) }}
               className={cn(
                 'sticky z-40 flex h-10 w-full items-center gap-2.5 rounded-md border text-left',
-                'transition-[background-color,border-color,padding,box-shadow] duration-200',
+                'transition-[background-color,border-color,padding,box-shadow,opacity] duration-200',
+                superseded && 'pointer-events-none opacity-0',
                 state
                   ? 'border-gray-300 bg-gray-100/95 px-3 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)] backdrop-blur-md'
                   : 'border-transparent px-0',

@@ -3,7 +3,8 @@ import React from 'react';
 interface EmptyStateProps {
   icon: React.ReactNode;
   title: string;
-  description: string;
+  /** One short line, where the title alone does not say what to do. */
+  description?: string;
   action?: React.ReactNode;
 }
 
@@ -13,7 +14,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description
       {icon}
     </div>
     <h3 className="text-200 font-bold tracking-tight text-gray-1000">{title}</h3>
-    <p className="text-75 text-gray-600">{description}</p>
+    {description ? <p className="text-75 text-gray-600">{description}</p> : null}
     {action ? <div className="flex justify-center pt-1">{action}</div> : null}
   </div>
 );

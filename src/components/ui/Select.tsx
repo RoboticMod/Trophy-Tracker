@@ -29,6 +29,12 @@ interface SelectProps<T extends string> {
    * filter) rather than anything about the chosen option.
    */
   leading?: React.ReactNode;
+  /**
+   * The trigger as `leading` alone, in a 44px square — for a phone's fixed
+   * header, where the chosen option is shown in the sheet rather than on a
+   * button with no room for it.
+   */
+  iconTrigger?: boolean;
   'aria-label'?: string;
   /** Passed through by Field, which owns the help text it points at. */
   'aria-describedby'?: string;
@@ -64,6 +70,7 @@ export function Select<T extends string>({
   placeholder = 'Select…',
   className,
   leading,
+  iconTrigger = false,
   'aria-label': ariaLabel,
   'aria-describedby': ariaDescribedBy,
 }: SelectProps<T>) {
@@ -268,7 +275,12 @@ export function Select<T extends string>({
         onKeyDown={onKeyDown}
         // The chip height and weight of the row it sits in, rather than the
         // taller, dimmer well a text field uses.
-        className={cn(
+        title={iconTrigger ? `${ariaLabel ?? placeholder}: ${selected?.label ?? ''}` : undefined}
+        className={iconTrigger ? cn(
+          'flex h-11 w-11 items-center justify-center rounded-md transition-colors',
+          open ? 'bg-accent-700/16 text-accent-900' : 'text-gray-800 hover:bg-white/5',
+          className,
+        ) : cn(
           // A field's well and corner: 44px on a phone, where it is a thumb
           // target, and 40 on a desktop, level with the search field.
           'inline-flex h-11 items-center gap-2 rounded-md border px-3 md:h-10 md:gap-2.5',
@@ -279,20 +291,31 @@ export function Select<T extends string>({
           className,
         )}
       >
-        {selected?.color ? (
-          <span
-            aria-hidden
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: selected.color, boxShadow: `0 0 6px -1px ${selected.color}` }}
-          />
-        ) : null}
-        {leading ? <span className="flex shrink-0 items-center">{leading}</span> : null}
-        {selected?.icon}
-        <span className="min-w-0 flex-1 truncate text-left">{selected?.label ?? placeholder}</span>
-        <ChevronDown
-          size={15}
-          className={cn('shrink-0 text-gray-600 transition-transform', open && 'rotate-180')}
-        />
+        {iconTrigger ? (
+          leading
+        ) : (
+          <>
+            {selected?.color ? (
+              <span
+                aria-hidden
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: selected.color,
+                  boxShadow: `0 0 6px -1px ${selected.color}`,
+                }}
+              />
+            ) : null}
+            {leading ? <span className="flex shrink-0 items-center">{leading}</span> : null}
+            {selected?.icon}
+            <span className="min-w-0 flex-1 truncate text-left">
+              {selected?.label ?? placeholder}
+            </span>
+            <ChevronDown
+              size={15}
+              className={cn('shrink-0 text-gray-600 transition-transform', open && 'rotate-180')}
+            />
+          </>
+        )}
       </button>
 
       {phone ? (

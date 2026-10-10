@@ -60,7 +60,7 @@ export const ConnectedAccounts: React.FC = () => {
       <SectionHeader
         icon={<Plug size={18} />}
         title="Connected accounts"
-        description="Steam and PlayStation keep your linked games current on their own"
+        description="Keeps linked games up to date"
         iconClassName="bg-steam-700/16 text-steam-900"
       />
 
@@ -68,8 +68,7 @@ export const ConnectedAccounts: React.FC = () => {
           columns, so it is a fact rather than a warning about a maybe. */}
       {!hasLinkColumns() ? (
         <p className="rounded-md border border-notice-700/50 bg-notice-700/12 p-3 text-50 font-semibold text-notice-900">
-          Your database is missing the platform-link columns, so links cannot be saved. Copy the
-          schema SQL from Cloud storage below and run it in Supabase, then reload.
+          Links can’t be saved yet. Run the schema SQL from Cloud storage in Supabase, then reload.
         </p>
       ) : null}
 
@@ -104,15 +103,14 @@ export const ConnectedAccounts: React.FC = () => {
           <>
             <p className="text-50 text-gray-600">
               {linkedCount > 0
-                ? `${linkedCount} linked game${linkedCount === 1 ? '' : 's'}, kept current automatically.`
-                : 'No games are linked yet. Add one from the Steam search, or link a game to its Steam app in its edit dialog.'}
+                ? `${linkedCount} linked game${linkedCount === 1 ? '' : 's'}`
+                : 'No linked games yet'}
             </p>
 
             {/* The single most common reason a sync comes back empty, said
                 before it happens rather than as an error afterwards. */}
             <p className="text-50 text-gray-600">
-              Your Steam profile&rsquo;s <strong className="text-gray-800">Game details</strong> must
-              be set to Public, or Steam reports no achievements at all.
+              Set your Steam <strong className="text-gray-800">Game details</strong> to Public.
             </p>
 
             {state.lastReport ? (
@@ -134,7 +132,7 @@ export const ConnectedAccounts: React.FC = () => {
           <form onSubmit={handleLink} className="space-y-3">
             <Field
               label="Steam profile"
-              description="A profile URL, a custom URL name, or a 17-digit SteamID64."
+              description="Profile URL, custom name or SteamID64"
               error={error}
             >
               {(props) => (
@@ -241,8 +239,8 @@ const PlayStationAccount: React.FC = () => {
         <>
           <p className="text-50 text-gray-600">
             {ps5Count > 0
-              ? `${ps5Count} PlayStation game${ps5Count === 1 ? '' : 's'} kept current automatically. Trophy lists and playtime are matched to your library by title.`
-              : 'No PlayStation games yet. Any you add are matched to your trophy lists by title and kept current automatically.'}
+              ? `${ps5Count} PlayStation game${ps5Count === 1 ? '' : 's'}`
+              : 'No PlayStation games yet'}
           </p>
 
           {state.lastReport ? (
@@ -267,7 +265,7 @@ const PlayStationAccount: React.FC = () => {
         <form onSubmit={handleLink} className="space-y-3">
           <Field
             label="NPSSO token"
-            description="Exchanged for access tokens and then discarded — it is never stored."
+            description="Never stored"
             error={error}
             action={
               <Button buttonStyle="subtle" size="s" onClick={() => setShowSteps((open) => !open)}>

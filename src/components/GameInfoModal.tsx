@@ -402,8 +402,7 @@ const GameInfo: React.FC<{
             <PsnSyncStatus game={game} />
             {!appId ? (
               <p className="text-50 text-gray-600">
-                PlayStation has no public catalog, so charts and media appear only for games
-                that are also on Steam.
+                Charts and media need a Steam match.
               </p>
             ) : null}
           </section>
@@ -776,8 +775,7 @@ const LinkToSteam: React.FC<{ game: UserGame }> = ({ game }) => {
     <section className="panel-inset space-y-3 rounded-md p-4">
       <SectionTitle>Find on Steam</SectionTitle>
       <p className="text-75 text-gray-700">
-        Link this game to its Steam app to see players, screenshots and reviews here — and to keep
-        its achievements and playtime current from your Steam account.
+        Link its Steam app for stats, media and auto-sync.
       </p>
 
       <div className="relative">

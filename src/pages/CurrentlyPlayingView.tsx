@@ -1,17 +1,16 @@
 import React, { useMemo } from 'react';
-import { ArrowUpDown, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
-import { comparePlatformOrder } from '../lib/constants';
 import { PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
 import { aggregateCompletion } from '../lib/completion';
 import { formatCount, formatHours, sumHours } from '../lib/format';
-import { GameSortOption, SORT_LABELS, compareGames } from '../lib/sortGames';
+import { GameSortOption, compareGames } from '../lib/sortGames';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone } from '../lib/useMediaQuery';
-import { IntroNotice } from '../components/IntroNotice';
-import { Badge, EmptyState, PageHeader, Select } from '../components/ui';
+import { SortControl } from '../components/SortControl';
+import { Badge, EmptyState, PageHeader } from '../components/ui';
 
 const SORT_OPTIONS = [
   'recent',
@@ -25,28 +24,30 @@ export const CurrentlyPlayingView: React.FC = () => {
   const platformOrder = profile.platformOrder;
   const phone = useIsPhone();
 
-  // A wide screen has the room for a sort beside the title, and last played
-  // first is what a shelf of games in progress is read for. A phone keeps the
-  // order it has always had.
+  // Last played first is what a shelf of games in progress is read for. A
+  // phone used to be held to title order with no way to change it; it sorts
+  // like every other width now, from the header.
   const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
     'playing-sort',
     'recent',
     oneOf(SORT_OPTIONS),
   );
 
+  // Platform order is the grid's to apply: it splits the shelf into its
+  // platforms and keeps this order inside each.
   const playingGames = useMemo(
     () =>
       games
         .filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID))
-        .sort((a, b) => {
-          if (!phone) return compareGames(a, b, sortBy);
-          const pDiff = comparePlatformOrder(a.platform, b.platform, platformOrder);
-          return pDiff !== 0 ? pDiff : a.title.localeCompare(b.title);
-        }),
-    [games, platformOrder, phone, sortBy],
+        .sort((a, b) => compareGames(a, b, sortBy) || a.title.localeCompare(b.title)),
+    [games, sortBy],
   );
 
   const totals = aggregateCompletion(playingGames);
+
+  const sort = (
+    <SortControl id="playing-sort" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+  );
 
   return (
     <div className="mx-auto max-w-[1760px] space-y-6 md:space-y-7 md:pb-10">
@@ -58,42 +59,16 @@ export const CurrentlyPlayingView: React.FC = () => {
         title={collectionName(PLAYING_COLLECTION_ID, collections)}
         badge={<Badge tone="accent">{playingGames.length} active</Badge>}
         subtitle={`${formatCount(playingGames.length)} games in progress · ${formatHours(sumHours(playingGames))}h · ${formatCount(totals.unlocked)} of ${formatCount(totals.unlockable)} awards`}
-        action={
-          phone ? undefined : (
-            <Select
-              id="playing-sort"
-              aria-label="Sort"
-              value={sortBy}
-              onChange={setSortBy}
-              leading={<ArrowUpDown size={15} className="text-accent-900" />}
-              className="w-50"
-              options={SORT_OPTIONS.map((option) => ({
-                value: option,
-                label: SORT_LABELS[option],
-              }))}
-            />
-          )
-        }
+        action={phone ? undefined : sort}
       />
 
-      <IntroNotice id="playing">
-        Games in progress right now. Log hours and achievement unlocks as you go.
-      </IntroNotice>
+      {phone ? sort : null}
 
       {/* Every card here is on the same shelf, so naming it on each would say
           nothing — a wide card ends in when it was last played instead. */}
       <GameGrid games={playingGames} platformOrder={platformOrder} meta="lastPlayed" />
 
-      {playingGames.length === 0 && (
-        <EmptyState
-          icon={<Play size={24} />}
-          title="Nothing in progress"
-          description={`Pick something from your library or backlog and put it on the "${collectionName(
-            PLAYING_COLLECTION_ID,
-            collections,
-          )}" shelf.`}
-        />
-      )}
+      {playingGames.length === 0 && <EmptyState icon={<Play size={24} />} title="Nothing in progress" />}
     </div>
   );
 };

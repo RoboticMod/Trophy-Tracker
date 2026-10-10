@@ -91,13 +91,11 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
 
       {appId ? (
         <p className="text-50 text-gray-600">
-          Achievements, playtime and last played update on their own from your Steam account. Your
-          rating, notes, status and collections are never touched.
+          Syncs automatically. Your rating and notes are never changed.
         </p>
       ) : (
         <p className="text-50 text-gray-600">
-          Optional. Linking adds player charts, screenshots and reviews to this game, and keeps its
-          achievements and playtime current. Unlinked, everything stays hand-entered.
+          Optional. Adds stats, media and auto-sync.
         </p>
       )}
 
@@ -125,8 +123,7 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
             </div>
           ) : error ? (
             <p className="text-50 text-gray-600">
-              Could not reach Steam. The game-data function may not be deployed yet — the game can
-              still be added by hand.
+              Couldn’t reach Steam. You can still add it by hand.
             </p>
           ) : results.length === 0 ? (
             <p className="text-50 text-gray-600">No Steam app matches that name.</p>

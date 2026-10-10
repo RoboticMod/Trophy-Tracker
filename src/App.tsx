@@ -4,6 +4,7 @@ import { Loader2, DatabaseZap } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
 import { SyncProvider } from './context/SyncContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import { isSupabaseConfigured } from './lib/supabase';
 import { APP_NAME } from './lib/constants';
 import { AppLayout } from './components/AppLayout';
@@ -87,6 +88,7 @@ function AuthenticatedApp() {
   return (
     <GameProvider>
       <SyncProvider>
+        <NotificationsProvider>
         <Routes>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<DashboardView />} />
@@ -101,6 +103,7 @@ function AuthenticatedApp() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+        </NotificationsProvider>
       </SyncProvider>
     </GameProvider>
   );

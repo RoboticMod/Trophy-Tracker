@@ -583,8 +583,7 @@ export const SettingsView: React.FC = () => {
         // it a line below cost the top of the screen.
         <div className="border-b border-gray-200 pb-5">
           <p className="text-75 text-gray-700">
-            Your account, the accounts you have linked, how the app looks and where your
-            library is kept. Version {APP_VERSION}.
+            Version {APP_VERSION}
           </p>
         </div>
       ) : (
@@ -647,9 +646,7 @@ export const SettingsView: React.FC = () => {
                 </Button>
               )}
             </div>
-            <p className={cn('text-50', avatarError ? 'text-negative-900' : 'text-gray-600')}>
-              {avatarError ?? 'Resized to 256px and stored with your profile.'}
-            </p>
+            {avatarError ? <p className="text-50 text-negative-900">{avatarError}</p> : null}
           </div>
         </div>
 
@@ -676,13 +673,12 @@ export const SettingsView: React.FC = () => {
           <SectionHeader
             icon={<UserX size={18} />}
             title="Delete account"
-            description="Removes your sign-in and everything stored against it, permanently"
+            description="Permanent — can't be undone"
             iconClassName="bg-negative-700/16 text-negative-900"
           />
 
           <p className="text-75 text-gray-700">
-            Your games, collections, profile and linked accounts go with it. There is no undo and
-            no copy kept — export a backup first if you want one.
+            Everything goes with it. Export a backup first if you want one.
           </p>
 
           {deleteError && (
@@ -756,7 +752,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<TrophyBadge platform="ps5" size={18} />}
           title="PlayStation trophy counts"
-          description="Which trophy groups a PlayStation game is measured against"
+          description="Trophy groups counted"
           iconClassName="bg-playstation-700/15"
         />
 
@@ -812,7 +808,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Sliders size={18} />}
           title="Platform order"
-          description={`The order the platform sections run in, in every library view and in Statistics — currently ${describePlatformOrder(platformOrder)}`}
+          description={describePlatformOrder(platformOrder)}
           iconClassName="bg-gray-200 text-gray-800"
           action={
             platformOrder.join() !== DEFAULT_PLATFORM_SORT_ORDER.join() ? (
@@ -877,7 +873,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Sliders size={18} />}
           title="Sidebar navigation"
-          description="Reorder destinations or hide the ones you don't use"
+          description="Reorder or hide"
           action={
             <Button
               variant="secondary"
@@ -939,7 +935,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Palette size={18} />}
           title="Card highlight"
-          description="How a game card signals that it is in progress or fully completed"
+          description="Card highlights"
           iconClassName="bg-accent-700/16 text-accent-900"
         />
 
@@ -990,7 +986,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Volume2 size={18} />}
           title="Completion sounds"
-          description="Played with the celebration when a game reaches 100%"
+          description="Plays at 100%"
           iconClassName="bg-trophy-700/16 text-trophy-900"
         />
 
@@ -1078,7 +1074,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Database size={18} />}
           title="Cloud storage"
-          description="Your library lives in Supabase and is scoped to your account"
+          description="Supabase"
           iconClassName="bg-positive-700/16 text-positive-900"
           action={
             <span
@@ -1107,8 +1103,7 @@ export const SettingsView: React.FC = () => {
         ) : null}
 
         <p className="text-75 text-gray-700">
-          Changes save to Supabase as you make them. When you are offline they queue locally and
-          are sent as soon as the connection returns.
+          Saves as you go, and queues while offline.
           {lastSyncedAt
             ? ` Last write: ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
             : ''}
@@ -1155,7 +1150,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Download size={18} />}
           title="Backup & restore"
-          description="Export a portable JSON copy, or restore one into your account"
+          description="JSON export and import"
           iconClassName="bg-gray-200 text-gray-800"
         />
 
@@ -1173,8 +1168,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         <p className="text-50 text-gray-600">
-          Restoring replaces your library in the cloud. Games on platforms this app no longer
-          supports are skipped.
+          Restoring replaces your library.
         </p>
 
         {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
@@ -1187,7 +1181,7 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<ScrollText size={18} />}
           title={`Version ${APP_VERSION}`}
-          description="What changed in each release, newest first"
+          description="Newest first"
         />
 
         <ol className="space-y-5">
