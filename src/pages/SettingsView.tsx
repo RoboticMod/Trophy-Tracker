@@ -753,7 +753,6 @@ export const SettingsView: React.FC = () => {
           <SectionHeader
             icon={<UserX size={18} />}
             title="Delete account"
-            description="Permanent — can't be undone"
             iconClassName="bg-negative-700/16 text-negative-900"
           />
 
@@ -953,7 +952,6 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<Sliders size={18} />}
           title="Navigation"
-          description="Reorder or hide"
           action={
             <Button
               variant="secondary"
@@ -1178,12 +1176,11 @@ export const SettingsView: React.FC = () => {
           </p>
         ) : null}
 
-        <p className="text-75 text-gray-700">
-          Saves as you go, and queues while offline.
-          {lastSyncedAt
-            ? ` Last write: ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-            : ''}
-        </p>
+        {lastSyncedAt ? (
+          <p className="text-75 text-gray-700">
+            Last saved {new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={refresh} disabled={loading}>
@@ -1329,7 +1326,6 @@ export const SettingsView: React.FC = () => {
         <SectionHeader
           icon={<ScrollText size={18} />}
           title={`Version ${APP_VERSION}`}
-          description="Newest first"
         />
 
         <ol className="space-y-5">

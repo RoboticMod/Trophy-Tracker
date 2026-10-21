@@ -9,6 +9,7 @@ import {
   completeWeapon,
   setWeaponMilitary,
   setWeaponTier,
+  startsTierGroup,
 } from '../../lib/camo';
 import { cn } from '../../lib/cn';
 import { Button, Meter } from '../ui';
@@ -36,8 +37,12 @@ const toggleCell = (weapon: CamoWeapon, mode: CamoMode, index: number, onWeapon:
 };
 
 /** "3 / 9", or a dash while the mode's military count is not set. */
-const MilitaryFigure: React.FC<{ weapon: CamoWeapon; max: number }> = ({ weapon, max }) => (
-  <span className="text-75 font-bold tabular-nums text-gray-900">
+const MilitaryFigure: React.FC<{ weapon: CamoWeapon; max: number; large?: boolean }> = ({
+  weapon,
+  max,
+  large = false,
+}) => (
+  <span className={cn('font-bold tabular-nums text-gray-900', large ? 'text-90' : 'text-75')}>
     {max > 0 ? (
       <>
         {weapon.military}
@@ -54,11 +59,12 @@ const MilitaryStepper: React.FC<{
   weapon: CamoWeapon;
   max: number;
   onWeapon: OnWeapon;
-}> = ({ weapon, max, onWeapon }) => (
+  large?: boolean;
+}> = ({ weapon, max, onWeapon, large = false }) => (
   <span className="flex shrink-0 items-center gap-1">
     <Button
       iconOnly
-      size="s"
+      size={large ? 'm' : 's'}
       buttonStyle="outline"
       disabled={weapon.military <= 0}
       aria-label={`One fewer military camo on ${weapon.name}`}
@@ -68,7 +74,7 @@ const MilitaryStepper: React.FC<{
     </Button>
     <Button
       iconOnly
-      size="s"
+      size={large ? 'm' : 's'}
       buttonStyle="outline"
       disabled={weapon.military >= max}
       aria-label={`One more military camo on ${weapon.name}`}
@@ -84,12 +90,13 @@ const RowActions: React.FC<{
   weapon: CamoWeapon;
   max: number;
   onWeapon: OnWeapon;
-}> = ({ weapon, max, onWeapon }) => (
-  <span className="flex items-center gap-1">
-    <Button size="s" buttonStyle="outline" onClick={() => onWeapon(completeWeapon(weapon, max), `All on ${weapon.name}`)}>
+  large?: boolean;
+}> = ({ weapon, max, onWeapon, large = false }) => (
+  <span className="flex items-center gap-1.5">
+    <Button size={large ? 'm' : 's'} buttonStyle="outline" onClick={() => onWeapon(completeWeapon(weapon, max), `All on ${weapon.name}`)}>
       All
     </Button>
-    <Button size="s" buttonStyle="subtle" onClick={() => onWeapon(clearWeapon(weapon), `Cleared ${weapon.name}`)}>
+    <Button size={large ? 'm' : 's'} buttonStyle="subtle" onClick={() => onWeapon(clearWeapon(weapon), `Cleared ${weapon.name}`)}>
       Clear
     </Button>
   </span>
@@ -99,106 +106,113 @@ const militaryPercent = (weapon: CamoWeapon, max: number) =>
   max > 0 ? (weapon.military / max) * 100 : 0;
 
 /**
- * A wide screen's grid: weapon, military, then one 52px column per tier with a
- * 44px swatch cell — and in Edit mode a Row column for All / Clear. A real
- * table, so the columns line up by construction and a screen reader can walk
- * it by row and column.
+ * A wide screen's grid: weapon, military, then one column per tier with a 56px
+ * cell — specials, a gap, then mastery — and in Edit mode All / Clear at the
+ * end. A real table, so the columns line up by construction and a screen
+ * reader can walk it by row and column. Tier names wrap rather than truncate.
  */
-export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, onToggleTier }) => (
-  <div className="panel overflow-x-auto rounded-lg">
-    <table className="w-full border-collapse">
-      <thead>
-        <tr className="border-b border-gray-200">
-          <th scope="col" className="eyebrow px-4 py-3 text-left text-gray-600">
-            Weapon
-          </th>
-          <th scope="col" className="eyebrow w-44 px-3 py-3 text-left text-gray-600">
-            Military
-          </th>
-          {mode.tiers.map((tier, i) => {
-            const head = (
-              <span className="flex flex-col items-center gap-1">
-                <TierSwatch tier={tier} className="h-4 w-4 rounded-sm" />
-                <span className="block max-w-12 truncate text-50 font-bold text-gray-700">
-                  {i + 1}. {tier.name}
-                </span>
-              </span>
-            );
-            // In Edit mode a header marks its tier for the whole class, and
-            // clears it again once every weapon has it.
-            const all = classHasTier(cls, i);
-            return (
-              <th key={tier.id} scope="col" className="w-13 px-1 py-2.5 align-bottom" title={tier.name}>
-                {editable ? (
-                  <button
-                    type="button"
-                    disabled={cls.weapons.length === 0}
-                    onClick={() => onToggleTier(i)}
-                    aria-pressed={all}
-                    aria-label={`${all ? 'Clear' : 'Mark'} ${tier.name} for every weapon in ${cls.name}`}
-                    title={`${all ? 'Clear' : 'Mark'} ${tier.name} for every weapon in ${cls.name}`}
-                    className={cn(
-                      'w-full rounded-sm px-0.5 py-1 transition-colors hover:bg-accent-700/12',
-                      all && 'bg-accent-700/16',
-                    )}
-                  >
-                    {head}
-                  </button>
-                ) : (
-                  head
-                )}
-              </th>
-            );
-          })}
-          {editable ? (
-            <th scope="col" className="eyebrow px-3 py-3 text-left text-gray-600">
-              Row
+export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, onToggleTier }) => {
+  // Fixed-width tier columns, so the weapon column takes what is left; the
+  // first tier of a new group (special → mastery) gets a rule and room.
+  const gap = (i: number) =>
+    cn('w-21 pr-1.5', startsTierGroup(mode.tiers, i) ? 'border-l border-gray-300 pl-5' : 'pl-1.5');
+  return (
+    <div className="panel overflow-x-auto rounded-lg">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th scope="col" className="eyebrow min-w-48 px-5 py-4 text-left align-bottom text-gray-600">
+              Weapon
             </th>
-          ) : null}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-200">
-        {cls.weapons.map((weapon) => (
-          <tr key={weapon.id}>
-            <th scope="row" className="max-w-56 truncate px-4 py-2 text-left text-90 font-bold text-gray-1000">
-              {weapon.name}
+            <th scope="col" className="eyebrow w-64 min-w-56 px-4 py-4 text-left align-bottom text-gray-600">
+              Military
             </th>
-            <td className="px-3 py-2">
-              <span className="flex items-center gap-2.5">
-                <span className="min-w-0 flex-1 space-y-1.5">
-                  <MilitaryFigure weapon={weapon} max={mode.militaryMax} />
-                  <Meter value={militaryPercent(weapon, mode.militaryMax)} label={`${weapon.name} military`} />
+            {mode.tiers.map((tier, i) => {
+              const head = (
+                <span className="flex flex-col items-center gap-1.5">
+                  <TierSwatch tier={tier} className="h-5 w-5 rounded-sm" />
+                  <span className="line-clamp-2 block w-[4.75rem] text-center text-75 font-bold leading-tight text-gray-800">
+                    {i + 1}. {tier.name}
+                  </span>
                 </span>
-                {editable && mode.militaryMax > 0 ? (
-                  <MilitaryStepper weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} />
-                ) : null}
-              </span>
-            </td>
-            {mode.tiers.map((tier, i) => (
-              <td key={tier.id} className="w-13 px-1 py-1.5">
-                <span className="flex justify-center">
-                  <TierCell
-                    tier={tier}
-                    ordinal={i + 1}
-                    done={weapon.done[i]}
-                    editable={editable}
-                    weaponName={weapon.name}
-                    onToggle={() => toggleCell(weapon, mode, i, onWeapon)}
-                  />
-                </span>
-              </td>
-            ))}
+              );
+              // In Edit mode a header marks its tier for the whole class, and
+              // clears it again once every weapon has it.
+              const all = classHasTier(cls, i);
+              return (
+                <th key={tier.id} scope="col" className={cn('py-3 align-bottom', gap(i))} title={tier.name}>
+                  {editable ? (
+                    <button
+                      type="button"
+                      disabled={cls.weapons.length === 0}
+                      onClick={() => onToggleTier(i)}
+                      aria-pressed={all}
+                      aria-label={`${all ? 'Clear' : 'Mark'} ${tier.name} for every weapon in ${cls.name}`}
+                      title={`${all ? 'Clear' : 'Mark'} ${tier.name} for every weapon in ${cls.name}`}
+                      className={cn(
+                        'mx-auto block rounded-md px-1 py-1.5 transition-colors hover:bg-accent-700/12',
+                        all && 'bg-accent-700/16',
+                      )}
+                    >
+                      {head}
+                    </button>
+                  ) : (
+                    head
+                  )}
+                </th>
+              );
+            })}
             {editable ? (
-              <td className="px-3 py-2">
-                <RowActions weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} />
-              </td>
+              <th scope="col" className="w-0 px-5 py-4">
+                <span className="sr-only">Whole row</span>
+              </th>
             ) : null}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {cls.weapons.map((weapon) => (
+            <tr key={weapon.id}>
+              <th scope="row" className="px-5 py-3 text-left text-150 font-bold text-gray-1000">
+                {weapon.name}
+              </th>
+              <td className="px-4 py-3">
+                <span className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 space-y-2">
+                    <MilitaryFigure weapon={weapon} max={mode.militaryMax} large />
+                    <Meter value={militaryPercent(weapon, mode.militaryMax)} label={`${weapon.name} military`} />
+                  </span>
+                  {editable && mode.militaryMax > 0 ? (
+                    <MilitaryStepper weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} large />
+                  ) : null}
+                </span>
+              </td>
+              {mode.tiers.map((tier, i) => (
+                <td key={tier.id} className={cn('py-2.5', gap(i))}>
+                  <span className="flex justify-center">
+                    <TierCell
+                      large
+                      tier={tier}
+                      ordinal={i + 1}
+                      done={weapon.done[i]}
+                      editable={editable}
+                      weaponName={weapon.name}
+                      onToggle={() => toggleCell(weapon, mode, i, onWeapon)}
+                    />
+                  </span>
+                </td>
+              ))}
+              {editable ? (
+                <td className="w-0 px-5 py-3">
+                  <RowActions weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} large />
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 /**
  * Which swatch is which tier, above a phone's cards: the cards carry only the
@@ -209,45 +223,59 @@ export const TierLegend: React.FC<{
   cls: CamoClass;
   editable: boolean;
   onToggleTier: (index: number) => void;
-}> = ({ mode, cls, editable, onToggleTier }) => (
-  <div className={cn('flex flex-wrap', editable ? 'gap-2' : 'gap-x-3 gap-y-2')}>
-    {mode.tiers.map((tier, i) => {
-      const face = (
-        <>
-          <TierSwatch tier={tier} className="h-4 w-4 shrink-0 rounded-sm" />
-          <span className="font-bold tabular-nums text-gray-900">{i + 1}</span>
-          {tier.name}
-        </>
-      );
-      if (!editable) {
-        return (
-          <span key={tier.id} className="flex items-center gap-1.5 text-75 text-gray-700">
-            {face}
-          </span>
-        );
-      }
-      // A phone has no header row, so in Edit mode the legend does its job:
-      // each one marks its tier for the whole class, or clears it.
-      const all = classHasTier(cls, i);
-      return (
-        <button
-          key={tier.id}
-          type="button"
-          disabled={cls.weapons.length === 0}
-          onClick={() => onToggleTier(i)}
-          aria-pressed={all}
-          aria-label={`${all ? 'Clear' : 'Mark'} ${tier.name} for every weapon in ${cls.name}`}
-          className={cn(
-            'flex h-9 items-center gap-1.5 rounded-full border px-3 text-75 text-gray-700',
-            all ? 'border-accent-700/60 bg-accent-700/16' : 'border-gray-300 bg-white/3',
-          )}
-        >
-          {face}
-        </button>
-      );
-    })}
-  </div>
-);
+}> = ({ mode, cls, editable, onToggleTier }) => {
+  // One line per run of a group — specials, then mastery — so the split reads
+  // the same as the gap in the cards below.
+  const runs: number[][] = [];
+  mode.tiers.forEach((_, i) => {
+    if (i === 0 || startsTierGroup(mode.tiers, i)) runs.push([]);
+    runs[runs.length - 1].push(i);
+  });
+  return (
+    <div className="space-y-2">
+      {runs.map((run) => (
+        <div key={mode.tiers[run[0]].id} className={cn('flex flex-wrap', editable ? 'gap-2' : 'gap-x-3 gap-y-2')}>
+          {run.map((i) => {
+            const tier = mode.tiers[i];
+            const face = (
+              <>
+                <TierSwatch tier={tier} className="h-4 w-4 shrink-0 rounded-sm" />
+                <span className="font-bold tabular-nums text-gray-900">{i + 1}</span>
+                {tier.name}
+              </>
+            );
+            if (!editable) {
+              return (
+                <span key={tier.id} className="flex items-center gap-1.5 text-75 text-gray-700">
+                  {face}
+                </span>
+              );
+            }
+            // A phone has no header row, so in Edit mode the legend does its
+            // job: each one marks its tier for the whole class, or clears it.
+            const all = classHasTier(cls, i);
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                disabled={cls.weapons.length === 0}
+                onClick={() => onToggleTier(i)}
+                aria-pressed={all}
+                aria-label={`${all ? 'Clear' : 'Mark'} ${tier.name} for every weapon in ${cls.name}`}
+                className={cn(
+                  'flex h-9 items-center gap-1.5 rounded-full border px-3 text-75 text-gray-700',
+                  all ? 'border-accent-700/60 bg-accent-700/16' : 'border-gray-300 bg-white/3',
+                )}
+              >
+                {face}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /**
  * A phone's grid: a card per weapon — its name, its military count and meter,
@@ -271,17 +299,20 @@ export const CamoCards: React.FC<Omit<GridProps, 'onToggleTier'>> = ({ mode, cls
             <MilitaryStepper weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} />
           ) : null}
         </div>
-        <div className={cn('flex flex-wrap gap-1.5')}>
+        <div className="flex flex-wrap gap-1.5">
           {mode.tiers.map((tier, i) => (
-            <TierCell
-              key={tier.id}
-              tier={tier}
-              ordinal={i + 1}
-              done={weapon.done[i]}
-              editable={editable}
-              weaponName={weapon.name}
-              onToggle={() => toggleCell(weapon, mode, i, onWeapon)}
-            />
+            <React.Fragment key={tier.id}>
+              {/* Specials, a gap, then mastery. */}
+              {startsTierGroup(mode.tiers, i) ? <span aria-hidden className="w-3" /> : null}
+              <TierCell
+                tier={tier}
+                ordinal={i + 1}
+                done={weapon.done[i]}
+                editable={editable}
+                weaponName={weapon.name}
+                onToggle={() => toggleCell(weapon, mode, i, onWeapon)}
+              />
+            </React.Fragment>
           ))}
         </div>
       </section>

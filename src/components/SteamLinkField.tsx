@@ -89,15 +89,6 @@ export const SteamLinkField: React.FC<SteamLinkFieldProps> = ({
         )}
       </div>
 
-      {appId ? (
-        <p className="text-50 text-gray-600">
-          Syncs automatically. Your rating and notes are never changed.
-        </p>
-      ) : (
-        <p className="text-50 text-gray-600">
-          Optional. Adds stats, media and auto-sync.
-        </p>
-      )}
 
       {open && !appId ? (
         <div className="space-y-2">

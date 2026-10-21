@@ -41,7 +41,7 @@ export const CamoBulkBar: React.FC<{
           value={tierId}
           onChange={setTierId}
           options={tierOptions}
-          className="w-44"
+          className="w-60"
         />
         <Button size="l" variant="accent" disabled={empty || index < 0} onClick={() => onMarkThrough(index)}>
           Apply
@@ -103,7 +103,7 @@ export const CamoBulkBar: React.FC<{
       <div className="border-t border-gray-200 pt-4">{history}</div>
     </div>
   ) : (
-    <div className="panel flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg p-3.5">
+    <div className="panel flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg p-4">
       {tools}
       <div className="ml-auto min-w-64">{history}</div>
     </div>

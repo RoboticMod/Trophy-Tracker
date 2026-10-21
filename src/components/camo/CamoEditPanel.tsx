@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import {
-  CAMO_KIND_LABEL,
-  CAMO_TIER_KINDS,
+  CAMO_GROUP_LABEL,
+  CAMO_TIER_GROUPS,
   CamoClass,
   CamoGame,
   CamoMode,
   CamoTier,
-  CamoTierKind,
+  CamoTierGroup,
   addTier,
   checkImageLink,
   moveTier,
@@ -15,6 +15,9 @@ import {
   newWeapon,
   removeTier,
   setMilitaryMax,
+  setTierGroup,
+  startsTierGroup,
+  tierGroup,
   updateTier,
 } from '../../lib/camo';
 import { cn } from '../../lib/cn';
@@ -24,11 +27,11 @@ import { CommitInput, ConfirmDialog, TierSwatch } from './CamoBits';
 type LinkStatus = 'empty' | 'not-url' | 'loading' | 'loaded' | 'failed';
 
 const LINK_STATUS_TEXT: Record<LinkStatus, string> = {
-  empty: 'No image — the swatch shows',
+  empty: '',
   'not-url': 'Not a web address',
   loading: 'Loading…',
   loaded: 'Loaded',
-  failed: 'Couldn’t load — the swatch shows',
+  failed: 'Couldn’t load',
 };
 
 /**
@@ -78,18 +81,20 @@ const ImageLinkField: React.FC<{
         aria-label={`Image link for ${tier.name}`}
         inputMode="url"
       />
-      <p
-        className={cn(
-          'text-50',
-          status === 'not-url' || status === 'failed'
-            ? 'text-notice-900'
-            : status === 'loaded'
-              ? 'text-positive-900'
-              : 'text-gray-600',
-        )}
-      >
-        {LINK_STATUS_TEXT[status]}
-      </p>
+      {status === 'empty' ? null : (
+        <p
+          className={cn(
+            'text-50',
+            status === 'not-url' || status === 'failed'
+              ? 'text-notice-900'
+              : status === 'loaded'
+                ? 'text-positive-900'
+                : 'text-gray-600',
+          )}
+        >
+          {LINK_STATUS_TEXT[status]}
+        </p>
+      )}
     </div>
   );
 };
@@ -109,7 +114,7 @@ const Part: React.FC<{ title: string; action?: React.ReactNode; children: React.
   </section>
 );
 
-const KIND_OPTIONS = CAMO_TIER_KINDS.map((kind) => ({ value: kind, label: CAMO_KIND_LABEL[kind] }));
+const GROUP_OPTIONS = CAMO_TIER_GROUPS.map((group) => ({ value: group, label: CAMO_GROUP_LABEL[group] }));
 
 /**
  * "Weapons, camos & images…": everything about a game's structure, for the
@@ -226,14 +231,16 @@ export const CamoEditPanel: React.FC<{
                 />
               </label>
             </div>
-            <p className="text-50 text-gray-600">Lowering the count caps every weapon at it.</p>
           </Part>
 
           {/* Tiers ----------------------------------------------------------- */}
           <Part title="Tiers, in unlock order">
             <div className="space-y-2.5">
               {mode.tiers.map((tier, i) => (
-                <div key={tier.id} className="panel-inset space-y-2.5 rounded-md p-3">
+                <div
+                  key={tier.id}
+                  className={cn('panel-inset space-y-2.5 rounded-md p-3', startsTierGroup(mode.tiers, i) && 'mt-6')}
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <TierSwatch tier={tier} className="h-9 w-9 shrink-0 rounded-control" />
                     <span className="w-5 text-center text-75 font-bold tabular-nums text-gray-600">{i + 1}</span>
@@ -244,11 +251,11 @@ export const CamoEditPanel: React.FC<{
                         onCommit={(name) => saveMode((m) => updateTier(m, i, { name }))}
                       />
                     </div>
-                    <Select<CamoTierKind>
+                    <Select<CamoTierGroup>
                       aria-label={`Kind of ${tier.name}`}
-                      value={tier.kind}
-                      onChange={(kind) => saveMode((m) => updateTier(m, i, { kind }))}
-                      options={KIND_OPTIONS}
+                      value={tierGroup(tier.kind)}
+                      onChange={(group) => saveMode((m) => setTierGroup(m, i, group))}
+                      options={GROUP_OPTIONS}
                       className="w-32"
                     />
                     <span className="flex items-center gap-1">
@@ -299,10 +306,10 @@ export const CamoEditPanel: React.FC<{
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              {CAMO_TIER_KINDS.map((kind) => (
-                <Button key={kind} size="s" buttonStyle="outline" onClick={() => saveMode((m) => addTier(m, kind))}>
+              {CAMO_TIER_GROUPS.map((group) => (
+                <Button key={group} size="s" buttonStyle="outline" onClick={() => saveMode((m) => addTier(m, group))}>
                   <Plus size={13} />
-                  {CAMO_KIND_LABEL[kind]}
+                  {CAMO_GROUP_LABEL[group]}
                 </Button>
               ))}
             </div>

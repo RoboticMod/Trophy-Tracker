@@ -21,6 +21,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.2',
+    date: '2026-10-21',
+    title: 'A roomier camo tracker, and less text',
+    changes: [
+      'On a computer the camo tracker is bigger: larger cells, weapon names and military counts, and tier names that wrap instead of being cut off.',
+      'Tiers are now Special or Mastery. Mastery colours follow their order: the first is Gold, the second Diamond, the rest Dark.',
+      'Special and mastery camos are spaced apart in the grid, so you can tell them apart at a glance.',
+      'The "Row" heading over All and Clear is gone.',
+      'The gold edge of Home’s 100% row is no longer cut off at its corners.',
+      'Removed hints that stated the obvious, in the tracker, Settings and game details.',
+    ],
+  },
+  {
     version: '0.19.1',
     date: '2026-10-21',
     title: 'Roomier menus, and Undo for notifications',

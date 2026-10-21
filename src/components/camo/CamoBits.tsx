@@ -41,24 +41,32 @@ export const TierCell: React.FC<{
   editable: boolean;
   weaponName: string;
   onToggle: () => void;
-}> = ({ tier, ordinal, done, editable, weaponName, onToggle }) => {
+  /** 56px, for the wide-screen table; 44px otherwise. */
+  large?: boolean;
+}> = ({ tier, ordinal, done, editable, weaponName, onToggle, large = false }) => {
   const label = `${weaponName}: ${tier.name} ${done ? 'earned' : 'not earned'}`;
   const face = (
     <TierSwatch
       tier={tier}
       className={cn(
-        'h-11 w-11 rounded-control border transition-all',
+        'rounded-control border transition-all',
+        large ? 'h-14 w-14' : 'h-11 w-11',
         done
           ? 'border-gray-1000/40 shadow-[0_0_10px_-3px_rgb(255_255_255/0.5)]'
           : 'border-gray-400 opacity-25 grayscale',
       )}
     >
-      <span className="absolute left-1 top-0.5 text-50 font-bold tabular-nums text-gray-1000 drop-shadow-[0_1px_2px_rgb(0_0_0/0.9)]">
+      <span
+        className={cn(
+          'absolute left-1 top-0.5 font-bold tabular-nums text-gray-1000 drop-shadow-[0_1px_2px_rgb(0_0_0/0.9)]',
+          large ? 'text-75' : 'text-50',
+        )}
+      >
         {ordinal}
       </span>
       {done ? (
         <span className="absolute inset-0 flex items-center justify-center">
-          <Check size={18} strokeWidth={3} className="text-gray-1000 drop-shadow-[0_1px_2px_rgb(0_0_0/0.9)]" />
+          <Check size={large ? 22 : 18} strokeWidth={3} className="text-gray-1000 drop-shadow-[0_1px_2px_rgb(0_0_0/0.9)]" />
         </span>
       ) : null}
     </TierSwatch>

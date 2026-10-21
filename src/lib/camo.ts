@@ -21,6 +21,38 @@ export const CAMO_KIND_LABEL: Record<CamoTierKind, string> = {
   dark: 'Dark',
 };
 
+/**
+ * What the editor offers: a tier is Special or Mastery. A mastery tier's
+ * colour comes from its place among the mastery tiers — first Gold, second
+ * Diamond, every one after Dark — so `kind` is derived, never picked.
+ */
+export type CamoTierGroup = 'special' | 'mastery';
+
+export const CAMO_TIER_GROUPS: readonly CamoTierGroup[] = ['special', 'mastery'];
+
+export const CAMO_GROUP_LABEL: Record<CamoTierGroup, string> = {
+  special: 'Special',
+  mastery: 'Mastery',
+};
+
+export const tierGroup = (kind: CamoTierKind): CamoTierGroup => (kind === 'special' ? 'special' : 'mastery');
+
+const masteryKindAt = (n: number): CamoTierKind => (n === 0 ? 'gold' : n === 1 ? 'diamond' : 'dark');
+
+/** Every mastery tier's kind set from its place among them. */
+export const withMasteryKinds = <T extends { kind: CamoTierKind }>(tiers: T[]): T[] => {
+  let n = 0;
+  return tiers.map((tier) => {
+    if (tier.kind === 'special') return tier;
+    const kind = masteryKindAt(n++);
+    return tier.kind === kind ? tier : { ...tier, kind };
+  });
+};
+
+/** Whether tier i starts a new group — where the grid leaves a gap. */
+export const startsTierGroup = (tiers: { kind: CamoTierKind }[], i: number): boolean =>
+  i > 0 && tierGroup(tiers[i].kind) !== tierGroup(tiers[i - 1].kind);
+
 export interface CamoTier {
   id: string;
   name: string;
@@ -154,7 +186,7 @@ export function normalizeCamoData(raw: unknown): CamoData {
   const modes = list(record(raw).modes).map((m, mi): CamoMode => {
     const mode = record(m);
     const militaryMax = count(mode.militaryMax);
-    const tiers = list(mode.tiers).map((t, ti): CamoTier => {
+    const tiers = withMasteryKinds(list(mode.tiers).map((t, ti): CamoTier => {
       const tier = record(t);
       const kind = CAMO_TIER_KINDS.includes(tier.kind as CamoTierKind)
         ? (tier.kind as CamoTierKind)
@@ -166,7 +198,7 @@ export function normalizeCamoData(raw: unknown): CamoData {
         kind,
         ...(imageUrl ? { imageUrl } : {}),
       };
-    });
+    }));
     const classes = list(mode.classes).map((c, ci): CamoClass => {
       const cls = record(c);
       return {
@@ -241,12 +273,15 @@ export const setMilitaryMax = (mode: CamoMode, max: number): CamoMode => {
   return everyWeapon({ ...mode, militaryMax: next }, (w) => ({ ...w, military: Math.min(w.military, next) }));
 };
 
+/** Re-derives every mastery tier's kind after a change to the order. */
+const ordered = (mode: CamoMode): CamoMode => ({ ...mode, tiers: withMasteryKinds(mode.tiers) });
+
 /**
- * Where a new tier of a kind goes: a special after the last special (or first,
- * if there is none), anything else at the end.
+ * Where a new tier goes: a special after the last special (or first, if there
+ * is none), a mastery tier at the end.
  */
-export const tierInsertIndex = (mode: CamoMode, kind: CamoTierKind): number => {
-  if (kind !== 'special') return mode.tiers.length;
+export const tierInsertIndex = (mode: CamoMode, group: CamoTierGroup): number => {
+  if (group !== 'special') return mode.tiers.length;
   let last = -1;
   mode.tiers.forEach((tier, i) => {
     if (tier.kind === 'special') last = i;
@@ -254,18 +289,21 @@ export const tierInsertIndex = (mode: CamoMode, kind: CamoTierKind): number => {
   return last + 1;
 };
 
-export const addTier = (mode: CamoMode, kind: CamoTierKind, name = CAMO_KIND_LABEL[kind]): CamoMode => {
-  const at = tierInsertIndex(mode, kind);
-  const tier: CamoTier = { id: newCamoId('tier'), name, kind };
+/** A new tier, named after the colour it lands on. */
+export const addTier = (mode: CamoMode, group: CamoTierGroup): CamoMode => {
+  const at = tierInsertIndex(mode, group);
+  const kind: CamoTierKind =
+    group === 'special' ? 'special' : masteryKindAt(mode.tiers.filter((t) => t.kind !== 'special').length);
+  const tier: CamoTier = { id: newCamoId('tier'), name: CAMO_KIND_LABEL[kind], kind };
   return everyWeapon(
-    { ...mode, tiers: [...mode.tiers.slice(0, at), tier, ...mode.tiers.slice(at)] },
+    ordered({ ...mode, tiers: [...mode.tiers.slice(0, at), tier, ...mode.tiers.slice(at)] }),
     (w) => ({ ...w, done: [...w.done.slice(0, at), false, ...w.done.slice(at)] }),
   );
 };
 
 export const removeTier = (mode: CamoMode, index: number): CamoMode =>
   everyWeapon(
-    { ...mode, tiers: mode.tiers.filter((_, i) => i !== index) },
+    ordered({ ...mode, tiers: mode.tiers.filter((_, i) => i !== index) }),
     (w) => ({ ...w, done: w.done.filter((_, i) => i !== index) }),
   );
 
@@ -278,18 +316,23 @@ export const moveTier = (mode: CamoMode, index: number, direction: -1 | 1): Camo
     [next[index], next[target]] = [next[target], next[index]];
     return next;
   };
-  return everyWeapon({ ...mode, tiers: swap(mode.tiers) }, (w) => ({ ...w, done: swap(w.done) }));
+  return everyWeapon(ordered({ ...mode, tiers: swap(mode.tiers) }), (w) => ({ ...w, done: swap(w.done) }));
 };
 
-export const updateTier = (mode: CamoMode, index: number, patch: Partial<CamoTier>): CamoMode => ({
-  ...mode,
-  tiers: mode.tiers.map((tier, i) => {
-    if (i !== index) return tier;
-    const next = { ...tier, ...patch };
-    if (!next.imageUrl) delete next.imageUrl;
-    return next;
-  }),
-});
+export const updateTier = (mode: CamoMode, index: number, patch: Partial<CamoTier>): CamoMode =>
+  ordered({
+    ...mode,
+    tiers: mode.tiers.map((tier, i) => {
+      if (i !== index) return tier;
+      const next = { ...tier, ...patch };
+      if (!next.imageUrl) delete next.imageUrl;
+      return next;
+    }),
+  });
+
+/** Special or Mastery; a mastery tier's colour follows from where it sits. */
+export const setTierGroup = (mode: CamoMode, index: number, group: CamoTierGroup): CamoMode =>
+  updateTier(mode, index, { kind: group === 'special' ? 'special' : 'gold' });
 
 /* -------------------------------------------------------------------------- */
 /* Progress                                                                   */

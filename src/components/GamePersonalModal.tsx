@@ -259,7 +259,9 @@ const GamePersonal: React.FC<{
               />
               <p className="text-75 text-gray-600">
                 {perfect
-                  ? `Every one of them earned${game.completedAt ? `, finished ${formatDate(game.completedAt)}` : ''}.`
+                  ? game.completedAt
+                    ? `Finished ${formatDate(game.completedAt)}`
+                    : null
                   : `${left} ${awardNounFor(game.platform, left).toLowerCase()} remaining`}
               </p>
             </div>

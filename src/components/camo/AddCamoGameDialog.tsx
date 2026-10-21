@@ -43,10 +43,10 @@ export const AddCamoGameDialog: React.FC<{
     ...games.map((g) => ({
       id: g.id,
       label: `Copy of ${g.name}`,
-      hint: `${g.data.modes.length} ${g.data.modes.length === 1 ? 'mode' : 'modes'}, every tick cleared`,
+      hint: 'Ticks cleared',
       icon: <Copy size={16} />,
     })),
-    { id: BLANK, label: 'Blank', hint: 'One mode, one Gold tier, one empty class', icon: <FilePlus size={16} /> },
+    { id: BLANK, label: 'Blank', hint: '', icon: <FilePlus size={16} /> },
   ];
 
   return (
@@ -100,7 +100,7 @@ export const AddCamoGameDialog: React.FC<{
                 <span className={cn('shrink-0', selected ? 'text-accent-900' : 'text-gray-600')}>{option.icon}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-90 font-bold text-gray-1000">{option.label}</span>
-                  <span className="block text-75 text-gray-600">{option.hint}</span>
+                  {option.hint ? <span className="block text-75 text-gray-600">{option.hint}</span> : null}
                 </span>
                 {selected ? <Check size={16} className="shrink-0 text-accent-900" /> : null}
               </button>

@@ -37,23 +37,23 @@ const MasteryTiles: React.FC<{ mode: CamoMode }> = ({ mode }) => {
   return (
     // A row that scrolls sideways on a phone. Each tile is flex-shrink 0, or
     // the row collapses them to fit instead of scrolling.
-    <div className="scroll-row -mx-4 flex gap-2.5 px-4 md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-0">
+    <div className="scroll-row -mx-4 flex gap-2.5 px-4 md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] md:gap-3 md:px-0">
       {tiles.map((tile) => (
         <div
           key={tile.tier.id}
           className={cn(
-            'panel flex w-44 shrink-0 items-center gap-3 rounded-lg p-3 md:w-auto',
+            'panel flex w-44 shrink-0 items-center gap-3 rounded-lg p-3 md:w-auto md:gap-4 md:p-4',
             tile.locked && 'opacity-60',
           )}
         >
-          <TierSwatch tier={tile.tier} className="h-10 w-10 shrink-0 rounded-control" />
-          <div className="min-w-0 flex-1 space-y-1.5">
+          <TierSwatch tier={tile.tier} className="h-10 w-10 shrink-0 rounded-control md:h-12 md:w-12" />
+          <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-90 font-bold text-gray-1000">{tile.tier.name}</span>
+              <span className="truncate text-90 font-bold text-gray-1000 md:text-150">{tile.tier.name}</span>
               {tile.locked ? (
                 <LockedLabel />
               ) : (
-                <span className="shrink-0 text-75 font-bold tabular-nums text-gray-800">
+                <span className="shrink-0 text-75 font-bold tabular-nums text-gray-800 md:text-90">
                   {tile.done} / {tile.total}
                 </span>
               )}

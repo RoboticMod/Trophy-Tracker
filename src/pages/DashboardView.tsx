@@ -124,7 +124,9 @@ const ShelfRows: React.FC<{
           key={shelf}
           to={to}
           className={cn(
-            'relative flex min-h-15 items-center gap-3 px-3.5 py-2.5 transition-colors active:bg-white/5',
+            // Rounded like the box around it at the ends, so the 100% row's
+            // gold ring follows the corners instead of being clipped by them.
+            'relative flex min-h-15 items-center gap-3 px-3.5 py-2.5 transition-colors first:rounded-t-[inherit] last:rounded-b-[inherit] active:bg-white/5',
             // The 100% row is gold the way a finished card is. An inset ring,
             // not a border, so it sits inside the dividers without making this
             // row a pixel taller than its neighbours.
