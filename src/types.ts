@@ -81,13 +81,22 @@ export interface Collection {
   updatedAt?: string;
 }
 
+/**
+ * The navigation's settings (named for the sidebar the app once had).
+ *
+ * Every show key is optional: a config stored before a key existed must read
+ * as that tab's default, which `isShown` in lib/navigation.ts supplies.
+ */
 export interface SidebarConfig {
-  showCurrentlyPlaying: boolean;
-  showBacklog: boolean;
-  showCollections: boolean;
-  showAchievements: boolean;
-  showStats: boolean;
-  showSearch: boolean;
+  showLibrary?: boolean;
+  showCurrentlyPlaying?: boolean;
+  showBacklog?: boolean;
+  showCollections?: boolean;
+  showCallOfDuty?: boolean;
+  /** The old 100% tab. No longer read: 100% is opened from Lists and Home. */
+  showAchievements?: boolean;
+  showStats?: boolean;
+  showSearch?: boolean;
   navOrder?: string[];
   /** User-supplied labels for sidebar destinations, keyed by route path. */
   navNames?: Record<string, string>;

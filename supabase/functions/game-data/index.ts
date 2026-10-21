@@ -422,6 +422,92 @@ async function playerAchievements(steamId: string, appid: number) {
 }
 
 /**
+ * One award in a game's list, as game details shows it — the same shape for a
+ * Steam achievement and a PlayStation trophy, so the app needs one renderer.
+ */
+interface AwardItem {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  earned: boolean;
+  earnedAt?: string;
+  /** Percent of players who have it. Absent when the platform did not say. */
+  rate?: number;
+  /** PlayStation's bronze / silver / gold / platinum. */
+  type?: string;
+  hidden?: boolean;
+}
+
+/** A rate as a number, or undefined — Steam has sent both strings and numbers. */
+const asRate = (value: unknown): number | undefined => {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number.parseFloat(value) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+};
+
+/**
+ * A Steam game's full achievement list for one player: names, descriptions and
+ * icons from the schema, earned state and unlock time from the player's list,
+ * and how many players have each from the global percentages.
+ */
+async function steamAwards(steamId: string, appid: number) {
+  const [schema, player, global] = await Promise.all([
+    getJson<{
+      game?: {
+        availableGameStats?: {
+          achievements?: {
+            name: string;
+            displayName?: string;
+            description?: string;
+            icon?: string;
+            icongray?: string;
+            hidden?: number;
+          }[];
+        };
+      };
+    }>(`${WEB_API}/ISteamUserStats/GetSchemaForGame/v2/?key=${STEAM_API_KEY}&appid=${appid}&l=english`),
+    getJson<{
+      playerstats?: {
+        success?: boolean;
+        achievements?: { apiname: string; achieved: number; unlocktime: number }[];
+      };
+    }>(
+      `${WEB_API}/ISteamUserStats/GetPlayerAchievements/v1/?key=${STEAM_API_KEY}&steamid=${steamId}&appid=${appid}`,
+    ),
+    getJson<{
+      achievementpercentages?: { achievements?: { name: string; percent: number | string }[] };
+    }>(`${WEB_API}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=${appid}`),
+  ]);
+
+  const mine = new Map((player?.playerstats?.achievements ?? []).map((a) => [a.apiname, a]));
+  const rates = new Map(
+    (global?.achievementpercentages?.achievements ?? []).map((a) => [a.name, asRate(a.percent)]),
+  );
+
+  const items: AwardItem[] = (schema?.game?.availableGameStats?.achievements ?? []).map((a) => {
+    const own = mine.get(a.name);
+    const earned = own?.achieved === 1;
+    return {
+      id: a.name,
+      name: a.displayName || a.name,
+      description: a.description || undefined,
+      icon: (earned ? a.icon : a.icongray || a.icon) || undefined,
+      earned,
+      earnedAt: earned && own && own.unlocktime > 0 ? new Date(own.unlocktime * 1000).toISOString() : undefined,
+      rate: rates.get(a.name),
+      hidden: a.hidden === 1 || undefined,
+    };
+  });
+
+  return {
+    items,
+    // A private profile answers with nothing earned; the app says so rather
+    // than showing every achievement as left.
+    visible: Boolean(player?.playerstats?.success ?? player?.playerstats?.achievements),
+  };
+}
+
+/**
  * Playtime and last-played for a single app.
  *
  * Asks for just this one game through `appids_filter`, which needs the
@@ -802,6 +888,13 @@ Deno.serve(async (request) => {
 
         return json({ ...achievements, ...playtime }, 200, CACHE.me);
       }
+
+      /* Every achievement in a game, with its icon, your unlock and its rarity. */
+      if (segments[2] === 'awards') {
+        const appid = Number(url.searchParams.get('appid'));
+        if (!Number.isFinite(appid) || appid <= 0) return fail(400, 'bad-appid');
+        return json(await steamAwards(steamId, appid), 200, CACHE.me);
+      }
     }
 
     /* PlayStation. */
@@ -883,6 +976,55 @@ Deno.serve(async (request) => {
           200,
           CACHE.me,
         );
+      }
+
+      /*
+       * Every trophy in a title — name, detail, icon and type from the title's
+       * list, earned state, date and earn rate from yours — for the Trophies
+       * section of game details. The groups follow the same setting as the
+       * counts, so the list and the figures above it agree. A game does not
+       * record which trophy service it uses, so PS5's is tried and PS4's is
+       * the fallback.
+       */
+      if (segments[2] === 'awards' && segments[3]) {
+        const npCommunicationId = segments[3];
+        const group =
+          url.searchParams.get('groups') === 'all' ? ALL_TROPHY_GROUPS : BASE_TROPHY_GROUP;
+
+        const read = async (npServiceName: 'trophy' | 'trophy2') => {
+          const [defined, earned] = await Promise.all([
+            getTitleTrophies(psnAuth, npCommunicationId, group, { npServiceName }),
+            getUserTrophiesEarnedForTitle(psnAuth, session.accountId, npCommunicationId, group, {
+              npServiceName,
+            }),
+          ]);
+          return { defined, earned };
+        };
+
+        let lists;
+        try {
+          lists = await read('trophy2');
+        } catch {
+          lists = await read('trophy');
+        }
+
+        const mine = new Map((lists.earned.trophies ?? []).map((t) => [t.trophyId, t]));
+        const items: AwardItem[] = (lists.defined.trophies ?? []).map((t) => {
+          const own = mine.get(t.trophyId);
+          return {
+            id: String(t.trophyId),
+            name: t.trophyName ?? `Trophy ${t.trophyId}`,
+            description: t.trophyDetail || undefined,
+            icon: t.trophyIconUrl || undefined,
+            earned: Boolean(own?.earned),
+            earnedAt: own?.earned ? own.earnedDateTime : undefined,
+            rate: asRate(own?.trophyEarnedRate),
+            type: t.trophyType,
+            hidden: t.trophyHidden || undefined,
+          };
+        });
+
+        return json({ items, visible: true }, 200, CACHE.me);
       }
 
       /**

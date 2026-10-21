@@ -19,8 +19,12 @@ interface GameListProps {
   renderAction?: RenderAction;
   hidePlatform?: boolean;
   meta?: CardMeta;
-  /** The grid's columns: the page's own, or a half-width platform column's. */
-  columns?: 'page' | 'half';
+  /**
+   * The grid's columns: the page's own, a half-width platform column's,
+   * exactly three (Home's Now playing, beside the completion panel), or a
+   * sideways snap-scrolling strip of 260px cards (the same, on a phone).
+   */
+  columns?: 'page' | 'half' | 'three' | 'strip';
 }
 
 /**
@@ -41,7 +45,19 @@ export const GameList: React.FC<GameListProps> = ({
   const { collections, profile, added, follow, celebration, celebrationPlayed } = useGame();
 
   return (
-    <div className={columns === 'half' ? 'grid-cards-half' : 'grid-cards'}>
+    <div
+      className={
+        columns === 'half'
+          ? 'grid-cards-half'
+          : columns === 'three'
+            ? 'grid-cards-three'
+            : columns === 'strip'
+              ? // Vertical room for the card's glow: a sideways scroller
+                // clips top and bottom too.
+                'card-strip scroll-row -mx-4 -my-2.5 px-4 py-2.5'
+              : 'grid-cards'
+      }
+    >
       <AnimatePresence>
         {games.map((game) => (
           <GameCard
@@ -245,8 +261,10 @@ const PhoneSections: React.FC<SectionProps> = ({ groups, renderAction, meta }) =
                 'sticky z-40 flex h-10 w-full items-center gap-2.5 rounded-md border text-left',
                 'transition-[background-color,border-color,padding,box-shadow,opacity] duration-200',
                 superseded && 'pointer-events-none opacity-0',
+                // No backdrop blur: it is recomputed on every scroll frame over
+                // the cards beneath, and the 95% fill already hides them.
                 state
-                  ? 'border-gray-300 bg-gray-100/95 px-3 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)] backdrop-blur-md'
+                  ? 'border-gray-300 bg-gray-100/95 px-3 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.7)]'
                   : 'border-transparent px-0',
               )}
             >

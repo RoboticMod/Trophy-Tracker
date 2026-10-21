@@ -21,6 +21,152 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.1',
+    date: '2026-10-21',
+    title: 'Roomier menus, and Undo for notifications',
+    changes: [
+      'Drop-down menus on a computer have taller rows with larger text, so they are easier to read and click.',
+      'Clearing your notifications can be undone for a few seconds, from the bar that appears where the button was.',
+    ],
+  },
+  {
+    version: '0.19.0',
+    date: '2026-10-16',
+    title: 'Every trophy, rarest first',
+    changes: [
+      'Game details now list every achievement or trophy for a game linked to Steam or PlayStation, with its icon and description, between Your record and Notes.',
+      'Switch between what is left and what you have earned. Each list starts with the rarest, and shows the first few until you tap Show all.',
+      'Each one shows how many players have it: Ultra rare under 5%, Very rare under 15%, then Rare and Common. A gold line names the rarest one you own.',
+      'If a platform does not say how rare something is, nothing is shown for it rather than a guess.',
+      'Lists are kept in your account and fetched again only once your progress on that game changes.',
+      'The temporary trophy-rarity check in Connected accounts is gone.',
+      'This needs the updated game-data function and schema: deploy the function and run the schema SQL from Settings.',
+    ],
+  },
+  {
+    version: '0.18.1',
+    date: '2026-10-16',
+    title: 'Checking PlayStation trophy data',
+    changes: [
+      'A temporary "Check trophy rarity data" button under PlayStation in Settings › Connected accounts. It shows whether PlayStation reports how rare each trophy is. It goes away once trophy details are built.',
+    ],
+  },
+  {
+    version: '0.18.0',
+    date: '2026-10-16',
+    title: 'Safer backups',
+    changes: [
+      'Backups now include your Call of Duty tracker. The backup card lists what a backup holds, and that platform sign-ins are not in it.',
+      'Restoring a backup asks first. It shows how many games, lists and Call of Duty games you have now against what the backup holds, and offers to export your current library before replacing it.',
+      'Restoring now truly replaces your library. Games and lists that are not in the backup used to come back the next time the app loaded.',
+      'A backup made before the camo tracker existed leaves your current tracker as it is.',
+    ],
+  },
+  {
+    version: '0.17.2',
+    date: '2026-10-16',
+    title: 'A tidier Bulk sheet',
+    changes: [
+      'On a phone, the Bulk sheet in the camo tracker puts one thing on each row: the camo picker and Apply side by side, All military done across the full width, then your last change and Undo.',
+    ],
+  },
+  {
+    version: '0.17.1',
+    date: '2026-10-16',
+    title: 'Faster camo ticking, and Undo',
+    changes: [
+      'In Edit mode, a camo column header marks that camo for every weapon in the class, or clears it once they all have it. On a phone, the camo names above the weapons do the same.',
+      '"Mark every <class> through" a camo ticks it and every camo before it on every weapon in the class, and fills their military camos.',
+      '"All military done" fills the military camos for every weapon in the class.',
+      'Undo takes back your last 25 tracker changes, including a deleted game. It lasts until you reload the page. The last change is shown beside it.',
+      'On a phone these tools open as a sheet, and Undo stays one tap away beside them.',
+    ],
+  },
+  {
+    version: '0.17.0',
+    date: '2026-10-16',
+    title: 'Call of Duty camo tracker',
+    changes: [
+      'A camo tracker for Call of Duty, under the Call of Duty tab. Track as many games as you like, each with its own modes, camo tiers, weapon classes and weapons. Everything is entered by hand, since no service shares camo progress.',
+      'Add a game as a copy of one you already track, with every tick cleared, or start blank.',
+      'The tracker opens read-only, so a stray tap changes nothing. Press Edit to tick camos, set military counts, or use All and Clear on a weapon. Ticking a camo also ticks every one before it; clearing one clears every one after it.',
+      'Each mastery tier shows how many weapons have it, with a bar in its colour. A tier stays Locked until the one before it is done or you have started it.',
+      '"Weapons, camos & images" lets you rename and reorder camo tiers, add pictures to them from a web link, and add, rename or remove weapons, classes and modes. Removing anything with progress asks first.',
+      'Home shows your Call of Duty progress next to your other panels, and Lists opens with the tracker.',
+      'The tracker saves to your account and works offline like the rest of your library. It needs the updated schema: copy it from Settings and run it in Supabase.',
+    ],
+  },
+  {
+    version: '0.16.1',
+    date: '2026-10-16',
+    title: '100% in Lists',
+    changes: [
+      'Lists opens with a gold 100% entry on every screen size: your finished games, how many on each platform, and the award mark on each cover. It opens the 100% page.',
+      'The 100% entry counts every game with all its achievements or trophies earned, whichever list it is on.',
+    ],
+  },
+  {
+    version: '0.16.0',
+    date: '2026-10-16',
+    title: 'A new Home',
+    changes: [
+      'Home is now a summary of your library. Your full grid is one tap away under "Open library".',
+      'Now playing shows up to three of your Playing games, in the order the Playing page uses. On a phone they sit in a row you can swipe.',
+      'Library completion has your 100%, Beaten, Playing and Backlog counts underneath it. Each one opens its page; Beaten opens as a list.',
+      'Closest to 100% lists the games with the fewest achievements or trophies left. The bar turns gold when two or fewer remain.',
+      'Recent unlocks shows your latest progress from the bell, with a game that reached 100% in gold.',
+      'Up next shows the first five games from your Backlog.',
+      'Notification details stay on one line on narrow screens instead of wrapping.',
+    ],
+  },
+  {
+    version: '0.15.0',
+    date: '2026-10-16',
+    title: 'Library gets its own page',
+    changes: [
+      'Your full game grid, with its search, filters and sort, has moved from Home to a new Library page. Home links to it with "Open library".',
+      'Library can also be a tab: switch it on in Settings › Customization › Navigation. It is off to begin with.',
+      'The list and rating filters are now small dropdowns at the end of the filter row, and are always there. On a tablet or smaller laptop screen you could not start either one before.',
+      'The Playing row above the grid is gone, since every one of those games was already in the grid below it.',
+      'Unshelved in Statistics, "Skip to my library" in setup, and following a game with no shelf now all open Library.',
+    ],
+  },
+  {
+    version: '0.14.0',
+    date: '2026-10-16',
+    title: 'New navigation',
+    changes: [
+      'A Call of Duty tab, for the camo tracker that is on its way.',
+      '100% is no longer a tab. It opens from Lists and from Home, where the 100%, Playing and Backlog figures now take you to their pages.',
+      'The default tabs are Home, Playing, Lists, Call of Duty and Statistics. Search and Backlog are there to switch on. Choices you have already made are kept.',
+      'Every tab except Home can be switched off, and all of them can be reordered, in Settings › Customization › Navigation. A line there shows which tabs fit on a phone\'s bottom bar and which go under More.',
+      'A phone\'s bottom bar is now simply your first four tabs, then More.',
+      'On a tablet or a smaller laptop screen, tabs show just their icon except the one you are on, so the top bar no longer overflows. The buttons in it are bigger on a tablet.',
+    ],
+  },
+  {
+    version: '0.13.2',
+    date: '2026-10-16',
+    title: 'A calmer gold',
+    changes: [
+      'The light that circled the 100% row in Lists and the 100% spotlight in notifications is gone. A finished game now has a still gold edge, a slightly stronger warm glow, and the foil shine that passes over it every few seconds.',
+      'Every 100% game wears the same gold: its card, the 100% row in Lists, the 100% row on Home, and its notification.',
+    ],
+  },
+  {
+    version: '0.13.1',
+    date: '2026-10-16',
+    title: 'Easier to read',
+    changes: [
+      'Secondary text, labels and the phone bar labels are brighter, so they read clearly on the dark background.',
+      'Blue buttons (Add game, Close, and every other main action) are a deeper blue, so their white text is easier to read. They darken slightly on hover instead of getting lighter.',
+      'Delete buttons are a deeper red, and darken on hover.',
+      'The Steam mark is a little brighter.',
+      'Offline and setup warnings are orange instead of amber, so gold now means 100% and nothing else.',
+      'The unread count on the bell is easier to read.',
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-10-10',
     title: 'A bell for your progress',

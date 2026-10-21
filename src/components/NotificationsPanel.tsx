@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BellOff, ChevronRight } from 'lucide-react';
+import { BellOff, ChevronRight, Undo2 } from 'lucide-react';
 import { UserGame } from '../types';
 import { useGame } from '../context/GameContext';
 import { useNotifications } from '../context/NotificationsContext';
@@ -17,17 +17,20 @@ import { TrophyBadge, awardNoun, awardNounFor, awardProgressLabel } from './Trop
 import { Button, Meter } from './ui';
 
 /** A notification with its game, for one that still exists in the library. */
-interface Entry {
+export interface NotificationEntry {
   note: ProgressNotification;
   game: UserGame;
   gained: number;
 }
 
 /** Finished first, then whatever moved furthest, then the newest. */
-const byProgress = (a: Entry, b: Entry) =>
+const byProgress = (a: NotificationEntry, b: NotificationEntry) =>
   Number(b.note.completed) - Number(a.note.completed) ||
   b.gained - a.gained ||
   new Date(b.note.at).getTime() - new Date(a.note.at).getTime();
+
+/** How long "Clear all" can be undone. */
+const UNDO_MS = 5000;
 
 /** How long a finished game holds the panel before the list comes in. */
 const SPOTLIGHT_MS = CELEBRATION_DELAY_MS + CELEBRATION_MS + 900;
@@ -39,7 +42,7 @@ const SPOTLIGHT_MS = CELEBRATION_DELAY_MS + CELEBRATION_MS + 900;
  * the art, the award, the burst and the sound, then the rest of the list.
  */
 const Spotlight: React.FC<{
-  entry: Entry;
+  entry: NotificationEntry;
   step: number;
   steps: number;
   onNext: () => void;
@@ -66,10 +69,10 @@ const Spotlight: React.FC<{
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.25, ease: EASE_OUT }}
-      className="relative overflow-hidden rounded-lg border border-trophy-700/60 bg-trophy-100/30"
+      className="trophy-glow relative overflow-hidden rounded-lg border border-trophy-700/55 bg-trophy-100/30"
     >
-      <span aria-hidden className="gold-ring rounded-lg" />
-      <div className="relative aspect-video">
+      <span aria-hidden className="trophy-spot rounded-lg" />
+      <div className="relative aspect-video overflow-hidden">
         <CoverArt
           src={game.coverImage}
           title={game.title}
@@ -79,6 +82,7 @@ const Spotlight: React.FC<{
           aria-hidden
           className="absolute inset-0 bg-gradient-to-t from-gray-25 via-gray-25/40 to-transparent"
         />
+        <div aria-hidden className="trophy-sweep" />
         <div className="absolute inset-x-4 bottom-3.5 flex items-end gap-3">
           <TrophyBadge platform={game.platform} size={44} />
           <div className="min-w-0 flex-1">
@@ -92,7 +96,7 @@ const Spotlight: React.FC<{
         </div>
         {burst !== null ? <Celebration key={burst} platform={game.platform} scale="large" /> : null}
       </div>
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="relative flex items-center justify-between gap-3 px-4 py-3">
         <span className="text-75 tabular-nums text-gray-700">
           {game.achievementsTotal} of {game.achievementsTotal}{' '}
           {awardNoun(game.platform).toLowerCase()}
@@ -107,8 +111,8 @@ const Spotlight: React.FC<{
   );
 };
 
-/** One game's progress, and the way to it. */
-const Row: React.FC<{ entry: Entry; unread: boolean; onOpen: () => void }> = ({
+/** One game's progress, and the way to it. Also Home's Recent unlocks rows. */
+export const NotificationRow: React.FC<{ entry: NotificationEntry; unread: boolean; onOpen: () => void }> = ({
   entry,
   unread,
   onOpen,
@@ -120,12 +124,20 @@ const Row: React.FC<{ entry: Entry; unread: boolean; onOpen: () => void }> = ({
       type="button"
       onClick={onOpen}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-md border p-2.5 text-left transition-colors',
+        'group relative flex w-full items-center gap-3 rounded-md border p-2.5 text-left transition-colors',
         note.completed
-          ? 'border-trophy-700/50 bg-trophy-100/40 hover:border-trophy-700/80'
+          ? 'overflow-hidden border-trophy-700/55 bg-trophy-100/40 hover:border-trophy-700/80'
           : 'border-gray-200 bg-black/25 hover:border-gray-300 hover:bg-gray-200',
       )}
     >
+      {/* A 100% row is gold the way a finished card is: still border, warm
+          spot, foil sweep. Its content is `relative` to paint above both. */}
+      {note.completed ? (
+        <>
+          <span aria-hidden className="trophy-spot rounded-md" />
+          <span aria-hidden className="trophy-sweep" />
+        </>
+      ) : null}
       <span className="relative shrink-0">
         <CoverArt
           src={game.coverImage}
@@ -140,7 +152,7 @@ const Row: React.FC<{ entry: Entry; unread: boolean; onOpen: () => void }> = ({
         ) : null}
       </span>
 
-      <span className="min-w-0 flex-1 space-y-1">
+      <span className="relative min-w-0 flex-1 space-y-1">
         <span className="flex min-w-0 items-center gap-2">
           <PlatformIcon platform={game.platform} size={13} className="shrink-0 text-gray-600" />
           <span className="truncate text-90 font-bold text-gray-900 group-hover:text-accent-900">
@@ -155,11 +167,15 @@ const Row: React.FC<{ entry: Entry; unread: boolean; onOpen: () => void }> = ({
             +{gained}
           </span>
         </span>
-        <span className="flex items-center gap-1.5 text-50 tabular-nums text-gray-600">
+        {/* One line at any width: the figures give way before the time does,
+            and neither wraps — on Home's narrower panel they broke over three. */}
+        <span className="flex min-w-0 items-center gap-1.5 text-50 tabular-nums text-gray-600">
           <TrophyBadge platform={game.platform} size={12} muted={!note.completed} />
-          {note.from} → <span className="font-bold text-gray-900">{note.to}</span> / {note.total}{' '}
-          {awardNounFor(game.platform, note.total).toLowerCase()}
-          <span className="ml-auto">{relativeTime(note.at)}</span>
+          <span className="min-w-0 truncate">
+            {note.from} → <span className="font-bold text-gray-900">{note.to}</span> / {note.total}{' '}
+            {awardNounFor(game.platform, note.total).toLowerCase()}
+          </span>
+          <span className="ml-auto shrink-0 whitespace-nowrap">{relativeTime(note.at)}</span>
         </span>
         <Meter
           value={percent}
@@ -181,14 +197,27 @@ const Row: React.FC<{ entry: Entry; unread: boolean; onOpen: () => void }> = ({
  */
 export const NotificationsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { games, goToGame } = useGame();
-  const { notifications, markAllRead, clear } = useNotifications();
+  const { notifications, markAllRead, clear, restore } = useNotifications();
 
   const [shown] = useState(notifications);
-  const [cleared, setCleared] = useState(false);
+  /**
+   * What "Clear all" removed, while it can still be put back. Clearing had no
+   * confirm and no undo; now the footer turns into an Undo bar for a few
+   * seconds instead — a confirm would ask every time for the one time it
+   * mattered.
+   */
+  const [cleared, setCleared] = useState<ProgressNotification[] | null>(null);
+  const [undoOpen, setUndoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!undoOpen) return;
+    const timer = window.setTimeout(() => setUndoOpen(false), UNDO_MS);
+    return () => window.clearTimeout(timer);
+  }, [undoOpen]);
 
   const entries = useMemo(() => {
     const byId = new Map(games.map((g) => [g.id, g]));
-    return shown.flatMap<Entry>((note) => {
+    return shown.flatMap<NotificationEntry>((note) => {
       const game = byId.get(note.gameId);
       return game ? [{ note, game, gained: note.to - note.from }] : [];
     });
@@ -219,9 +248,33 @@ export const NotificationsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
 
   if (cleared || entries.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 py-8 text-center">
-        <BellOff size={22} className="text-gray-600" />
-        <p className="text-90 font-bold text-gray-800">You’re all caught up</p>
+      <div className="space-y-3">
+        <div className="flex flex-col items-center gap-2 py-8 text-center">
+          <BellOff size={22} className="text-gray-600" />
+          <p className="text-90 font-bold text-gray-800">You’re all caught up</p>
+        </div>
+        {cleared && undoOpen ? (
+          <div
+            role="status"
+            className="flex items-center gap-3 rounded-md border border-gray-300 bg-gray-200 py-1.5 pl-3 pr-1.5"
+          >
+            <span className="min-w-0 flex-1 text-75 text-gray-800">
+              Cleared {cleared.length} {cleared.length === 1 ? 'notification' : 'notifications'}
+            </span>
+            <Button
+              size="s"
+              buttonStyle="outline"
+              onClick={() => {
+                restore(cleared);
+                setCleared(null);
+                setUndoOpen(false);
+              }}
+            >
+              <Undo2 size={13} />
+              Undo
+            </Button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -251,7 +304,7 @@ export const NotificationsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                 variants={{ hidden: { opacity: 0, y: 6 }, shown: { opacity: 1, y: 0 } }}
                 transition={{ duration: 0.2, ease: EASE_OUT }}
               >
-                <Row entry={entry} unread onOpen={() => open(entry.game.id)} />
+                <NotificationRow entry={entry} unread onOpen={() => open(entry.game.id)} />
               </motion.div>
             ))}
 
@@ -270,7 +323,7 @@ export const NotificationsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                 variants={{ hidden: { opacity: 0, y: 6 }, shown: { opacity: 1, y: 0 } }}
                 transition={{ duration: 0.2, ease: EASE_OUT }}
               >
-                <Row entry={entry} unread={false} onOpen={() => open(entry.game.id)} />
+                <NotificationRow entry={entry} unread={false} onOpen={() => open(entry.game.id)} />
               </motion.div>
             ))}
 
@@ -279,8 +332,11 @@ export const NotificationsPanel: React.FC<{ onClose: () => void }> = ({ onClose 
                 buttonStyle="subtle"
                 size="s"
                 onClick={() => {
+                  // Everything stored, not just what this panel showed: that
+                  // is what clear() removes, so it is what Undo puts back.
+                  setCleared(notifications);
+                  setUndoOpen(true);
                   clear();
-                  setCleared(true);
                 }}
               >
                 Clear all

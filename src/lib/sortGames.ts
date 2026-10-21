@@ -105,3 +105,29 @@ export function byRating(a: UserGame, b: UserGame): number {
     a.title.localeCompare(b.title)
   );
 }
+
+/**
+ * The Playing and Backlog pages' sort choices and where they are stored.
+ *
+ * Here rather than in the pages because Home previews both shelves — its Now
+ * playing and Up next — in the order those pages show them, and a page is a
+ * lazily loaded chunk Home must not pull in to read a list.
+ */
+export const PLAYING_SORT_KEY = 'playing-sort';
+export const PLAYING_SORT_DEFAULT: GameSortOption = 'recent';
+export const PLAYING_SORT_OPTIONS = [
+  'recent',
+  'title-asc',
+  'hours-desc',
+  'completion-desc',
+] as const satisfies readonly GameSortOption[];
+
+export const BACKLOG_SORT_KEY = 'backlog-sort';
+export const BACKLOG_SORT_DEFAULT: GameSortOption = 'title-asc';
+/** Completion is left out: almost everything queued is still at zero. */
+export const BACKLOG_SORT_OPTIONS = [
+  'title-asc',
+  'recent',
+  'achievement-rating-desc',
+  'hours-desc',
+] as const satisfies readonly GameSortOption[];

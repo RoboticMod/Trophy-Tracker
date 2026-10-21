@@ -242,7 +242,7 @@ const GameCardImpl: React.FC<GameCardProps> = ({
   // row of them used to clip the title and slide under the score.
   //
   // Lists only, not the shelf: the shelf is already the card's own edge — a
-  // lit blue rim, a turning gold one, a greyed picture — and the section it
+  // lit blue rim, a still gold one, a greyed picture — and the section it
   // sits in.
   const phone = useIsPhone();
   const lists = memberships.filter((m) => m.permanent === null);
@@ -278,8 +278,8 @@ const GameCardImpl: React.FC<GameCardProps> = ({
   // as the shelf.
   const highlight = isMastered
     ? filled
-      ? 'trophy-glow border-trophy-700/50 bg-trophy-100'
-      : 'trophy-glow border-trophy-700/50 bg-gradient-to-b from-trophy-100/40 to-gray-100/72'
+      ? 'trophy-glow border-trophy-700/55 bg-trophy-100'
+      : 'trophy-glow border-trophy-700/55 bg-gradient-to-b from-trophy-100/40 to-gray-100/72'
     : shelf === PLAYING_COLLECTION_ID
       ? filled
         ? 'glow-ring border-accent-700/50 bg-accent-100'
@@ -340,8 +340,8 @@ const GameCardImpl: React.FC<GameCardProps> = ({
    * it is keyed for its exit, measured for being on screen, and skipped by the
    * browser entirely while it is off screen (`card-shell`, content-visibility)
    * — which is most of a library at any moment. That containment clips at the
-   * padding box, so the shell carries a pixel of padding for the gold rim to
-   * sit in, and drops the containment while a burst or a ring needs to spill
+   * padding box, so the shell carries padding for the gold halo to sit in,
+   * and drops the containment while a burst or a ring needs to spill
    * past the card.
    *
    * No `layout` animation and no JS entrance: measuring every card's box on

@@ -5,19 +5,18 @@ import { GameGrid } from '../components/GameGrid';
 import { PLAYING_COLLECTION_ID, collectionName } from '../lib/collections';
 import { aggregateCompletion } from '../lib/completion';
 import { formatCount, formatHours, sumHours } from '../lib/format';
-import { GameSortOption, compareGames } from '../lib/sortGames';
+import {
+  GameSortOption,
+  PLAYING_SORT_DEFAULT,
+  PLAYING_SORT_KEY,
+  PLAYING_SORT_OPTIONS as SORT_OPTIONS,
+  compareGames,
+} from '../lib/sortGames';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { SortControl } from '../components/SortControl';
 import { Badge, EmptyState, PageHeader } from '../components/ui';
-
-const SORT_OPTIONS = [
-  'recent',
-  'title-asc',
-  'hours-desc',
-  'completion-desc',
-] as const satisfies readonly GameSortOption[];
 
 export const CurrentlyPlayingView: React.FC = () => {
   const { games, collections, profile } = useGame();
@@ -28,8 +27,8 @@ export const CurrentlyPlayingView: React.FC = () => {
   // phone used to be held to title order with no way to change it; it sorts
   // like every other width now, from the header.
   const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
-    'playing-sort',
-    'recent',
+    PLAYING_SORT_KEY,
+    PLAYING_SORT_DEFAULT,
     oneOf(SORT_OPTIONS),
   );
 
@@ -46,7 +45,7 @@ export const CurrentlyPlayingView: React.FC = () => {
   const totals = aggregateCompletion(playingGames);
 
   const sort = (
-    <SortControl id="playing-sort" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+    <SortControl id={PLAYING_SORT_KEY} value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
   );
 
   return (

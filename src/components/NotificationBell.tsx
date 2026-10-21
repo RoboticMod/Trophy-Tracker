@@ -60,7 +60,7 @@ export const NotificationBell: React.FC<{ variant: 'bar' | 'phone' }> = ({ varia
           'relative flex items-center justify-center transition-colors',
           phone
             ? 'h-11 w-11 rounded-md text-gray-800 hover:bg-white/5'
-            : 'h-9 w-9 rounded-control border bg-black/25 hover:text-gray-1000',
+            : 'h-11 w-11 rounded-control border bg-black/25 hover:text-gray-1000 lg:h-9 lg:w-9',
           !phone &&
             (open
               ? 'border-accent-700/45 bg-accent-700/12 text-accent-900'
@@ -75,7 +75,7 @@ export const NotificationBell: React.FC<{ variant: 'bar' | 'phone' }> = ({ varia
             className={cn(
               'notify-halo absolute flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1',
               phone ? 'right-1.5 top-1.5' : '-right-1.5 -top-1.5',
-              hasUnreadCompletion ? 'bg-trophy-900 text-trophy-900' : 'bg-accent-700 text-accent-700',
+              hasUnreadCompletion ? 'bg-trophy-900 text-trophy-900' : 'bg-accent-600 text-accent-700',
             )}
           >
             <span

@@ -9,27 +9,48 @@ import {
   Folder,
   Check,
   Pencil,
+  Crosshair,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameGrid } from '../components/GameGrid';
 import { COLLECTION_COLORS, DEFAULT_COLLECTION_COLOR } from '../lib/constants';
-import { BEATEN_COLLECTION_ID, isPermanentCollection } from '../lib/collections';
-import { CollectionsList, PreviewCover } from '../components/CollectionsList';
-import { aggregateCompletion } from '../lib/completion';
+import {
+  BEATEN_COLLECTION_ID,
+  COMPLETE_COLLECTION_ID,
+  isPermanentCollection,
+} from '../lib/collections';
+import { CollectionsList, PreviewCover, perfectLabel } from '../components/CollectionsList';
+import { TrophyBadge } from '../components/TrophyBadge';
+import { TierSwatch } from '../components/camo/CamoBits';
+import {
+  CAMO_VIEW_KEY,
+  CamoGame,
+  EMPTY_CAMO_VIEW,
+  TIER_COLOR,
+  camoFocus,
+  camoListLine,
+  camoSwatchTiers,
+  isCamoView,
+  libraryMatch,
+} from '../lib/camo';
+import { oneOf, readPreference } from '../lib/usePersistentState';
+import { SHELF_ICONS } from '../components/CollectionIcon';
+import { aggregateCompletion, isPerfect } from '../lib/completion';
 import { formatHours, sumHours } from '../lib/format';
 import { Collection, UserGame } from '../types';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { GameSortOption, byRating, compareGames } from '../lib/sortGames';
-import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { EASE_OUT } from '../lib/motion';
 import { SortControl } from '../components/SortControl';
 import {
+  Badge,
   Button,
   Card,
   Dialog,
   EmptyState,
   Field,
+  Meter,
   PageHeader,
   TextInput,
 } from '../components/ui';
@@ -184,6 +205,140 @@ const ListCard: React.FC<{
   );
 };
 
+const TrophyIcon = SHELF_ICONS[COMPLETE_COLLECTION_ID];
+
+/**
+ * The Call of Duty tracker's entry, first in Lists: a door to the tracker, not
+ * a list — not stored as a collection, not deletable, and outlined in blue so
+ * it does not read as one. Three tracked games' covers (borrowed from the
+ * library game of the same name, else the name on a tile), then the tier
+ * swatches.
+ */
+const CamoCard: React.FC<{ camoGames: CamoGame[]; library: UserGame[]; onOpen: () => void }> = ({
+  camoGames,
+  library,
+  onOpen,
+}) => {
+  const stored = readPreference(CAMO_VIEW_KEY);
+  const view = isCamoView(stored) ? stored : EMPTY_CAMO_VIEW;
+  const focus = camoFocus(camoGames, view);
+  const shown = camoGames.slice(0, MOSAIC_CELLS - 1);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="glow-ring flex flex-col overflow-hidden rounded-lg border border-accent-700/50 bg-gray-100/72 text-left transition-colors hover:border-accent-700/80"
+    >
+      <span className="grid grid-cols-2 gap-0.5 bg-gray-75">
+        {Array.from({ length: MOSAIC_CELLS - 1 }, (_, index) => {
+          const game = shown[index];
+          if (!game) return <span key={index} aria-hidden className="block aspect-video bg-gray-100" />;
+          const match = libraryMatch(game.name, library);
+          return match ? (
+            <PreviewCover key={game.id} game={match} className="w-full" />
+          ) : (
+            <span key={game.id} className="flex aspect-video items-center justify-center gap-2 bg-gray-100 px-3">
+              <Crosshair size={16} className="shrink-0 text-gray-600" />
+              <span className="truncate text-90 font-bold text-gray-800">{game.name}</span>
+            </span>
+          );
+        })}
+        <span className="flex aspect-video flex-col items-center justify-center gap-2.5 bg-gray-100">
+          <span className="flex gap-1.5">
+            {camoSwatchTiers(focus).map((tier) => (
+              <TierSwatch key={tier.id} tier={tier} className="h-7 w-7 rounded-sm" />
+            ))}
+          </span>
+          <span className="eyebrow text-gray-700">Camo tracker</span>
+        </span>
+      </span>
+
+      <span className="flex items-center gap-3.5 px-4.5 py-4">
+        <Crosshair size={18} className="shrink-0 text-accent-900" />
+        <span className="min-w-0 flex-1 space-y-1.5">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-250 font-bold tracking-tight text-gray-1000">Call of Duty</span>
+            <Badge tone="accent">Tracker</Badge>
+          </span>
+          <span className="block truncate text-75 tabular-nums text-gray-700">
+            {camoListLine(camoGames, view)}
+          </span>
+          {focus?.tile ? (
+            <Meter
+              value={focus.tile.total > 0 ? (focus.tile.done / focus.tile.total) * 100 : 0}
+              color={TIER_COLOR[focus.tile.tier.kind]}
+              label="Camo progress"
+            />
+          ) : null}
+        </span>
+        <ChevronRight size={20} className="shrink-0 text-gray-600" />
+      </span>
+    </button>
+  );
+};
+
+/**
+ * The 100% entry, first among the lists: every game where isPerfect holds.
+ *
+ * Not a stored collection and never one — it follows the counts, as 100% does
+ * everywhere (Orientation: "100% has exactly one definition"). Gold the way a
+ * finished card is: still border, halo, warm spot, foil sweep, and the award
+ * mark on every tile. Opens the 100% page.
+ */
+const PerfectCard: React.FC<{ games: UserGame[]; onOpen: () => void }> = ({ games, onOpen }) => {
+  const shown = games.slice(0, MOSAIC_CELLS);
+  const more = games.length - shown.length;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="trophy-glow relative flex flex-col overflow-hidden rounded-lg border border-trophy-700/55 bg-trophy-100/40 text-left transition-colors hover:border-trophy-700/80"
+    >
+      <span aria-hidden className="trophy-spot z-10 rounded-lg" />
+      <span className="relative grid grid-cols-2 gap-0.5 overflow-hidden bg-gray-75">
+        {Array.from({ length: MOSAIC_CELLS }, (_, index) => {
+          const game = shown[index];
+          if (!game) {
+            return <span key={index} aria-hidden className="block aspect-video bg-gray-100" />;
+          }
+          const last = index === MOSAIC_CELLS - 1 && more > 0;
+          return (
+            <PreviewCover key={game.id} game={game} className="w-full">
+              <span className="absolute right-1.5 top-1.5 flex drop-shadow-[0_1px_3px_rgb(0_0_0/0.8)]">
+                <TrophyBadge platform={game.platform} size={20} />
+              </span>
+              {last ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-gray-25/72 text-250 font-bold tabular-nums text-gray-1000">
+                  +{more}
+                </span>
+              ) : null}
+            </PreviewCover>
+          );
+        })}
+        <span aria-hidden className="trophy-sweep" />
+      </span>
+
+      <span className="relative flex items-center gap-3.5 px-4.5 py-4">
+        <TrophyIcon size={18} className="shrink-0 text-trophy-900" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-250 font-bold tracking-tight text-trophy-900">
+            100%
+          </span>
+          <span className="mt-0.75 block truncate text-75 tabular-nums text-gray-700">
+            {perfectLabel(games)}
+          </span>
+        </span>
+        <span className="shrink-0 text-400 font-bold leading-none tabular-nums text-trophy-900">
+          {games.length}
+        </span>
+        <ChevronRight size={20} className="shrink-0 text-gray-600" />
+      </span>
+    </button>
+  );
+};
+
 export const CollectionsView: React.FC = () => {
   const {
     collections,
@@ -193,6 +348,7 @@ export const CollectionsView: React.FC = () => {
     games,
     setIsQuickAddOpen,
     profile,
+    camoGames,
   } = useGame();
 
   const navigate = useNavigate();
@@ -248,6 +404,9 @@ export const CollectionsView: React.FC = () => {
     ],
     [collections],
   );
+
+  /** The 100% entry's games: best rated first, as every preview leads. */
+  const perfectGames = useMemo(() => games.filter(isPerfect).sort(byRating), [games]);
 
   const activeCollection =
     customCollections.find((c) => c.id === activeCollectionId) ?? customCollections[0] ?? null;
@@ -446,10 +605,12 @@ export const CollectionsView: React.FC = () => {
         />
       ) : null}
 
-      {/* Your lists only — the shelves are destinations in the top bar. Three
-          a row at 1440, two on a tablet. */}
-      {!phone && !activeCollectionId && customCollections.length > 0 ? (
+      {/* The tracker, 100%, then Beaten and your lists. Three a row at 1440,
+          two on a tablet. */}
+      {!phone && !activeCollectionId ? (
         <section className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,25rem),1fr))] items-stretch gap-5">
+          <CamoCard camoGames={camoGames} library={games} onOpen={() => navigate('/call-of-duty')} />
+          <PerfectCard games={perfectGames} onOpen={() => navigate('/achievements')} />
           {customCollections.map((col) => (
             <ListCard
               key={col.id}

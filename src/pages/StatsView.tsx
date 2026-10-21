@@ -99,7 +99,7 @@ export const StatsView: React.FC = () => {
       default:
         setActivePlatformFilter('all');
         setActiveCollectionFilter(UNSHELVED_FILTER);
-        navigate('/');
+        navigate('/library');
     }
   };
   const platformOrder = profile.platformOrder;

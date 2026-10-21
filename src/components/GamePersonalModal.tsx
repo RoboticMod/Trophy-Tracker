@@ -20,6 +20,7 @@ import { CoverArt } from './CoverArt';
 import { PlatformIcon } from './PlatformIcon';
 import { TrophyBadge, awardNoun, awardNounFor } from './TrophyBadge';
 import { Button, Dialog, Meter, SectionRule } from './ui';
+import { TrophiesSection } from './TrophiesSection';
 
 interface GamePersonalModalProps {
   game: UserGame | null;
@@ -304,6 +305,8 @@ const GamePersonal: React.FC<{
               </div>
             </section>
 
+            <TrophiesSection game={game} active={isOpen} />
+
             <section className="flex flex-col gap-3.5">
               <SectionRule title="Notes" />
               {game.notes ? (
@@ -377,7 +380,7 @@ const GamePersonal: React.FC<{
           <button
             type="button"
             onClick={onClose}
-            className="flex h-12 items-center justify-center rounded-md bg-gradient-to-br from-accent-700 to-accent-600 text-100 font-bold text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_16px_-6px_var(--color-accent-700)]"
+            className="flex h-12 items-center justify-center rounded-md bg-gradient-to-br from-accent-600 to-accent-500 text-100 font-bold text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_16px_-6px_var(--color-accent-700)]"
           >
             Close
           </button>
@@ -485,6 +488,9 @@ const GamePersonal: React.FC<{
             )}
           </div>
         </section>
+
+        {/* Trophies (Achievements on Steam) ---------------------------------- */}
+        <TrophiesSection game={game} active={isOpen} />
 
         {/* Your notes ------------------------------------------------------- */}
         <section className="flex flex-col gap-3">

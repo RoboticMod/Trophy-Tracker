@@ -161,7 +161,7 @@ export const SetupView: React.FC = () => {
             <Plus size={16} />
             <span>Add game</span>
           </Button>
-          <Button variant="secondary" buttonStyle="outline" size="l" onClick={() => navigate('/')}>
+          <Button variant="secondary" buttonStyle="outline" size="l" onClick={() => navigate('/library')}>
             <ArrowRight size={16} />
             <span>Skip to my library</span>
           </Button>

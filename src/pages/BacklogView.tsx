@@ -13,7 +13,13 @@ import {
 } from '../lib/collections';
 import { aggregateCompletion } from '../lib/completion';
 import { formatCount } from '../lib/format';
-import { GameSortOption, compareGames } from '../lib/sortGames';
+import {
+  BACKLOG_SORT_DEFAULT,
+  BACKLOG_SORT_KEY,
+  BACKLOG_SORT_OPTIONS as SORT_OPTIONS,
+  GameSortOption,
+  compareGames,
+} from '../lib/sortGames';
 import { oneOf } from '../lib/usePersistentState';
 import { useSyncedPreference } from '../lib/useSyncedPreference';
 import { useIsPhone } from '../lib/useMediaQuery';
@@ -21,22 +27,14 @@ import { cn } from '../lib/cn';
 import { SortControl } from '../components/SortControl';
 import { Badge, Button, EmptyState, PageHeader } from '../components/ui';
 
-/** Completion is left out: almost everything queued is still at zero. */
-const SORT_OPTIONS = [
-  'title-asc',
-  'recent',
-  'achievement-rating-desc',
-  'hours-desc',
-] as const satisfies readonly GameSortOption[];
-
 export const BacklogView: React.FC = () => {
   const { games, collections, setIsQuickAddOpen, updateGame, profile } = useGame();
   const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
   const platformOrder = profile.platformOrder;
   const phone = useIsPhone();
   const [sortBy, setSortBy] = useSyncedPreference<GameSortOption>(
-    'backlog-sort',
-    'title-asc',
+    BACKLOG_SORT_KEY,
+    BACKLOG_SORT_DEFAULT,
     oneOf(SORT_OPTIONS),
   );
 
@@ -109,7 +107,7 @@ export const BacklogView: React.FC = () => {
   );
 
   const sort = (
-    <SortControl id="backlog-sort" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+    <SortControl id={BACKLOG_SORT_KEY} value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
   );
 
   return (

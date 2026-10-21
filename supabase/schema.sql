@@ -334,3 +334,70 @@ $$;
 --     cannot. `status_names` went with the statuses it named.
 alter table public.user_profile drop column if exists status_names;
 alter table public.collections  drop column if exists is_system;
+
+-- 8. Call of Duty camo tracker ---------------------------------------------------
+--    No API exposes camo progress, so it is all entered by hand: one row per
+--    tracked game, its modes, tiers, weapon classes, weapons and ticks in one
+--    jsonb document. A whole game is then one write, which is what lets it
+--    ride the app's offline queue like a game or a list does.
+--
+--    Re-runnable like everything above: the table, its columns, its trigger
+--    and its policy each repair an existing project rather than failing.
+create table if not exists public.camo_games (
+  id         text not null,
+  user_id    uuid not null default auth.uid()
+               references auth.users(id) on delete cascade,
+  name       text not null,
+  sort       integer not null default 0,
+  data       jsonb not null default '{"modes": []}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+create index if not exists camo_games_user_id_idx on public.camo_games (user_id);
+
+alter table public.camo_games
+  add column if not exists name       text not null default '',
+  add column if not exists sort       integer not null default 0,
+  add column if not exists data       jsonb not null default '{"modes": []}'::jsonb,
+  add column if not exists updated_at timestamptz not null default now();
+
+drop trigger if exists camo_games_touch_updated_at on public.camo_games;
+create trigger camo_games_touch_updated_at before update on public.camo_games
+  for each row execute function public.touch_updated_at();
+
+alter table public.camo_games enable row level security;
+
+drop policy if exists "camo games are private" on public.camo_games;
+create policy "camo games are private" on public.camo_games
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 9. Award lists (game details' Trophies section) ---------------------------------
+--    Each game's full achievement or trophy list — names, icons, your unlocks,
+--    how rare each is — cached so opening a game does not ask Steam or PSN
+--    every time. `unlocked` and `total` are the game's counts when the list was
+--    fetched: the app refetches only once they have changed. Deleted with its
+--    game. Re-runnable like everything above.
+create table if not exists public.game_awards (
+  user_id    uuid not null default auth.uid()
+               references auth.users(id) on delete cascade,
+  game_id    text not null references public.games(id) on delete cascade,
+  items      jsonb not null default '[]'::jsonb,
+  unlocked   integer not null default 0,
+  total      integer not null default 0,
+  fetched_at timestamptz not null default now(),
+  primary key (user_id, game_id)
+);
+
+alter table public.game_awards
+  add column if not exists items      jsonb not null default '[]'::jsonb,
+  add column if not exists unlocked   integer not null default 0,
+  add column if not exists total      integer not null default 0,
+  add column if not exists fetched_at timestamptz not null default now();
+
+alter table public.game_awards enable row level security;
+
+drop policy if exists "game awards are private" on public.game_awards;
+create policy "game awards are private" on public.game_awards
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);

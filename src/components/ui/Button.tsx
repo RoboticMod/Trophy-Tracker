@@ -36,14 +36,18 @@ const ICON_SIZE: Record<ButtonSize, string> = {
  * The halo is unoffset — an offset shadow pools under the button and reads as a
  * heavy drop shadow rather than as the control glowing. The secondary is the
  * exception to all of it: it is a surface, not an action, so it stays unlit.
+ *
+ * Hover darkens a coloured fill rather than lightening it: white text on the
+ * lighter steps fell under 4.5:1. Hand-written copies of the accent fill (the
+ * top-bar and phone-header Add, the game sheet's Close) must match this one.
  */
 const FILL: Record<ButtonVariant, string> = {
   accent:
-    'bg-gradient-to-br from-accent-700 to-accent-600 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)] hover:from-accent-800 hover:to-accent-700 active:from-accent-600 active:to-accent-600',
+    'bg-gradient-to-br from-accent-600 to-accent-500 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)] hover:from-accent-650 hover:to-accent-600 active:from-accent-500 active:to-accent-500',
   secondary:
     'bg-gray-200 text-gray-900 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)] hover:bg-gray-300 active:bg-gray-400',
   negative:
-    'bg-gradient-to-br from-negative-700 to-negative-700 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_0_14px_-5px_var(--color-negative-700)] hover:from-negative-900 hover:to-negative-700',
+    'bg-gradient-to-br from-negative-600 to-negative-600 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_0_14px_-5px_var(--color-negative-700)] hover:from-negative-500 hover:to-negative-500',
   positive:
     'bg-gradient-to-br from-positive-700 to-positive-700 text-gray-25 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-positive-700)] hover:from-positive-900 hover:to-positive-700',
 };

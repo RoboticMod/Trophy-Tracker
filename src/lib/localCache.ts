@@ -1,4 +1,5 @@
 import { Collection, UserGame, UserProfile } from '../types';
+import { CamoGame } from './camo';
 
 /**
  * Offline cache and pending-write queue.
@@ -30,6 +31,8 @@ export interface CachedSnapshot {
   games: UserGame[];
   collections: Collection[];
   profile: UserProfile | null;
+  /** Optional: snapshots written before the tracker existed have none. */
+  camoGames?: CamoGame[];
   cachedAt: string;
 }
 
@@ -38,7 +41,9 @@ export type PendingWrite =
   | { kind: 'game'; op: 'delete'; id: string }
   | { kind: 'collections'; op: 'upsert'; collections: Collection[] }
   | { kind: 'collection'; op: 'delete'; id: string }
-  | { kind: 'profile'; op: 'upsert'; profile: UserProfile };
+  | { kind: 'profile'; op: 'upsert'; profile: UserProfile }
+  | { kind: 'camo'; op: 'upsert'; game: CamoGame }
+  | { kind: 'camo'; op: 'delete'; id: string };
 
 function read<T>(key: string): T | null {
   try {
@@ -98,6 +103,8 @@ const rowKey = (entry: PendingWrite): string => {
       return `collection:${entry.id}`;
     case 'collections':
       return `collections:${entry.collections.map((c) => c.id).sort().join(',')}`;
+    case 'camo':
+      return `camo:${entry.op === 'upsert' ? entry.game.id : entry.id}`;
   }
 };
 

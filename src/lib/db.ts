@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import { normalizePlatform } from './constants';
 import { clampRating, normalizeRating } from './rating';
+import { CamoGame, normalizeCamoData } from './camo';
+import { AwardItem, GameAwards } from './awards';
 import {
   Collection,
   Platform,
@@ -275,7 +277,15 @@ export const isSchemaOutOfDate = (): boolean => schemaOutOfDate;
 
 /** What to tell someone whose database is behind. */
 export const SCHEMA_OUT_OF_DATE_MESSAGE =
-  'Your database is missing columns this version writes. Open Settings → Cloud storage, copy the schema SQL and run it in Supabase.';
+  'Your database is missing tables or columns this version writes. Open Settings → Cloud storage, copy the schema SQL and run it in Supabase.';
+
+/**
+ * True for "relation does not exist" — a table the schema SQL adds that this
+ * project has not run yet. PostgREST answers PGRST205 when the table is
+ * missing from its cached schema, the same problem wearing a different number.
+ */
+const isMissingTable = (error: { code?: string } | null): boolean =>
+  error?.code === '42P01' || error?.code === 'PGRST205';
 
 type GameInsert = ReturnType<typeof fromGame>;
 
@@ -499,4 +509,120 @@ export async function saveSteamAccount(
     steam_persona: account.steamPersona ?? null,
   });
   if (error) throw error;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Call of Duty camo tracker                                                   */
+/* -------------------------------------------------------------------------- */
+
+interface CamoGameRow {
+  id: string;
+  user_id: string;
+  name: string;
+  sort: number;
+  data: unknown;
+  updated_at: string;
+}
+
+const toCamoGame = (row: CamoGameRow): CamoGame => ({
+  id: row.id,
+  name: row.name,
+  sort: row.sort ?? 0,
+  // Repaired on the way in: jsonb is whatever was last written, by any version.
+  data: normalizeCamoData(row.data),
+  updatedAt: row.updated_at,
+});
+
+/**
+ * Whether this project has the camo table at all. It arrived after the
+ * library tables, so an older project answers "relation does not exist" — which
+ * must leave the library alone and only say the tracker cannot save.
+ */
+let camoTableMissing = false;
+export const isCamoTableMissing = (): boolean => camoTableMissing;
+
+export async function listCamoGames(userId: string): Promise<CamoGame[]> {
+  const { data, error } = await supabase
+    .from('camo_games')
+    .select('*')
+    .eq('user_id', userId)
+    .order('sort', { ascending: true });
+  if (error) {
+    if (isMissingTable(error)) {
+      camoTableMissing = true;
+      schemaOutOfDate = true;
+    }
+    throw error;
+  }
+  camoTableMissing = false;
+  return ((data ?? []) as CamoGameRow[]).map(toCamoGame);
+}
+
+export async function upsertCamoGame(game: CamoGame, userId: string): Promise<void> {
+  const { error } = await supabase.from('camo_games').upsert(
+    { id: game.id, user_id: userId, name: game.name, sort: game.sort, data: game.data },
+    { onConflict: 'user_id,id' },
+  );
+  if (!error) return;
+  if (isMissingTable(error)) {
+    camoTableMissing = true;
+    schemaOutOfDate = true;
+  }
+  throw error;
+}
+
+export async function deleteCamoGame(id: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('camo_games')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (!error) return;
+  if (isMissingTable(error)) {
+    camoTableMissing = true;
+    schemaOutOfDate = true;
+  }
+  throw error;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Award lists (game details' Trophies section)                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A game's cached award list, or null. Best-effort both ways: the table
+ * arrived after the others, and a project without it simply fetches live each
+ * time — the list is a cache, never the only copy of anything.
+ */
+export async function getGameAwards(gameId: string, userId: string): Promise<GameAwards | null> {
+  const { data, error } = await supabase
+    .from('game_awards')
+    .select('items, unlocked, total, fetched_at')
+    .eq('user_id', userId)
+    .eq('game_id', gameId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { items: unknown; unlocked: number; total: number; fetched_at: string };
+  return {
+    items: Array.isArray(row.items) ? (row.items as AwardItem[]) : [],
+    unlocked: row.unlocked ?? 0,
+    total: row.total ?? 0,
+    fetchedAt: row.fetched_at,
+  };
+}
+
+export async function saveGameAwards(gameId: string, awards: GameAwards, userId: string): Promise<void> {
+  // Errors ignored on purpose: no table yet, or a game not yet in the cloud
+  // (its row is what the cache references) — next open fetches live again.
+  await supabase.from('game_awards').upsert(
+    {
+      user_id: userId,
+      game_id: gameId,
+      items: awards.items,
+      unlocked: awards.unlocked,
+      total: awards.total,
+      fetched_at: awards.fetchedAt,
+    },
+    { onConflict: 'user_id,game_id' },
+  );
 }

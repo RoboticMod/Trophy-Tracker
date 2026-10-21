@@ -12,6 +12,8 @@ import {
   X,
   MoreHorizontal,
   ChevronLeft,
+  Crosshair,
+  Library,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { GameAddedDialog } from './GameAddedDialog';
@@ -20,7 +22,6 @@ import { QuickAddModal, prefetchDialogs } from '../lib/lazyDialogs';
 import { NotificationBell } from './NotificationBell';
 import { UserGame } from '../types';
 import { APP_NAME } from '../lib/constants';
-import { useIsPhone } from '../lib/useMediaQuery';
 import { isPerfect } from '../lib/completion';
 import { VOLUME_PREF_KEY, adoptSoundVolume } from '../lib/sound';
 import { useSync } from '../context/SyncContext';
@@ -28,7 +29,6 @@ import { relativeTime } from '../lib/format';
 import {
   BACKLOG_COLLECTION_ID,
   BEATEN_COLLECTION_ID,
-  COMPLETE_COLLECTION_ID,
   PLAYING_COLLECTION_ID,
   collectionName,
   permanentOf,
@@ -42,6 +42,7 @@ import { ProfileMenu } from './ProfileMenu';
 import { EASE_OUT } from '../lib/motion';
 import { PhoneHeaderContext } from '../lib/phoneHeader';
 import { MainFillContext } from '../lib/mainFill';
+import { PHONE_BAR_SLOTS, isShown, navRank, resolveNavOrder } from '../lib/navigation';
 
 /**
  * How long a followed game is given to turn up on the current page before the
@@ -55,15 +56,28 @@ import { MainFillContext } from '../lib/mainFill';
  */
 const FOLLOW_LOOKUP_MS = 300;
 
-/** Reached through Collections on a phone instead of from the bottom bar. */
-const FOLDED_ON_PHONE = new Set(['/playing', '/backlog', '/achievements']);
+/**
+ * Pages with a route but no tab, and the name the phone header gives them.
+ * 100% is opened from Lists and from Home.
+ */
+const UNTABBED_TITLES: Record<string, string> = {
+  '/achievements': '100%',
+  '/settings': 'Settings',
+  '/setup': 'Set up your library',
+};
+
+/**
+ * Always a place to send someone, tab or not: 100% and Library are pages
+ * whether or not they are tabs.
+ */
+const ALWAYS_REACHABLE = new Set(['/library', '/achievements']);
 
 /**
  * The page a game can actually be seen on.
  *
  * A finished, in-progress or queued game has a shelf of its own and that is
- * where the eye should be sent; everything else falls back to the library,
- * which shows the lot.
+ * where the eye should be sent; everything else falls back to Library, which
+ * shows the lot. Not Home: Home is a summary and has no grid.
  */
 const shelfFor = (game: UserGame): string => {
   if (isPerfect(game)) return '/achievements';
@@ -76,7 +90,7 @@ const shelfFor = (game: UserGame): string => {
     case BEATEN_COLLECTION_ID:
       return '/collections';
     default:
-      return '/';
+      return '/library';
   }
 };
 
@@ -119,11 +133,6 @@ export const AppLayout: React.FC = () => {
     follow,
   } = useGame();
 
-  // Whether the layout is the phone one. The nav is a different set of
-  // destinations rather than the same set restyled, so this is a query rather
-  // than a breakpoint class.
-  const phone = useIsPhone();
-
   // Nothing to go back to on the first screen of a fresh tab. History has no
   // public "can I" — the length is the closest thing, and it only ever
   // undercounts, which is the safe direction for greying a control out.
@@ -131,10 +140,16 @@ export const AppLayout: React.FC = () => {
 
   const playingCount = games.filter((g) => g.collections?.includes(PLAYING_COLLECTION_ID)).length;
   const backlogCount = games.filter((g) => g.collections?.includes(BACKLOG_COLLECTION_ID)).length;
-  const perfectCount = games.filter(isPerfect).length;
 
   const rawNavItems: NavItem[] = [
     { name: 'Home', short: 'Home', path: '/', icon: Home, enabled: true },
+    {
+      name: 'Library',
+      short: 'Library',
+      path: '/library',
+      icon: Library,
+      enabled: isShown(sidebarConfig, 'showLibrary'),
+    },
     {
       name: collectionName(PLAYING_COLLECTION_ID, collections),
       short: 'Playing',
@@ -142,23 +157,21 @@ export const AppLayout: React.FC = () => {
       icon: SHELF_ICONS[PLAYING_COLLECTION_ID],
       badge: playingCount || undefined,
       badgeTone: 'accent',
-      enabled: sidebarConfig?.showCurrentlyPlaying ?? true,
+      enabled: isShown(sidebarConfig, 'showCurrentlyPlaying'),
     },
     {
-      name: 'Achievements & Trophies',
-      short: 'Trophies',
-      path: '/achievements',
-      icon: SHELF_ICONS[COMPLETE_COLLECTION_ID],
-      badge: perfectCount || undefined,
-      badgeTone: 'trophy',
-      enabled: sidebarConfig?.showAchievements ?? true,
+      name: 'Call of Duty',
+      short: 'CoD',
+      path: '/call-of-duty',
+      icon: Crosshair,
+      enabled: isShown(sidebarConfig, 'showCallOfDuty'),
     },
     {
       name: 'Search & Add',
       short: 'Search',
       path: '/search',
       icon: Search,
-      enabled: sidebarConfig?.showSearch ?? true,
+      enabled: isShown(sidebarConfig, 'showSearch'),
     },
     {
       name: collectionName(BACKLOG_COLLECTION_ID, collections),
@@ -170,21 +183,21 @@ export const AppLayout: React.FC = () => {
       // games you have not started yet has earned nothing. This matches how the
       // backlog shelf is toned everywhere else in the app.
       badgeTone: 'neutral',
-      enabled: sidebarConfig?.showBacklog ?? true,
+      enabled: isShown(sidebarConfig, 'showBacklog'),
     },
     {
       name: 'Lists',
       short: 'Lists',
       path: '/collections',
       icon: LISTS_ICON,
-      enabled: sidebarConfig?.showCollections ?? true,
+      enabled: isShown(sidebarConfig, 'showCollections'),
     },
     {
       name: 'Statistics',
       short: 'Stats',
       path: '/stats',
       icon: BarChart3,
-      enabled: sidebarConfig?.showStats ?? true,
+      enabled: isShown(sidebarConfig, 'showStats'),
     },
   ];
 
@@ -198,20 +211,14 @@ export const AppLayout: React.FC = () => {
     return custom ? { ...item, name: custom, short: custom.split(' ')[0] } : item;
   };
 
-  const navOrder = sidebarConfig?.navOrder;
-  const navItems = rawNavItems.map(named)
-    .sort((a, b) => {
-      if (!Array.isArray(navOrder)) return 0;
-      const idxA = navOrder.indexOf(a.path);
-      const idxB = navOrder.indexOf(b.path);
-      return (idxA === -1 ? navOrder.length : idxA) - (idxB === -1 ? navOrder.length : idxB);
-    })
-    .filter((item) => item.enabled)
-    // The three shelves fold into Collections on a phone. The bottom bar holds
-    // five destinations before it starts hiding them behind a "More" sheet,
-    // and a shelf is a collection anyway — the page that lists them all can
-    // carry these three without inventing anything.
-    .filter((item) => !phone || !FOLDED_ON_PHONE.has(item.path));
+  // One list for every width. A phone's bar is the first four of it and More
+  // holds the rest, which is what the divider in Settings › Navigation says —
+  // nothing is folded away on a phone any more, so that divider stays true.
+  const navOrder = resolveNavOrder(sidebarConfig?.navOrder);
+  const navItems = rawNavItems
+    .map(named)
+    .sort((a, b) => navRank(navOrder, a.path) - navRank(navOrder, b.path))
+    .filter((item) => item.enabled);
 
   /**
    * Following a game onto the shelf it actually landed on.
@@ -241,10 +248,11 @@ export const AppLayout: React.FC = () => {
       const game = library.find((g) => g.id === follow.gameId);
       if (!game) return;
 
-      // A shelf hidden in Settings is not somewhere to send anyone. The library
-      // shows every game and is always there.
+      // A shelf hidden in Settings is not somewhere to send anyone; Library
+      // shows every game and is always a page, so it is where that falls back.
       const shelf = shelfFor(game);
-      const destination = nav.some((item) => item.path === shelf) ? shelf : '/';
+      const destination =
+        ALWAYS_REACHABLE.has(shelf) || nav.some((item) => item.path === shelf) ? shelf : '/library';
       if (destination !== pathname) go(destination);
     }, FOLLOW_LOOKUP_MS);
 
@@ -285,24 +293,19 @@ export const AppLayout: React.FC = () => {
    * the one place a phone can always see, rather than in a pill at the top of a
    * page that scrolls away.
    *
-   * Read from the full named list rather than from `navItems`, which has had
-   * the three shelves folded out of it on a phone — they are still reachable
-   * through Lists, and a page you can open is a page whose name the header has
-   * to be able to say. A custom label from Settings comes with it, since
-   * `named` has already been applied.
+   * Read from the full named list rather than from `navItems`, which drops
+   * hidden tabs — a hidden tab's page can still be opened (Backlog from Lists),
+   * and a page you can open is a page whose name the header has to be able to
+   * say. Pages that are never tabs take their name from UNTABBED_TITLES. A
+   * custom label from Settings comes with it, since `named` has already been
+   * applied.
    *
    * No mark beside it any more: the bottom bar already lights the tab you are
    * on, and a glyph ahead of a 17px title was a second way of saying it.
    */
   const currentNavItem = rawNavItems.map(named).find((item) => item.path === location.pathname);
 
-  const pageTitle =
-    currentNavItem?.name ??
-    (location.pathname === '/settings'
-      ? 'Settings'
-      : location.pathname === '/setup'
-        ? 'Set up your library'
-        : APP_NAME);
+  const pageTitle = currentNavItem?.name ?? UNTABBED_TITLES[location.pathname] ?? APP_NAME;
 
   /** A page's own control in the header, rendered there by the page. */
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
@@ -313,8 +316,8 @@ export const AppLayout: React.FC = () => {
 
   // The mobile bar has room for four destinations. Everything past them lives
   // in the "More" sheet, so no enabled page is unreachable on a phone.
-  const mobilePrimary = navItems.slice(0, 4);
-  const mobileOverflow = navItems.slice(4);
+  const mobilePrimary = navItems.slice(0, PHONE_BAR_SLOTS);
+  const mobileOverflow = navItems.slice(PHONE_BAR_SLOTS);
   const [moreOpen, setMoreOpen] = useState(false);
   const overflowActive =
     location.pathname === '/settings' ||
@@ -418,10 +421,15 @@ export const AppLayout: React.FC = () => {
           64px, one row, from md up. The bar itself is full-bleed; what is on
           it sits in the same 1440 container as the page, so the lockup lines
           up with the first card rather than with the edge of the window.
-          Destinations are marks alone below lg and gain their labels there;
-          the lockup's name and the sync word wait for xl, which is where the
-          row has the width for them. */}
-      <header className="relative z-20 hidden h-16 shrink-0 border-b border-gray-200 bg-gray-100/88 backdrop-blur-lg md:block">
+          Destinations are marks alone below xl, except the one you are on,
+          which keeps its label; at 1024-1279 seven labelled tabs, their
+          badges and the controls on the right needed ~966 of ~976px, and one
+          more pushed the row into a hidden sideways scroll. The lockup's
+          name, the sync word and "Add game" wait for xl too.
+
+          No backdrop blur: nothing scrolls under this bar (it is a flex
+          sibling of <main>), so a blur cost a layer and changed nothing. */}
+      <header className="relative z-20 hidden h-16 shrink-0 border-b border-gray-200 bg-gray-100/88 md:block">
         <div className="page-container flex h-full items-center gap-3 xl:gap-4.5">
           {/* The lockup is the way home, as it is on most sites. */}
           <NavLink
@@ -437,14 +445,15 @@ export const AppLayout: React.FC = () => {
           <nav className="scroll-row flex min-w-0 flex-1 items-center gap-0.5">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
-              // The 100% tab wears the two award marks, as it does everywhere
-              // else — it is the one destination that is about the awards.
               const Icon = item.icon;
               return (
                 <NavLink
                   key={item.path}
                   to={item.path}
                   title={item.name}
+                  // Most tabs are a mark alone below xl; the name has to be
+                  // somewhere a screen reader finds it.
+                  aria-label={item.name}
                   // The full bar height is the hit area.
                   className={cn(
                     'relative flex h-16 shrink-0 items-center gap-2 px-1.5 text-90 font-bold transition-colors xl:px-3.25',
@@ -461,11 +470,17 @@ export const AppLayout: React.FC = () => {
                   )}
 
                   {Icon ? <Icon size={17} className="shrink-0" /> : item.art}
-                  {/* The short label, not the full name: seven destinations plus
-                      the brand and the actions have to share one row, and
-                      "Achievements & Trophies" alone would push two of them off
-                      the end of it. The full name stays as the tooltip. */}
-                  <span className="hidden whitespace-nowrap lg:inline">{item.short}</span>
+                  {/* The short label, not the full name: every destination plus
+                      the brand and the actions have to share one row. The full
+                      name stays as the tooltip. */}
+                  <span
+                    className={cn(
+                      'whitespace-nowrap',
+                      isActive ? 'inline' : 'hidden xl:inline',
+                    )}
+                  >
+                    {item.short}
+                  </span>
 
                   {item.badge !== undefined && (
                     <span
@@ -497,7 +512,7 @@ export const AppLayout: React.FC = () => {
               disabled={!isOnline || syncing}
               title={syncTitle}
               aria-label={syncTitle}
-              className="flex h-9 items-center gap-2 rounded-control border border-gray-300 bg-black/25 px-3 text-75 font-bold text-gray-700 transition-colors hover:text-gray-1000 disabled:cursor-default"
+              className="flex h-11 items-center gap-2 rounded-control border border-gray-300 bg-black/25 px-3 text-75 font-bold text-gray-700 transition-colors hover:text-gray-1000 disabled:cursor-default lg:h-9"
             >
               {!isOnline ? (
                 <CloudOff size={13} className="shrink-0 text-notice-900" />
@@ -526,10 +541,10 @@ export const AppLayout: React.FC = () => {
               type="button"
               onClick={() => setIsQuickAddOpen(true)}
               aria-label="Add game"
-              className="flex h-9 items-center gap-2 rounded-control bg-gradient-to-br from-accent-700 to-accent-600 px-3.5 text-90 font-bold whitespace-nowrap text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_16px_-6px_var(--color-accent-700)] transition-colors hover:from-accent-800 hover:to-accent-700"
+              className="flex h-11 min-w-11 items-center justify-center gap-2 rounded-control bg-gradient-to-br from-accent-600 to-accent-500 px-3.5 text-90 font-bold whitespace-nowrap text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_16px_-6px_var(--color-accent-700)] transition-colors hover:from-accent-650 hover:to-accent-600 lg:h-9 lg:min-w-9"
             >
               <Plus size={16} className="shrink-0" />
-              <span className="hidden lg:inline">Add game</span>
+              <span className="hidden xl:inline">Add game</span>
             </button>
 
             <ProfileMenu />
@@ -613,7 +628,7 @@ export const AppLayout: React.FC = () => {
                 type="button"
                 onClick={() => setIsQuickAddOpen(true)}
                 aria-label="Add game"
-                className="flex h-11 w-11 items-center justify-center rounded-md bg-gradient-to-br from-accent-700 to-accent-600 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)]"
+                className="flex h-11 w-11 items-center justify-center rounded-md bg-gradient-to-br from-accent-600 to-accent-500 text-gray-1000 shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_0_14px_-5px_var(--color-accent-700)]"
               >
                 <Plus size={20} />
               </button>

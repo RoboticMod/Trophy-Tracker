@@ -34,12 +34,14 @@ const prefetchPages = () => {
 };
 
 const AuthView = page(() => import('./pages/AuthView'), 'AuthView', <Splash />);
+const LibraryView = page(() => import('./pages/LibraryView'), 'LibraryView');
 const CurrentlyPlayingView = page(() => import('./pages/CurrentlyPlayingView'), 'CurrentlyPlayingView');
 const AchievementsView = page(() => import('./pages/AchievementsView'), 'AchievementsView');
 const SearchView = page(() => import('./pages/SearchView'), 'SearchView');
 const BacklogView = page(() => import('./pages/BacklogView'), 'BacklogView');
 const CollectionsView = page(() => import('./pages/CollectionsView'), 'CollectionsView');
 const StatsView = page(() => import('./pages/StatsView'), 'StatsView');
+const CallOfDutyView = page(() => import('./pages/CallOfDutyView'), 'CallOfDutyView');
 const SettingsView = page(() => import('./pages/SettingsView'), 'SettingsView');
 const SetupView = page(() => import('./pages/SetupView'), 'SetupView');
 
@@ -92,12 +94,14 @@ function AuthenticatedApp() {
         <Routes>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<DashboardView />} />
+            <Route path="library" element={<LibraryView />} />
             <Route path="playing" element={<CurrentlyPlayingView />} />
             <Route path="achievements" element={<AchievementsView />} />
             <Route path="search" element={<SearchView />} />
             <Route path="backlog" element={<BacklogView />} />
             <Route path="collections" element={<CollectionsView />} />
             <Route path="stats" element={<StatsView />} />
+            <Route path="call-of-duty" element={<CallOfDutyView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="setup" element={<SetupView />} />
             <Route path="*" element={<Navigate to="/" replace />} />

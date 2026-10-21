@@ -49,18 +49,14 @@ import {
   writeQueue,
   writeSnapshot,
 } from '../lib/localCache';
+import { DEFAULT_TAB_VISIBILITY } from '../lib/navigation';
+import { CamoGame, byCamoSort } from '../lib/camo';
+import { clearCamoHistory } from '../lib/useCamoHistory';
 
 /** How long a new game stays flagged for its card to scroll itself into view. */
 const FOLLOW_GAME_MS = 4000;
 
-export const DEFAULT_SIDEBAR_CONFIG: SidebarConfig = {
-  showCurrentlyPlaying: true,
-  showBacklog: true,
-  showCollections: true,
-  showAchievements: true,
-  showStats: true,
-  showSearch: true,
-};
+export const DEFAULT_SIDEBAR_CONFIG: SidebarConfig = { ...DEFAULT_TAB_VISIBILITY };
 
 interface GameContextType {
   games: UserGame[];
@@ -73,6 +69,14 @@ interface GameContextType {
   unlinkSteamAccount: () => Promise<void>;
   /** Re-reads the link row, after the edge function has changed it. */
   refreshPlatformAccounts: () => Promise<void>;
+
+  /** The Call of Duty camo tracker's games, in switcher order. */
+  camoGames: CamoGame[];
+  /** The project has no camo table yet: the schema SQL needs running. */
+  camoUnavailable: boolean;
+  /** Writes one tracker game whole — optimistic, queued when offline. */
+  saveCamoGame: (game: CamoGame) => void;
+  deleteCamoGame: (id: string) => void;
 
   loading: boolean;
   /** Message shown when a write could not reach the cloud. */
@@ -132,10 +136,16 @@ interface GameContextType {
 
   updateProfile: (updates: Partial<UserProfile>) => void;
   updateSidebarConfig: (updates: Partial<SidebarConfig>) => void;
+  /**
+   * A restored backup: replaces the library — games, lists and, when the
+   * backup has one, the camo tracker — on this device and in the cloud.
+   * `camoGames` undefined keeps the current tracker (a backup from before it).
+   */
   replaceAll: (snapshot: {
     games: UserGame[];
     collections: Collection[];
     profile?: UserProfile;
+    camoGames?: CamoGame[];
   }) => Promise<void>;
 
   /**
@@ -220,6 +230,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }));
 
   const [platformAccounts, setPlatformAccounts] = useState<PlatformAccounts | null>(null);
+  const [camoGames, setCamoGames] = useState<CamoGame[]>([]);
+  const [camoUnavailable, setCamoUnavailable] = useState(false);
+  /**
+   * Counts local tracker writes, so a list fetched before one of them landed
+   * is not allowed to paint over it when it answers late.
+   */
+  const camoEdits = useRef(0);
+  const latestCamo = useRef(camoGames);
+  latestCamo.current = camoGames;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -334,6 +353,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else if (entry.kind === 'collections') await db.upsertCollections(entry.collections, id);
     else if (entry.kind === 'collection') await db.deleteCollection(entry.id, id);
     else if (entry.kind === 'profile') await db.saveProfile(entry.profile, id);
+    else if (entry.kind === 'camo' && entry.op === 'upsert') await db.upsertCamoGame(entry.game, id);
+    else if (entry.kind === 'camo') await db.deleteCamoGame(entry.id, id);
   }, []);
 
   const flushQueue = useCallback(
@@ -405,6 +426,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ),
         );
         if (cached.profile) setProfile(cached.profile);
+        if (cached.camoGames) setCamoGames(cached.camoGames);
       }
       setPendingWrites(readQueue(id).length);
 
@@ -445,6 +467,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         db.getPlatformAccounts(id)
           .then(setPlatformAccounts)
           .catch(() => setPlatformAccounts(null));
+
+        // The tracker, the same way and for the same reason: a project without
+        // the camo table must still load its library. A failure keeps whatever
+        // the cache painted; only a missing table marks the tracker unsaveable.
+        const editsAtFetch = camoEdits.current;
+        db.listCamoGames(id)
+          .then((list) => {
+            setCamoUnavailable(false);
+            if (camoEdits.current === editsAtFetch) setCamoGames(list);
+          })
+          .catch(() => setCamoUnavailable(db.isCamoTableMissing()));
 
         /**
          * Games already at 100% but filed somewhere else.
@@ -494,6 +527,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           games: nextGames,
           collections: nextCollections,
           profile: nextProfile,
+          camoGames: latestCamo.current,
         });
         setLastSyncedAt(new Date().toISOString());
         setError(null);
@@ -551,6 +585,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!userId) {
       setGames([]);
       setCollections(DEFAULT_COLLECTIONS);
+      setCamoGames([]);
       setLoading(false);
       return;
     }
@@ -560,8 +595,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Persist a cache snapshot whenever state settles.
   useEffect(() => {
     if (!userId || loading) return;
-    writeSnapshot(userId, { games, collections, profile });
-  }, [userId, loading, games, collections, profile]);
+    writeSnapshot(userId, { games, collections, profile, camoGames });
+  }, [userId, loading, games, collections, profile, camoGames]);
 
   // Retry queued writes as soon as the connection comes back.
   useEffect(() => {
@@ -866,8 +901,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const replaceAll = useCallback(
-    async (snapshot: { games: UserGame[]; collections: Collection[]; profile?: UserProfile }) => {
+    async (snapshot: {
+      games: UserGame[];
+      collections: Collection[];
+      profile?: UserProfile;
+      camoGames?: CamoGame[];
+    }) => {
       if (!userId) return;
+
+      // What is here now and not in the backup. A restore that only wrote the
+      // backup's rows left these in the cloud, and the next load brought them
+      // straight back — "replaces your library" was not true. They are deleted
+      // through the queue, so a restore made offline still finishes later.
+      // The permanent shelves are never deleted; they are re-asserted below.
+      const keepGames = new Set(snapshot.games.map((g) => g.id));
+      const keepCollections = new Set(snapshot.collections.map((c) => c.id));
+      const goneGames = latest.current.games.filter((g) => !keepGames.has(g.id)).map((g) => g.id);
+      const goneCollections = latest.current.collections
+        .filter((c) => !isPermanentCollection(c.id) && !keepCollections.has(c.id))
+        .map((c) => c.id);
+      const nextCamo = snapshot.camoGames ? [...snapshot.camoGames].sort(byCamoSort) : null;
+      const goneCamo = nextCamo
+        ? latestCamo.current.filter((g) => !nextCamo.some((n) => n.id === g.id)).map((g) => g.id)
+        : [];
 
       // The same choke point every other write goes through: a restored backup
       // is the likeliest source of an illegal array, since it may have been
@@ -883,6 +939,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       latest.current.games = games;
       latest.current.collections = collections;
       if (snapshot.profile) setProfile({ ...snapshot.profile, id: userId });
+      if (nextCamo) {
+        camoEdits.current += 1;
+        setCamoGames(nextCamo);
+        clearCamoHistory();
+      }
+
+      goneGames.forEach((id) => void push({ kind: 'game', op: 'delete', id }));
+      goneCollections.forEach((id) => void push({ kind: 'collection', op: 'delete', id }));
+      goneCamo.forEach((id) => void push({ kind: 'camo', op: 'delete', id }));
+      nextCamo?.forEach((game) => void push({ kind: 'camo', op: 'upsert', game }));
 
       try {
         await db.upsertGames(games, userId);
@@ -897,7 +963,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
     },
-    [userId],
+    [userId, push],
   );
 
   const refresh = useCallback(async () => {
@@ -905,6 +971,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [userId, load]);
 
   const getGames = useCallback(() => latest.current.games, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Call of Duty camo tracker                                               */
+  /* ---------------------------------------------------------------------- */
+  const saveCamoGame = useCallback(
+    (game: CamoGame) => {
+      const next: CamoGame = { ...game, updatedAt: new Date().toISOString() };
+      camoEdits.current += 1;
+      setCamoGames((prev) =>
+        [...prev.filter((g) => g.id !== next.id), next].sort(byCamoSort),
+      );
+      void push({ kind: 'camo', op: 'upsert', game: next });
+    },
+    [push],
+  );
+
+  const deleteCamoGame = useCallback(
+    (id: string) => {
+      camoEdits.current += 1;
+      setCamoGames((prev) => prev.filter((g) => g.id !== id));
+      void push({ kind: 'camo', op: 'delete', id });
+    },
+    [push],
+  );
 
   const value = useMemo<GameContextType>(
     () => ({
@@ -916,6 +1006,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       linkSteamAccount,
       unlinkSteamAccount,
       refreshPlatformAccounts,
+      camoGames,
+      camoUnavailable,
+      saveCamoGame,
+      deleteCamoGame,
       loading,
       error,
       needsSetup,
@@ -958,6 +1052,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       linkSteamAccount,
       unlinkSteamAccount,
       refreshPlatformAccounts,
+      camoGames,
+      camoUnavailable,
+      saveCamoGame,
+      deleteCamoGame,
       loading,
       error,
       needsSetup,

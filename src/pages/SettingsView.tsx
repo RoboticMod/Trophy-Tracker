@@ -31,12 +31,15 @@ import {
   Volume2,
   Volume1,
   VolumeX,
+  Crosshair,
+  Library,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useSync } from '../context/SyncContext';
 import { useAuth } from '../context/AuthContext';
 import { clearUserCache } from '../lib/localCache';
-import { SidebarConfig, HighlightStyle, Platform } from '../types';
+import { Collection, HighlightStyle, Platform, UserGame, UserProfile } from '../types';
+import { CamoGame, normalizeCamoData } from '../lib/camo';
 import {
   SCHEMA_OUT_OF_DATE_MESSAGE,
   SUPABASE_SCHEMA_SQL,
@@ -69,14 +72,19 @@ import { PlatformIcon } from '../components/PlatformIcon';
 import { ConnectedAccounts } from '../components/ConnectedAccounts';
 import { TrophyBadge, awardNoun } from '../components/TrophyBadge';
 import { LISTS_ICON, SHELF_ICONS } from '../components/CollectionIcon';
+import { BACKLOG_COLLECTION_ID, PLAYING_COLLECTION_ID, isPermanentCollection } from '../lib/collections';
 import {
-  BACKLOG_COLLECTION_ID,
-  COMPLETE_COLLECTION_ID,
-  PLAYING_COLLECTION_ID,
-} from '../lib/collections';
+  DEFAULT_NAV_ORDER,
+  PHONE_BAR_SLOTS,
+  TabVisibilityKey,
+  isShown,
+  navRank,
+  resolveNavOrder,
+} from '../lib/navigation';
 import {
   Button,
   Card,
+  Dialog,
   Field,
   PageHeader,
   SectionHeader,
@@ -197,7 +205,7 @@ const SettingsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
 type NavItem = (typeof ALL_NAV_ITEMS)[number];
 
 /**
- * One draggable row of the sidebar order.
+ * One draggable row of the navigation order.
  *
  * Its own component because `useDragControls` is a hook and these are a list —
  * and because the row needs controls of its own so that only the handle starts
@@ -212,17 +220,15 @@ const NavReorderRow: React.FC<{
   /** Absent for a destination that is always shown. */
   onToggle?: () => void;
   onMove: (direction: -1 | 1) => void;
-}> = ({ item, name, visible, onRename, onToggle, onMove }) => {
+  /** Whether this is the last tab on a phone's bottom bar. */
+  dividerAfter?: boolean;
+}> = ({ item, name, visible, onRename, onToggle, onMove, dividerAfter = false }) => {
   const controls = useDragControls();
   const Icon = item.icon;
 
   return (
-    <Reorder.Item
-      value={item.path}
-      dragListener={false}
-      dragControls={controls}
-      className="panel-inset flex flex-wrap items-center justify-between gap-3 rounded-md p-3"
-    >
+    <Reorder.Item value={item.path} dragListener={false} dragControls={controls}>
+      <div className="panel-inset flex flex-wrap items-center justify-between gap-3 rounded-md p-3">
       <div className="flex min-w-56 flex-1 items-center gap-3">
         <button
           type="button"
@@ -255,7 +261,7 @@ const NavReorderRow: React.FC<{
           <TextInput
             defaultValue={name}
             onChange={(e) => onRename(e.target.value)}
-            aria-label={`Sidebar name for ${item.name}`}
+            aria-label={`Name for ${item.name}`}
             placeholder={item.name}
             className="h-8 text-75 font-semibold"
           />
@@ -267,12 +273,25 @@ const NavReorderRow: React.FC<{
           <Switch
             checked={visible}
             onChange={onToggle}
-            label={`${visible ? 'Hide' : 'Show'} ${item.name} in the sidebar`}
+            label={`${visible ? 'Hide' : 'Show'} ${item.name} in the navigation`}
           />
         ) : (
           <span className="w-11 text-center text-50 font-medium text-gray-600">Always</span>
         )}
       </div>
+      </div>
+
+      {/* Drawn inside the row, not between rows, so a drag moves it with the
+          row rather than leaving a stray element in the reorder list. The
+          bar re-derives it from what is shown, so it moves as tabs are hidden
+          or dragged past it. */}
+      {dividerAfter ? (
+        <div role="separator" className="flex items-center gap-3 pt-3.5 pb-1.5">
+          <span aria-hidden className="h-px flex-1 bg-gray-300" />
+          <span className="eyebrow shrink-0 text-gray-600">Phone bar above · More below</span>
+          <span aria-hidden className="h-px flex-1 bg-gray-300" />
+        </div>
+      ) : null}
     </Reorder.Item>
   );
 };
@@ -290,8 +309,16 @@ const ALL_NAV_ITEMS = [
     path: '/',
     name: 'Home',
     icon: Home,
-    configKey: null,
+    configKey: null as TabVisibilityKey | null,
     tone: 'bg-accent-700/16 text-accent-900',
+  },
+  {
+    id: 'library',
+    path: '/library',
+    name: 'Library',
+    icon: Library,
+    configKey: 'showLibrary' as const,
+    tone: 'bg-gray-200 text-gray-800',
   },
   {
     id: 'playing',
@@ -302,12 +329,12 @@ const ALL_NAV_ITEMS = [
     tone: 'bg-accent-700/16 text-accent-900',
   },
   {
-    id: 'achievements',
-    path: '/achievements',
-    name: 'Achievements & trophies',
-    icon: SHELF_ICONS[COMPLETE_COLLECTION_ID],
-    configKey: 'showAchievements' as const,
-    tone: 'bg-trophy-100 text-trophy-900',
+    id: 'call-of-duty',
+    path: '/call-of-duty',
+    name: 'Call of Duty',
+    icon: Crosshair,
+    configKey: 'showCallOfDuty' as const,
+    tone: 'bg-violet-700/16 text-violet-900',
   },
   {
     id: 'search',
@@ -343,15 +370,39 @@ const ALL_NAV_ITEMS = [
   },
 ];
 
-const DEFAULT_NAV_ORDER = [
-  '/',
-  '/playing',
-  '/achievements',
-  '/search',
-  '/backlog',
-  '/collections',
-  '/stats',
-];
+
+/** A parsed backup, held until the restore is confirmed. */
+interface PendingRestore {
+  games: UserGame[];
+  collections: Collection[];
+  profile?: UserProfile;
+  /** Undefined: the backup has no tracker, and the current one is kept. */
+  camoGames?: CamoGame[];
+  /** Games on platforms this app no longer has, left out. */
+  dropped: number;
+}
+
+/**
+ * The tracker out of a backup, or undefined when the backup predates it. Each
+ * game's document is repaired the way a load repairs it; a game without an id
+ * or a name is left out rather than guessed at.
+ */
+const readCamoGames = (raw: unknown): CamoGame[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.flatMap((item, index): CamoGame[] => {
+    const g = item as Record<string, unknown> | null;
+    if (!g || typeof g.id !== 'string' || typeof g.name !== 'string' || !g.name.trim()) return [];
+    return [
+      {
+        id: g.id,
+        name: g.name,
+        sort: typeof g.sort === 'number' ? g.sort : index,
+        data: normalizeCamoData(g.data),
+        updatedAt: typeof g.updatedAt === 'string' ? g.updatedAt : new Date().toISOString(),
+      },
+    ];
+  });
+};
 
 export const SettingsView: React.FC = () => {
   const {
@@ -367,6 +418,7 @@ export const SettingsView: React.FC = () => {
     isOnline,
     pendingWrites,
     lastSyncedAt,
+    camoGames,
   } = useGame();
   const { user, signOut } = useAuth();
 
@@ -374,6 +426,9 @@ export const SettingsView: React.FC = () => {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [savedProfile, setSavedProfile] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  /** A backup read and checked, waiting for "Replace" in the confirm dialog. */
+  const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const [trophyScope, setTrophyScope] = usePsnTrophyScope();
   const { syncEverything, lastRunAt } = useSync();
   const phone = useIsPhone();
@@ -466,17 +521,22 @@ export const SettingsView: React.FC = () => {
     updateProfile({ platformOrder: next });
   };
 
-  /* -- Sidebar ordering --------------------------------------------------- */
+  /* -- Navigation ordering ------------------------------------------------ */
 
-  const currentNavOrder = sidebarConfig.navOrder?.length ? sidebarConfig.navOrder : DEFAULT_NAV_ORDER;
+  // The same resolution the bar uses, so a tab added since the order was saved
+  // shows here where it shows there.
+  const currentNavOrder = resolveNavOrder(sidebarConfig.navOrder);
 
-  const orderedNavItems = [...ALL_NAV_ITEMS].sort((a, b) => {
-    const idxA = currentNavOrder.indexOf(a.path);
-    const idxB = currentNavOrder.indexOf(b.path);
-    return (
-      (idxA === -1 ? currentNavOrder.length : idxA) - (idxB === -1 ? currentNavOrder.length : idxB)
-    );
-  });
+  const orderedNavItems = [...ALL_NAV_ITEMS].sort(
+    (a, b) => navRank(currentNavOrder, a.path) - navRank(currentNavOrder, b.path),
+  );
+
+  const navVisible = (item: NavItem) =>
+    item.configKey ? isShown(sidebarConfig, item.configKey) : true;
+
+  // The last row a phone's bottom bar holds: the fourth that is shown. Hidden
+  // rows take no slot, so they do not count.
+  const phoneBarEnd = orderedNavItems.filter(navVisible)[PHONE_BAR_SLOTS - 1]?.path;
 
   const navNames = sidebarConfig.navNames || {};
 
@@ -504,14 +564,20 @@ export const SettingsView: React.FC = () => {
   /* -- Backup ------------------------------------------------------------- */
 
   const handleExport = () => {
+    // Platform sign-ins are not in here: they live in platform_accounts, not
+    // the profile, and a backup file is no place for a token. The navigation
+    // settings are — they are the profile's sidebarConfig.
     const payload = {
       profile,
       collections,
       games,
+      camoGames,
       exportedAt: new Date().toISOString(),
       // 4: games carry their shelf as collection membership and no longer have
       // a `status` field. An import checks this to know whether to translate.
-      version: '4.0.0',
+      // 5: adds `camoGames`, the Call of Duty tracker. A backup without it is
+      // from before the tracker, and restoring it keeps the current one.
+      version: '5.0.0',
     };
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
@@ -558,23 +624,37 @@ export const SettingsView: React.FC = () => {
           Array.isArray(json.collections) ? json.collections : collections,
         );
 
-        await replaceAll({
+        // Nothing is replaced yet: the dialog shows what would change first.
+        setImportStatus(null);
+        setPendingRestore({
           games: migrated.games,
           collections: migrated.collections,
-          profile: json.profile,
+          profile: json.profile && typeof json.profile === 'object' ? json.profile : undefined,
+          camoGames: readCamoGames(json.camoGames),
+          dropped,
         });
-
-        setImportStatus(
-          dropped > 0
-            ? `Restored ${kept.length} games. ${dropped} on unsupported platforms were skipped.`
-            : `Restored ${kept.length} games.`,
-        );
       } catch {
         setImportStatus('Could not parse that JSON file.');
       }
     };
     reader.readAsText(file);
   };
+
+  const confirmRestore = async () => {
+    if (!pendingRestore) return;
+    const { dropped, ...snapshot } = pendingRestore;
+    setRestoring(true);
+    await replaceAll(snapshot);
+    setRestoring(false);
+    setPendingRestore(null);
+    setImportStatus(
+      dropped > 0
+        ? `Restored ${snapshot.games.length} ${snapshot.games.length === 1 ? 'game' : 'games'}. ${dropped} on unsupported platforms ${dropped === 1 ? 'was' : 'were'} skipped.`
+        : `Restored ${snapshot.games.length} ${snapshot.games.length === 1 ? 'game' : 'games'}.`,
+    );
+  };
+
+  const listCount = (list: Collection[]) => list.filter((c) => !isPermanentCollection(c.id)).length;
 
   return (
     <div className={cn('mx-auto space-y-8 pb-10', !wide && 'max-w-3xl')}>
@@ -872,7 +952,7 @@ export const SettingsView: React.FC = () => {
       <Card className="space-y-4">
         <SectionHeader
           icon={<Sliders size={18} />}
-          title="Sidebar navigation"
+          title="Navigation"
           description="Reorder or hide"
           action={
             <Button
@@ -886,9 +966,6 @@ export const SettingsView: React.FC = () => {
             </Button>
           }
         />
-        {/* Dragged rather than nudged one row at a time. The handle also takes
-            arrow keys, because a drag is not operable by keyboard at all and
-            "reorder your navigation" should not be a mouse-only feature. */}
         {/* Dragged rather than nudged one row at a time. The handle also takes
             arrow keys, because a drag is not operable by keyboard at all and
             "reorder your navigation" should not become a mouse-only feature. */}
@@ -910,19 +987,18 @@ export const SettingsView: React.FC = () => {
                   ? item.name
                   : (navNames[item.path] ?? item.name)
               }
-              visible={item.configKey ? (sidebarConfig[item.configKey] as boolean) : true}
+              visible={navVisible(item)}
               onRename={(value) => renameNav(item.path, value)}
               onToggle={
                 item.configKey
-                  ? () =>
-                      updateSidebarConfig({
-                        [item.configKey as keyof SidebarConfig]: !(sidebarConfig[
-                          item.configKey as keyof SidebarConfig
-                        ] as boolean),
-                      })
+                  ? () => {
+                      const key = item.configKey as TabVisibilityKey;
+                      updateSidebarConfig({ [key]: !isShown(sidebarConfig, key) });
+                    }
                   : undefined
               }
               onMove={(direction) => moveNav(index, direction)}
+              dividerAfter={item.path === phoneBarEnd}
             />
           ))}
         </Reorder.Group>
@@ -1167,12 +1243,84 @@ export const SettingsView: React.FC = () => {
           </label>
         </div>
 
-        <p className="text-50 text-gray-600">
-          Restoring replaces your library.
-        </p>
+        <div className="space-y-1 text-75 text-gray-700">
+          <p>Includes your games, lists, Call of Duty tracker, profile and settings.</p>
+          <p className="text-gray-600">Not included: platform sign-ins.</p>
+        </div>
 
         {importStatus && <p className="text-75 font-semibold text-positive-900">{importStatus}</p>}
       </Card>
+
+      {/* Restore asks first: what is here now against what the backup holds,
+          and a way to keep a copy of the former before it goes. */}
+      <Dialog
+        isOpen={pendingRestore !== null}
+        onClose={() => !restoring && setPendingRestore(null)}
+        title="Replace everything with this backup?"
+        footer={
+          // A phone: Export across the top, Cancel and Replace sharing the row
+          // under it at equal width. Wider: one row, Export apart on the left.
+          <div className="grid w-full grid-cols-2 gap-2 md:flex md:justify-end">
+            <Button size="l" buttonStyle="outline" onClick={handleExport} className="col-span-2 md:mr-auto">
+              <Download size={14} />
+              Export current first
+            </Button>
+            <Button size="l" disabled={restoring} onClick={() => setPendingRestore(null)}>
+              Cancel
+            </Button>
+            <Button size="l" variant="negative" disabled={restoring} onClick={confirmRestore}>
+              {restoring ? <Loader2 size={14} className="animate-spin" /> : null}
+              Replace
+            </Button>
+          </div>
+        }
+      >
+        {pendingRestore ? (
+          <div className="space-y-4">
+            <table className="w-full text-100 tabular-nums">
+              <thead>
+                <tr className="text-left">
+                  <th className="eyebrow pb-2 font-normal text-gray-600" scope="col">
+                    <span className="sr-only">What</span>
+                  </th>
+                  <th className="eyebrow pb-2 text-right text-gray-600" scope="col">Now</th>
+                  <th className="eyebrow pb-2 text-right text-gray-600" scope="col">Backup</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <tr>
+                  <th scope="row" className="py-2 text-left font-semibold text-gray-800">Games</th>
+                  <td className="py-2 text-right text-gray-900">{games.length}</td>
+                  <td className="py-2 text-right font-bold text-gray-1000">{pendingRestore.games.length}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-2 text-left font-semibold text-gray-800">Lists</th>
+                  <td className="py-2 text-right text-gray-900">{listCount(collections)}</td>
+                  <td className="py-2 text-right font-bold text-gray-1000">{listCount(pendingRestore.collections)}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-2 text-left font-semibold text-gray-800">Call of Duty games</th>
+                  <td className="py-2 text-right text-gray-900">{camoGames.length}</td>
+                  <td className="py-2 text-right font-bold text-gray-1000">
+                    {pendingRestore.camoGames ? pendingRestore.camoGames.length : 'Kept'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="rounded-md border border-negative-700/45 bg-negative-700/10 p-3 text-75 font-semibold text-negative-900">
+              {pendingRestore.camoGames
+                ? 'Your games, lists, Call of Duty tracker, profile and settings are replaced by the backup’s. This can’t be undone.'
+                : 'Your games, lists, profile and settings are replaced by the backup’s. It has no Call of Duty tracker, so yours is kept. This can’t be undone.'}
+            </p>
+            {pendingRestore.dropped > 0 ? (
+              <p className="text-75 text-gray-600">
+                {pendingRestore.dropped} {pendingRestore.dropped === 1 ? 'game' : 'games'} on platforms this app
+                no longer supports will be skipped.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </Dialog>
       </SettingsGroup>
 
       <SettingsGroup id="changelog">

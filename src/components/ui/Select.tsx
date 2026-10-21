@@ -35,6 +35,13 @@ interface SelectProps<T extends string> {
    * button with no room for it.
    */
   iconTrigger?: boolean;
+  /**
+   * The trigger as a 36px pill, the height and shape of a FilterChip — for a
+   * dropdown that lives in a row of chips and scrolls with them. `active` lights
+   * it the way a selected chip is lit, for while it is filtering.
+   */
+  chip?: boolean;
+  active?: boolean;
   'aria-label'?: string;
   /** Passed through by Field, which owns the help text it points at. */
   'aria-describedby'?: string;
@@ -46,8 +53,12 @@ const MAX_LIST_HEIGHT = 288;
 const OFFSET = 6;
 /** How close to the viewport's edge the list is allowed to sit. */
 const MARGIN = 8;
-/** Rough row height, used only to decide whether the list should flip upward. */
-const ROW_HEIGHT = 34;
+/**
+ * A desktop row's height: 36px at text-90. Rows are a fixed height rather than
+ * padding around the text, so this is exact, and the flip-upward check that
+ * reads it matches what is drawn.
+ */
+const ROW_HEIGHT = 36;
 
 /**
  * The app's dropdown.
@@ -71,6 +82,8 @@ export function Select<T extends string>({
   className,
   leading,
   iconTrigger = false,
+  chip = false,
+  active = false,
   'aria-label': ariaLabel,
   'aria-describedby': ariaDescribedBy,
 }: SelectProps<T>) {
@@ -280,6 +293,14 @@ export function Select<T extends string>({
           'flex h-11 w-11 items-center justify-center rounded-md transition-colors',
           open ? 'bg-accent-700/16 text-accent-900' : 'text-gray-800 hover:bg-white/5',
           className,
+        ) : chip ? cn(
+          // FilterChip's pill, so it reads as one of the row it sits in.
+          'inline-flex h-9 shrink-0 items-center gap-1.75 rounded-full border px-3.5',
+          'text-90 font-bold whitespace-nowrap transition-all',
+          open || active
+            ? 'border-accent-700/60 bg-accent-700/16 text-accent-900 shadow-[0_0_14px_-5px_var(--color-accent-700)]'
+            : 'border-gray-300 bg-white/3 text-gray-700 hover:border-gray-400 hover:bg-white/6 hover:text-gray-900',
+          className,
         ) : cn(
           // A field's well and corner: 44px on a phone, where it is a thumb
           // target, and 40 on a desktop, level with the search field.
@@ -307,12 +328,22 @@ export function Select<T extends string>({
             ) : null}
             {leading ? <span className="flex shrink-0 items-center">{leading}</span> : null}
             {selected?.icon}
-            <span className="min-w-0 flex-1 truncate text-left">
+            <span
+              className={cn(
+                'min-w-0 truncate text-left',
+                // A chip is as wide as its label; a field fills its box.
+                chip ? 'max-w-48' : 'flex-1',
+              )}
+            >
               {selected?.label ?? placeholder}
             </span>
             <ChevronDown
-              size={15}
-              className={cn('shrink-0 text-gray-600 transition-transform', open && 'rotate-180')}
+              size={chip ? 14 : 15}
+              className={cn(
+                'shrink-0 transition-transform',
+                chip && (open || active) ? 'text-accent-900' : 'text-gray-600',
+                open && 'rotate-180',
+              )}
             />
           </>
         )}
@@ -402,8 +433,8 @@ export function Select<T extends string>({
                     onPointerEnter={() => setActiveIndex(index)}
                     onClick={() => commit(index)}
                     className={cn(
-                      'flex cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1.5',
-                      'text-75 font-semibold whitespace-nowrap transition-colors',
+                      'flex h-9 cursor-pointer items-center gap-2 rounded-sm px-2.5',
+                      'text-90 font-semibold whitespace-nowrap transition-colors',
                       isSelected ? 'text-accent-900' : 'text-gray-800',
                       isActive ? 'bg-white/8' : isSelected ? 'bg-accent-700/12' : '',
                     )}
@@ -421,7 +452,7 @@ export function Select<T extends string>({
                     {option.icon}
                     <span className="min-w-0 flex-1 truncate">{option.label}</span>
                     <Check
-                      size={13}
+                      size={14}
                       className={cn('shrink-0 text-accent-900', isSelected ? '' : 'opacity-0')}
                     />
                   </li>

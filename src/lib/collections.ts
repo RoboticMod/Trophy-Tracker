@@ -190,7 +190,7 @@ export const PERMANENT_ROW_CLASS: Record<PermanentCollectionId, string> = {
   [PLAYING_COLLECTION_ID]: 'border-accent-700/45 bg-accent-700/12',
   [BACKLOG_COLLECTION_ID]: 'border-gray-500/40 bg-gray-700/12',
   [BEATEN_COLLECTION_ID]: 'border-positive-700/45 bg-positive-700/12',
-  [COMPLETE_COLLECTION_ID]: 'border-transparent bg-trophy-700/12',
+  [COMPLETE_COLLECTION_ID]: 'trophy-glow border-trophy-700/55 bg-trophy-700/12',
 };
 
 /** Tone token used for a shelf wherever it is shown as a badge. */

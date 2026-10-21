@@ -29,7 +29,7 @@
   --color-gray-300: #232b40;
   --color-gray-400: #333c56;
   --color-gray-500: #4b5570;
-  --color-gray-600: #6e7898;
+  --color-gray-600: #7d88a8;
   --color-gray-700: #9aa5c4;
   --color-gray-800: #c4cce0;
   --color-gray-900: #e8edf7;
@@ -37,11 +37,15 @@
 
   /* -- Accent --------------------------------------------------------------
      700 is the interactive blue; 900 is the one that survives on a dark panel
-     as text, which is why labels and active nav use it rather than 700.     */
+     as text, which is why labels and active nav use it rather than 700.
+     A filled button is the exception: white on 700 is 4.17:1, so its fill
+     runs 600 -> 500 (5.45:1 at the light end), hovering to 650 -> 600.     */
   --color-accent-100: #08182c;
   --color-accent-200: #0c2444;
   --color-accent-400: #0a4f96;
+  --color-accent-500: #0058ad;
   --color-accent-600: #0068cc;
+  --color-accent-650: #0071de;
   --color-accent-700: #007aef;
   --color-accent-800: #2f96ff;
   --color-accent-900: #7da6ff;
@@ -54,12 +58,18 @@
   --color-positive-900: #4ee3b1;
 
   --color-negative-100: #2e0f10;
+  /* 500/600 are the negative button's fill (white on them 6.22 / 5.56:1);
+     700 stays the tint and dot colour, 900 the text.                       */
+  --color-negative-500: #b8291f;
+  --color-negative-600: #c42f24;
   --color-negative-700: #e04034;
   --color-negative-900: #fe544b;
 
-  --color-notice-100: #2e2208;
-  --color-notice-700: #d9a12f;
-  --color-notice-900: #f7c65b;
+  /* Notice is orange, not amber: amber sat 1.3:1 from trophy gold and read as
+     a 100%. Gold means 100% and nothing else.                               */
+  --color-notice-100: #2e1708;
+  --color-notice-700: #f08a3c;
+  --color-notice-900: #ffb27a;
 
   /* -- Expressive accents (the gaming flavour) ----------------------------
      Trophy gold carries "mastered / platinum"; violet is the second half of
@@ -79,9 +89,26 @@
      PlayStation leans towards cyan rather than matching the accent, so a
      platform mark never looks like something to press. */
   --color-steam-700: #1d4287;
-  --color-steam-900: #2d5fb4;
+  --color-steam-900: #3d6cc4;
   --color-playstation-700: #0095e0;
   --color-playstation-900: #14b4ff;
+
+  /* Call of Duty camo tiers. Placeholder swatches only — original gradients,
+     never game art — and the colour of each tier's meter. 500 is the shadow,
+     700 the body, 900 the highlight. Dark leans violet, which is what marks
+     the tracker's mastery tiers apart from everything else in the app. */
+  --color-camo-special-500: #0f5249;
+  --color-camo-special-700: #2bb9a6;
+  --color-camo-special-900: #9af2e3;
+  --color-camo-gold-500: #6e4a0c;
+  --color-camo-gold-700: #d99a2b;
+  --color-camo-gold-900: #ffe2a0;
+  --color-camo-diamond-500: #24607f;
+  --color-camo-diamond-700: #7fd3ff;
+  --color-camo-diamond-900: #eef9ff;
+  --color-camo-dark-500: #160a2c;
+  --color-camo-dark-700: #8b5cf6;
+  --color-camo-dark-900: #dcc2ff;
 
   /* -- Type ramp ----------------------------------------------------------- */
   --text-50: 0.6875rem; /* 11px */
@@ -317,6 +344,34 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
 }
 
+/* Exactly three across: Home's Now playing, which never shows more than three
+   and should fill its column with them rather than leave a fourth track. */
+@utility grid-cards-three {
+  display: grid;
+  gap: --spacing(4);
+  align-items: stretch;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* A sideways strip of 260px cards that snaps a card to the edge — Home's Now
+   playing on a phone. Each child is a card-shell, which carries 10px of
+   padding either side for the card's glow, so its basis is the card plus
+   that. flex-shrink 0, or a strip inside a column collapses its cards to fit. */
+@utility card-strip {
+  display: flex;
+  gap: --spacing(3);
+  align-items: stretch;
+  scroll-snap-type: x mandatory;
+  /* The shell starts 10px before its card, so this puts the card itself on
+     the page's 16px gutter when it snaps. */
+  scroll-padding-inline: calc(--spacing(4) - 10px);
+
+  & > * {
+    flex: 0 0 calc(16.25rem + 20px);
+    scroll-snap-align: start;
+  }
+}
+
 /* A page held to the window's height (see mainFill.ts): main, the content
    column inside it and the page itself become one flex column down to the
    platform columns, which take the height that is left. Main keeps its own
@@ -544,13 +599,16 @@
 
 /* Warm outer glow that lifts a completed card off the canvas.
 
-   Two shadows, both unoffset: a plain dark one for depth and an even gold halo
-   at low opacity. No hard ring — an outline traces the card's edge and reads as
-   a border, where a diffuse halo reads as the card giving off light. */
+   Two shadows: a plain dark one for depth and an even gold halo, unoffset, at
+   low opacity. The edge itself is a still gold border on the element
+   (border-trophy-700/55) — the 100% treatment is that border, this halo,
+   trophy-spot and trophy-sweep, and nothing turns around the rim. A rotating
+   gold ring was tried and removed: arcs forever circling every finished game
+   pulled the eye off the rest of the page. */
 @utility trophy-glow {
   box-shadow:
     0 7px 22px rgb(0 0 0 / 0.6),
-    0 0 20px color-mix(in srgb, var(--color-trophy-700) 19%, transparent);
+    0 0 22px color-mix(in srgb, var(--color-trophy-700) 24%, transparent);
 }
 
 /* A soft pool of warm light in the upper right of a finished card, as though
@@ -564,77 +622,6 @@
     color-mix(in srgb, var(--color-trophy-900) 16%, transparent),
     transparent 72%
   );
-}
-
-/* ---------------------------------------------------------------------------
-   The gold ring
-
-   A finished game gets a band of gold light turning slowly around its edge,
-   rather than a static border — a rotation, so it costs the compositor a
-   transform per frame rather than the page a repaint.
---------------------------------------------------------------------------- */
-@keyframes gold-turn {
-  to {
-    rotate: 360deg;
-  }
-}
-
-/* Rendered as its own absolutely-positioned child of the card, not as a border
-   or a pseudo-element behind it: a card paints its own background before any
-   child, so a ring drawn underneath would be covered by the very surface it is
-   ringing.
-
-   The box is masked down to its own 1px padding, so only the rim shows, and the
-   light is a square of conic gradient inside it that *turns* — a transform the
-   compositor runs on its own. It used to animate the gradient's start angle,
-   which is a fresh paint of the whole rim on every frame, for every finished
-   game on screen; on a phone that was a steady tax on scrolling. */
-@utility gold-ring {
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  overflow: hidden;
-  pointer-events: none;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-
-  /* Square, twice the box's width, centred: whatever the card's shape, the
-     turning square always covers its rim. */
-  &::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 200%;
-    aspect-ratio: 1;
-    translate: -50% -50%;
-    /* Mostly transparent, with two short bright arcs. A continuous gold band
-       would just read as a thick border that happens to move; two highlights
-       chasing the rim read as light travelling around a metal edge. */
-    background: conic-gradient(
-      transparent 0deg,
-      color-mix(in srgb, var(--color-trophy-900) 85%, white) 28deg,
-      transparent 75deg,
-      transparent 178deg,
-      color-mix(in srgb, var(--color-trophy-900) 60%, white) 210deg,
-      transparent 260deg
-    );
-    animation: gold-turn 6s linear infinite;
-    will-change: rotate;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    &::before {
-      animation: none;
-    }
-  }
 }
 
 /* A band of light crossing the completion emblem every few seconds, the way a
@@ -1129,4 +1116,58 @@
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Camo tier swatches
+
+   What a tier draws as until it has a picture, and underneath one after: a
+   pasted image is laid over its swatch, so a dead link still shows the tier.
+   Original gradients from the camo tokens — no game artwork is bundled.
+--------------------------------------------------------------------------- */
+@utility camo-swatch-special {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--color-camo-special-500) 0 5px,
+      var(--color-camo-special-700) 5px 10px
+    );
+}
+
+@utility camo-swatch-gold {
+  background: linear-gradient(
+    135deg,
+    var(--color-camo-gold-500) 0%,
+    var(--color-camo-gold-700) 36%,
+    var(--color-camo-gold-900) 52%,
+    var(--color-camo-gold-700) 68%,
+    var(--color-camo-gold-500) 100%
+  );
+}
+
+@utility camo-swatch-diamond {
+  background:
+    repeating-linear-gradient(
+      60deg,
+      transparent 0 7px,
+      color-mix(in srgb, var(--color-camo-diamond-900) 35%, transparent) 7px 8px
+    ),
+    linear-gradient(
+      120deg,
+      var(--color-camo-diamond-500) 0%,
+      var(--color-camo-diamond-900) 32%,
+      var(--color-camo-diamond-700) 50%,
+      var(--color-camo-diamond-900) 66%,
+      var(--color-camo-diamond-500) 100%
+    );
+}
+
+@utility camo-swatch-dark {
+  background:
+    radial-gradient(
+      circle at 30% 28%,
+      var(--color-camo-dark-900) 0,
+      var(--color-camo-dark-700) 22%,
+      var(--color-camo-dark-500) 70%
+    );
 }

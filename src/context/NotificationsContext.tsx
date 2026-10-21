@@ -24,6 +24,11 @@ interface NotificationsValue {
   hasUnreadCompletion: boolean;
   markAllRead: () => void;
   clear: () => void;
+  /**
+   * Puts cleared notifications back — the Undo after "Clear all". Anything that
+   * arrived in between is kept: a restore merges by id rather than replacing.
+   */
+  restore: (list: ProgressNotification[]) => void;
 }
 
 const NotificationsContext = createContext<NotificationsValue | null>(null);
@@ -163,6 +168,14 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     [commit],
   );
   const clear = useCallback(() => commit(() => []), [commit]);
+  const restore = useCallback(
+    (cleared: ProgressNotification[]) =>
+      commit((list) => {
+        const present = new Set(list.map((n) => n.id));
+        return [...list, ...cleared.filter((n) => !present.has(n.id))];
+      }),
+    [commit],
+  );
 
   const value = useMemo<NotificationsValue>(() => {
     const unread = notifications.filter((n) => !n.read);
@@ -172,8 +185,9 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
       hasUnreadCompletion: unread.some((n) => n.completed),
       markAllRead,
       clear,
+      restore,
     };
-  }, [notifications, markAllRead, clear]);
+  }, [notifications, markAllRead, clear, restore]);
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 };

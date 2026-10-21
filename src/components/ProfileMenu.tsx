@@ -52,7 +52,7 @@ export const ProfileMenu: React.FC = () => {
         aria-expanded={open}
         title="Account"
         className={cn(
-          'flex h-9 items-center gap-2 rounded-control border pl-2 pr-2.5 text-75 font-bold transition-colors',
+          'flex h-11 items-center gap-2 rounded-control border pl-2 pr-2.5 text-75 font-bold transition-colors lg:h-9',
           open || onSettings
             ? 'border-accent-700/45 bg-accent-700/12 text-accent-900'
             : 'border-gray-300 text-gray-800 hover:border-gray-400 hover:text-gray-1000',
