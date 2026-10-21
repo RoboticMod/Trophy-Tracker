@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.3',
+    date: '2026-10-21',
+    title: 'Cleaner tracker headings',
+    changes: [
+      'The Call of Duty table’s column headings on a computer show just the tier names; the small camo pictures above them are gone, since every cell below already shows its camo.',
+    ],
+  },
+  {
     version: '0.19.2',
     date: '2026-10-21',
     title: 'A roomier camo tracker, and less text',

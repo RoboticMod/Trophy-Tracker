@@ -128,19 +128,17 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
               Military
             </th>
             {mode.tiers.map((tier, i) => {
+              // Name only: the cells below already show each tier's camo.
               const head = (
-                <span className="flex flex-col items-center gap-1.5">
-                  <TierSwatch tier={tier} className="h-5 w-5 rounded-sm" />
-                  <span className="line-clamp-2 block w-[4.75rem] text-center text-75 font-bold leading-tight text-gray-800">
-                    {i + 1}. {tier.name}
-                  </span>
+                <span className="line-clamp-2 block w-[4.75rem] text-center text-75 font-bold leading-tight text-gray-800">
+                  {i + 1}. {tier.name}
                 </span>
               );
               // In Edit mode a header marks its tier for the whole class, and
               // clears it again once every weapon has it.
               const all = classHasTier(cls, i);
               return (
-                <th key={tier.id} scope="col" className={cn('py-3 align-bottom', gap(i))} title={tier.name}>
+                <th key={tier.id} scope="col" className={cn('py-4 align-bottom', gap(i))} title={tier.name}>
                   {editable ? (
                     <button
                       type="button"
