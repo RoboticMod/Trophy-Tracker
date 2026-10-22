@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Copy, FilePlus } from 'lucide-react';
-import { CamoGame, blankGame, copyOfGame } from '../../lib/camo';
+import { Check, Copy, FilePlus, FileUp } from 'lucide-react';
+import { CamoGame, blankGame, copyOfGame, readCamoImport } from '../../lib/camo';
 import { cn } from '../../lib/cn';
 import { Button, Dialog, TextInput } from '../ui';
 
 const BLANK = 'blank';
+const FILE = 'file';
 
 /**
  * "Add a game": a copy of one already tracked — its modes, tiers, classes and
- * weapons kept, every tick cleared — or a blank one with a single mode, a Gold
- * tier and an empty class. Nothing else is offered: the tracker seeds nothing.
+ * weapons kept, every tick cleared — a blank one with a single mode, a Gold
+ * tier and an empty class, or every game in a JSON file (a backup's tracker
+ * included), added beside the ones already here.
  */
 export const AddCamoGameDialog: React.FC<{
   isOpen: boolean;
@@ -22,17 +24,45 @@ export const AddCamoGameDialog: React.FC<{
   const [name, setName] = useState('');
   const [source, setSource] = useState<string>(BLANK);
   const nameRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileGames, setFileGames] = useState<CamoGame[] | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setName('');
+    setFileGames(null);
+    setFileError(null);
     setSource(currentId && games.some((g) => g.id === currentId) ? currentId : games[0]?.id ?? BLANK);
   }, [isOpen, currentId, games]);
 
   const nextSort = games.reduce((max, g) => Math.max(max, g.sort), -1) + 1;
   const trimmed = name.trim();
 
+  const fromFile = source === FILE;
+
+  const readFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const found = readCamoImport(JSON.parse(String(reader.result)), nextSort);
+        setFileGames(found);
+        setFileError(found.length ? null : 'No games in that file');
+      } catch {
+        setFileGames(null);
+        setFileError('Not a JSON file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const add = () => {
+    if (fromFile) {
+      if (!fileGames?.length) return;
+      fileGames.forEach(onAdd);
+      onClose();
+      return;
+    }
     if (!trimmed) return;
     const from = games.find((g) => g.id === source);
     onAdd(from ? copyOfGame(from, trimmed, nextSort) : blankGame(trimmed, nextSort));
@@ -47,21 +77,27 @@ export const AddCamoGameDialog: React.FC<{
       icon: <Copy size={16} />,
     })),
     { id: BLANK, label: 'Blank', hint: '', icon: <FilePlus size={16} /> },
+    { id: FILE, label: 'From a file', hint: '', icon: <FileUp size={16} /> },
   ];
+
+  const canAdd = fromFile ? Boolean(fileGames?.length) : Boolean(trimmed);
+  const addLabel = fromFile && fileGames?.length
+    ? `Add ${fileGames.length} ${fileGames.length === 1 ? 'game' : 'games'}`
+    : 'Add game';
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title="Add a game"
-      initialFocusRef={nameRef}
+      initialFocusRef={fromFile ? undefined : nameRef}
       footer={
         <div className="flex justify-end gap-2">
           <Button size="l" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="l" variant="accent" disabled={!trimmed} onClick={add}>
-            Add game
+          <Button size="l" variant="accent" disabled={!canAdd} onClick={add}>
+            {addLabel}
           </Button>
         </div>
       }
@@ -73,13 +109,15 @@ export const AddCamoGameDialog: React.FC<{
           add();
         }}
       >
-        <TextInput
-          ref={nameRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Game name"
-          aria-label="Game name"
-        />
+        {fromFile ? null : (
+          <TextInput
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Game name"
+            aria-label="Game name"
+          />
+        )}
         <div role="radiogroup" aria-label="Start from" className="space-y-2">
           {options.map((option) => {
             const selected = source === option.id;
@@ -107,6 +145,38 @@ export const AddCamoGameDialog: React.FC<{
             );
           })}
         </div>
+        {fromFile ? (
+          <div className="space-y-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) readFile(file);
+                e.target.value = '';
+              }}
+            />
+            <Button size="l" buttonStyle="outline" onClick={() => fileRef.current?.click()}>
+              <FileUp size={15} />
+              Choose file
+            </Button>
+            {fileError ? <p className="text-75 font-semibold text-notice-900">{fileError}</p> : null}
+            {fileGames?.length ? (
+              <ul className="space-y-1 text-90 text-gray-900">
+                {fileGames.map((g) => (
+                  <li key={g.id} className="flex items-baseline justify-between gap-3">
+                    <span className="truncate font-bold">{g.name}</span>
+                    <span className="shrink-0 text-75 tabular-nums text-gray-600">
+                      {g.data.modes.reduce((n, m) => n + m.classes.reduce((k, c) => k + c.weapons.length, 0), 0)} weapons
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
       </form>
     </Dialog>
   );

@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.0',
+    date: '2026-10-22',
+    title: 'Import camo games from a file',
+    changes: [
+      'Add a game on the Call of Duty page now has a third choice, From a file. Pick a JSON file and every game in it is added next to the ones you already track. Nothing you have is changed or replaced.',
+      'A backup file works too: its Call of Duty games are added, and the rest of the backup is ignored.',
+    ],
+  },
+  {
     version: '0.19.3',
     date: '2026-10-21',
     title: 'Cleaner tracker headings',

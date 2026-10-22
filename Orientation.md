@@ -70,7 +70,7 @@ one `camo_games` row per tracked game, `data` jsonb holding modes → tiers
 rule: a tick ticks every earlier tier, a clear clears every later one; military
 is separate. Nothing seeded; only Edit mode changes cells. Undo
 (`useCamoHistory`): 25 snapshots, session only, per account, cleared by a
-restore. The view is per device (`camo-view`); Home reads its mode.
+restore. View per device (`camo-view`). Add a game › From a file: `readCamoImport`.
 
 **Award lists** ([`lib/awards.ts`](src/lib/awards.ts)): game details' Trophies
 section, cached in `game_awards` with the counts at fetch time and refetched on

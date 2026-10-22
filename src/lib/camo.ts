@@ -163,6 +163,44 @@ export const copyOfGame = (source: CamoGame, name: string, sort: number): CamoGa
 });
 
 /* -------------------------------------------------------------------------- */
+/* Import from a file                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Every mode, tier, class and weapon given a new id, ticks kept by position. */
+const withFreshIds = (data: CamoData): CamoData => ({
+  modes: data.modes.map((mode) => ({
+    ...mode,
+    id: newCamoId('mode'),
+    tiers: mode.tiers.map((tier) => ({ ...tier, id: newCamoId('tier') })),
+    classes: mode.classes.map((cls) => ({
+      ...cls,
+      id: newCamoId('cls'),
+      weapons: cls.weapons.map((weapon) => ({ ...weapon, id: newCamoId('wpn') })),
+    })),
+  })),
+});
+
+/**
+ * The games in an import file, ready to add beside the ones already tracked.
+ * Takes a backup (its `camoGames`), a bare list, or one game; each needs a name
+ * and `data`. Every id is new, so an import never overwrites anything.
+ */
+export function readCamoImport(raw: unknown, firstSort: number): CamoGame[] {
+  const root = record(raw);
+  const items = Array.isArray(raw) ? raw : Array.isArray(root.camoGames) ? root.camoGames : root.data ? [raw] : [];
+  return items
+    .map(record)
+    .filter((g) => typeof g.name === 'string' && g.name.trim() && g.data)
+    .map((g, i) => ({
+      id: newCamoId('camo'),
+      name: String(g.name).trim(),
+      sort: firstSort + i,
+      data: withFreshIds(normalizeCamoData(g.data)),
+      updatedAt: new Date().toISOString(),
+    }));
+}
+
+/* -------------------------------------------------------------------------- */
 /* Repair on read                                                             */
 /* -------------------------------------------------------------------------- */
 
