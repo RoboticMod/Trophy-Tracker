@@ -30,7 +30,7 @@ export const CamoBulkBar: React.FC<{
   const index = mode.tiers.findIndex((t) => t.id === tierId);
   const empty = cls.weapons.length === 0;
 
-  const tierOptions = mode.tiers.map((t, i) => ({ value: t.id, label: `${i + 1}. ${t.name}` }));
+  const tierOptions = mode.tiers.map((t) => ({ value: t.id, label: t.name }));
 
   const tools = (
     <>

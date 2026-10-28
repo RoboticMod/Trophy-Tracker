@@ -131,7 +131,7 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
               // Name only: the cells below already show each tier's camo.
               const head = (
                 <span className="line-clamp-2 block w-[4.75rem] text-center text-75 font-bold leading-tight text-gray-800">
-                  {i + 1}. {tier.name}
+                  {tier.name}
                 </span>
               );
               // In Edit mode a header marks its tier for the whole class, and
@@ -172,7 +172,7 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
             <tr key={weapon.id}>
               <th scope="row" className="px-5 py-3 text-left text-150 font-bold text-gray-1000">
                 <span className="flex items-center gap-3">
-                  <WeaponIcon url={weapon.iconUrl} className="h-8 w-20 rounded-sm" />
+                  <WeaponIcon url={weapon.iconUrl} className="h-8 w-20" />
                   {weapon.name}
                 </span>
               </th>
@@ -193,7 +193,6 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
                     <TierCell
                       large
                       tier={tier}
-                      ordinal={i + 1}
                       done={weapon.done[i]}
                       editable={editable}
                       weaponName={weapon.name}
@@ -217,7 +216,7 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
 
 /**
  * Which swatch is which tier, above a phone's cards: the cards carry only the
- * swatch and its number, with no room for a header row.
+ * swatches, in the same order, with no room for a header row.
  */
 export const TierLegend: React.FC<{
   mode: CamoMode;
@@ -241,7 +240,6 @@ export const TierLegend: React.FC<{
             const face = (
               <>
                 <TierSwatch tier={tier} className="h-4 w-4 shrink-0 rounded-sm" />
-                <span className="font-bold tabular-nums text-gray-900">{i + 1}</span>
                 {tier.name}
               </>
             );
@@ -287,7 +285,7 @@ export const CamoCards: React.FC<Omit<GridProps, 'onToggleTier'>> = ({ mode, cls
     {cls.weapons.map((weapon) => (
       <section key={weapon.id} className="panel space-y-3 rounded-lg p-3.5">
         <div className="flex items-center gap-3">
-          <WeaponIcon url={weapon.iconUrl} className="h-7 w-16 rounded-sm" />
+          <WeaponIcon url={weapon.iconUrl} className="h-7 w-16" />
           <h3 className="min-w-0 flex-1 truncate text-150 font-bold text-gray-1000">{weapon.name}</h3>
           {editable ? <RowActions weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} /> : null}
         </div>
@@ -308,7 +306,6 @@ export const CamoCards: React.FC<Omit<GridProps, 'onToggleTier'>> = ({ mode, cls
               {startsTierGroup(mode.tiers, i) ? <span aria-hidden className="w-3" /> : null}
               <TierCell
                 tier={tier}
-                ordinal={i + 1}
                 done={weapon.done[i]}
                 editable={editable}
                 weaponName={weapon.name}

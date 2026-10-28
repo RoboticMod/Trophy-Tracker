@@ -35,15 +35,13 @@ export const TierSwatch: React.FC<{
  */
 export const TierCell: React.FC<{
   tier: CamoTier;
-  /** 1-based, so cells of the same kind can be told apart on a phone. */
-  ordinal: number;
   done: boolean;
   editable: boolean;
   weaponName: string;
   onToggle: () => void;
   /** 56px, for the wide-screen table; 44px otherwise. */
   large?: boolean;
-}> = ({ tier, ordinal, done, editable, weaponName, onToggle, large = false }) => {
+}> = ({ tier, done, editable, weaponName, onToggle, large = false }) => {
   const label = `${weaponName}: ${tier.name} ${done ? 'earned' : 'not earned'}`;
   const face = (
     <TierSwatch
@@ -56,14 +54,6 @@ export const TierCell: React.FC<{
           : 'border-gray-400 opacity-25 grayscale',
       )}
     >
-      <span
-        className={cn(
-          'absolute left-1 top-0.5 font-bold tabular-nums text-gray-1000 drop-shadow-[0_1px_2px_rgb(0_0_0/0.9)]',
-          large ? 'text-75' : 'text-50',
-        )}
-      >
-        {ordinal}
-      </span>
       {done ? (
         <span className="absolute inset-0 flex items-center justify-center">
           <Check size={large ? 22 : 18} strokeWidth={3} className="text-gray-1000 drop-shadow-[0_1px_2px_rgb(0_0_0/0.9)]" />
@@ -94,24 +84,30 @@ export const TierCell: React.FC<{
 };
 
 /**
- * A gun's picture beside its name, when it has one. A fixed box so names line
- * up whatever the picture's shape; a link that fails to load leaves the box
- * empty rather than a broken-image mark.
+ * A gun's picture before its name. The box is always there, so names line up
+ * whether or not a gun has a picture; a link that fails to load leaves it
+ * empty rather than a broken-image mark. Mirrored, so the muzzle points at
+ * the name.
  */
 export const WeaponIcon: React.FC<{ url?: string; className?: string }> = ({ url, className }) => {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [url]);
   const link = checkImageLink(url);
-  if (!link.ok || failed) return null;
   return (
-    <img
-      src={link.url}
-      alt=""
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
-      className={cn('shrink-0 object-contain', className)}
-    />
+    // Always a flex item where it is used, so no display class of its own: the
+    // editor hides it on a phone with `hidden sm:block`.
+    <span aria-hidden className={cn('shrink-0', className)}>
+      {link.ok && !failed ? (
+        <img
+          src={link.url}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full -scale-x-100 object-contain"
+        />
+      ) : null}
+    </span>
   );
 };
 

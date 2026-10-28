@@ -239,7 +239,7 @@ export const CallOfDutyView: React.FC = () => {
       ) : (
         <>
           {/* Game switcher -------------------------------------------------- */}
-          <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:px-0">
+          <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:flex-wrap md:px-0">
             {camoGames.map((g) => (
               <FilterChip key={g.id} selected={g.id === game.id} onClick={() => show({ gameId: g.id })}>
                 {g.name}
@@ -254,7 +254,7 @@ export const CallOfDutyView: React.FC = () => {
           </div>
 
           {/* Mode row ------------------------------------------------------- */}
-          <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:px-0">
+          <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:flex-wrap md:px-0">
             <span className="eyebrow shrink-0 pr-1 text-gray-600">Mode</span>
             {game.data.modes.map((m) => (
               <FilterChip key={m.id} tone="neutral" selected={m.id === mode.id} onClick={() => show({ modeId: m.id })}>
@@ -286,7 +286,7 @@ export const CallOfDutyView: React.FC = () => {
           <MasteryTiles mode={mode} />
 
           {/* Weapon classes ------------------------------------------------- */}
-          <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:px-0">
+          <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:flex-wrap md:px-0">
             {mode.classes.map((c) => (
               <FilterChip key={c.id} selected={c.id === cls.id} onClick={() => show({ classId: c.id })}>
                 <Layers size={14} />

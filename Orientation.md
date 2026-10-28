@@ -195,7 +195,7 @@ the summary Home, the CoD tracker, award lists and replacing restores.
   header and footer, drag to close) and portals to `<body>`. Game details stay
   a sheet below 1024, then `Dialog size="split"`. **The dialog is the only way
   to edit a game.** Scroll lock is reference-counted.
-- **Controls**: 44px on a phone (40 from md); chips scroll (`scroll-row`), not wrap.
+- **Controls**: 44px on a phone (40 from md); chips scroll (`scroll-row`); camo page rows wrap from md (no mouse scrollbar).
 - **Lists**: a row per list with three 2:3 previews on a phone (`posterImage`,
   else Steam's capsule, else cropped art), 2 × 2 mosaic cards from 768. Both
   open with the CoD entry (covers from the library game of the same name) and

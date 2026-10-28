@@ -21,6 +21,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.1',
+    date: '2026-10-28',
+    title: 'Tidier Call of Duty rows',
+    changes: [
+      'Gun pictures sit in front of the name, facing it, and every name lines up whether or not its gun has a picture.',
+      'On a computer, games, modes and weapon classes that don’t fit on one line wrap onto the next, so none are out of reach.',
+      'Camos are shown by name alone: Gold, Platinum, not 1. Gold, 2. Platinum.',
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-10-28',
     title: 'Gun icons, and camo goals that match the game',

@@ -283,7 +283,6 @@ export const CamoEditPanel: React.FC<{
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <TierSwatch tier={tier} className="h-9 w-9 shrink-0 rounded-control" />
-                    <span className="w-5 text-center text-75 font-bold tabular-nums text-gray-600">{i + 1}</span>
                     <div className="min-w-40 flex-1">
                       <CommitInput
                         value={tier.name}
@@ -442,7 +441,7 @@ export const CamoEditPanel: React.FC<{
             <div className="space-y-2">
               {cls.weapons.map((weapon) => (
                 <div key={weapon.id} className="flex items-center gap-2">
-                  <WeaponIcon url={weapon.iconUrl} className="hidden h-8 w-16 rounded-sm sm:block" />
+                  <WeaponIcon url={weapon.iconUrl} className="hidden h-8 w-16 sm:block" />
                   <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                     <CommitInput
                       value={weapon.name}
