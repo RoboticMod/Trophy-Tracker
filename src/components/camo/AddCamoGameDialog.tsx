@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Copy, FilePlus, FileUp } from 'lucide-react';
-import { CamoGame, blankGame, copyOfGame, readCamoImport } from '../../lib/camo';
+import { CamoGame, CamoImportPlan, blankGame, copyOfGame, planCamoImport, readCamoImport } from '../../lib/camo';
 import { cn } from '../../lib/cn';
 import { Button, Dialog, TextInput } from '../ui';
 
@@ -11,7 +11,8 @@ const FILE = 'file';
  * "Add a game": a copy of one already tracked — its modes, tiers, classes and
  * weapons kept, every tick cleared — a blank one with a single mode, a Gold
  * tier and an empty class, or every game in a JSON file (a backup's tracker
- * included), added beside the ones already here.
+ * included), added beside the ones already here. A file game that is already
+ * tracked updates it instead: icons and tier goals only, ticks untouched.
  */
 export const AddCamoGameDialog: React.FC<{
   isOpen: boolean;
@@ -20,18 +21,20 @@ export const AddCamoGameDialog: React.FC<{
   /** The game on screen, offered first as the copy. */
   currentId?: string;
   onAdd: (game: CamoGame) => void;
-}> = ({ isOpen, onClose, games, currentId, onAdd }) => {
+  /** A tracked game the file filled in (icons, goals). */
+  onUpdate: (game: CamoGame) => void;
+}> = ({ isOpen, onClose, games, currentId, onAdd, onUpdate }) => {
   const [name, setName] = useState('');
   const [source, setSource] = useState<string>(BLANK);
   const nameRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [fileGames, setFileGames] = useState<CamoGame[] | null>(null);
+  const [plan, setPlan] = useState<CamoImportPlan | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setName('');
-    setFileGames(null);
+    setPlan(null);
     setFileError(null);
     setSource(currentId && games.some((g) => g.id === currentId) ? currentId : games[0]?.id ?? BLANK);
   }, [isOpen, currentId, games]);
@@ -46,10 +49,13 @@ export const AddCamoGameDialog: React.FC<{
     reader.onload = () => {
       try {
         const found = readCamoImport(JSON.parse(String(reader.result)), nextSort);
-        setFileGames(found);
-        setFileError(found.length ? null : 'No games in that file');
+        const next = planCamoImport(found, games);
+        setPlan(next);
+        setFileError(
+          !found.length ? 'No games in that file' : next.added.length + next.updated.length ? null : 'Nothing new in that file',
+        );
       } catch {
-        setFileGames(null);
+        setPlan(null);
         setFileError('Not a JSON file');
       }
     };
@@ -58,8 +64,9 @@ export const AddCamoGameDialog: React.FC<{
 
   const add = () => {
     if (fromFile) {
-      if (!fileGames?.length) return;
-      fileGames.forEach(onAdd);
+      if (!plan || plan.added.length + plan.updated.length === 0) return;
+      plan.updated.forEach(onUpdate);
+      plan.added.forEach(onAdd);
       onClose();
       return;
     }
@@ -80,10 +87,23 @@ export const AddCamoGameDialog: React.FC<{
     { id: FILE, label: 'From a file', hint: '', icon: <FileUp size={16} /> },
   ];
 
-  const canAdd = fromFile ? Boolean(fileGames?.length) : Boolean(trimmed);
-  const addLabel = fromFile && fileGames?.length
-    ? `Add ${fileGames.length} ${fileGames.length === 1 ? 'game' : 'games'}`
-    : 'Add game';
+  const fileCount = plan ? plan.added.length + plan.updated.length : 0;
+  const canAdd = fromFile ? fileCount > 0 : Boolean(trimmed);
+  const addLabel = !fromFile || !plan || !fileCount
+    ? 'Add game'
+    : plan.added.length && plan.updated.length
+      ? `Add ${plan.added.length}, update ${plan.updated.length}`
+      : plan.updated.length
+        ? `Update ${plan.updated.length} ${plan.updated.length === 1 ? 'game' : 'games'}`
+        : `Add ${plan.added.length} ${plan.added.length === 1 ? 'game' : 'games'}`;
+  const weaponCount = (g: CamoGame) =>
+    g.data.modes.reduce((n, m) => n + m.classes.reduce((k, c) => k + c.weapons.length, 0), 0);
+  const fileRows = plan
+    ? [
+        ...plan.updated.map((g) => ({ game: g, note: 'Update' })),
+        ...plan.added.map((g) => ({ game: g, note: `${weaponCount(g)} weapons` })),
+      ]
+    : [];
 
   return (
     <Dialog
@@ -163,14 +183,12 @@ export const AddCamoGameDialog: React.FC<{
               Choose file
             </Button>
             {fileError ? <p className="text-75 font-semibold text-notice-900">{fileError}</p> : null}
-            {fileGames?.length ? (
+            {fileRows.length ? (
               <ul className="space-y-1 text-90 text-gray-900">
-                {fileGames.map((g) => (
+                {fileRows.map(({ game: g, note }) => (
                   <li key={g.id} className="flex items-baseline justify-between gap-3">
                     <span className="truncate font-bold">{g.name}</span>
-                    <span className="shrink-0 text-75 tabular-nums text-gray-600">
-                      {g.data.modes.reduce((n, m) => n + m.classes.reduce((k, c) => k + c.weapons.length, 0), 0)} weapons
-                    </span>
+                    <span className="shrink-0 text-75 tabular-nums text-gray-600">{note}</span>
                   </li>
                 ))}
               </ul>

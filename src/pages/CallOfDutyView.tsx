@@ -416,6 +416,7 @@ export const CallOfDutyView: React.FC = () => {
           writeGame(added, `Added ${added.name}`);
           show({ gameId: added.id });
         }}
+        onUpdate={(next) => writeGame(next, `Updated ${next.name} from a file`)}
       />
     </div>
   );

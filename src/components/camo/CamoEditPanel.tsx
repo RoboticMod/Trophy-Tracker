@@ -22,7 +22,7 @@ import {
 } from '../../lib/camo';
 import { cn } from '../../lib/cn';
 import { Button, Dialog, Select, TextInput } from '../ui';
-import { CommitInput, ConfirmDialog, TierSwatch } from './CamoBits';
+import { CommitInput, ConfirmDialog, TierSwatch, WeaponIcon } from './CamoBits';
 
 type LinkStatus = 'empty' | 'not-url' | 'loading' | 'loaded' | 'failed';
 
@@ -99,6 +99,44 @@ const ImageLinkField: React.FC<{
   );
 };
 
+/**
+ * How many weapons need the previous mastery tier before this one unlocks,
+ * when the game sets a number (MWII's Orion: Polyatomic on 51). Empty means
+ * this tier on every weapon in the mode.
+ */
+const GoalField: React.FC<{
+  tier: CamoTier;
+  previousName?: string;
+  weaponCount: number;
+  onSave: (goal: number | undefined) => void;
+}> = ({ tier, previousName, weaponCount, onSave }) => {
+  const [draft, setDraft] = useState(tier.goal ? String(tier.goal) : '');
+  useEffect(() => setDraft(tier.goal ? String(tier.goal) : ''), [tier.goal]);
+  const commit = () => {
+    const value = Number.parseInt(draft, 10);
+    const next = Number.isFinite(value) && value > 0 ? value : undefined;
+    if (next !== tier.goal) onSave(next);
+    if (!next) setDraft('');
+  };
+  return (
+    <label className="flex shrink-0 items-center gap-2.5">
+      <span className="text-75 text-gray-700">{previousName ? `${previousName} needed on` : 'Weapons needed'}</span>
+      <TextInput
+        type="number"
+        min={1}
+        inputMode="numeric"
+        value={draft}
+        placeholder={`All ${weaponCount}`}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        aria-label={`Weapons needed for ${tier.name}`}
+        className="w-24"
+      />
+    </label>
+  );
+};
+
 /** A titled part of the panel. */
 const Part: React.FC<{ title: string; action?: React.ReactNode; children: React.ReactNode }> = ({
   title,
@@ -134,6 +172,8 @@ export const CamoEditPanel: React.FC<{
   const [newWeaponName, setNewWeaponName] = useState('');
   const [militaryDraft, setMilitaryDraft] = useState(String(mode.militaryMax));
   useEffect(() => setMilitaryDraft(String(mode.militaryMax)), [mode.militaryMax]);
+
+  const weaponCount = mode.classes.reduce((n, c) => n + c.weapons.length, 0);
 
   const saveMode = (fn: (m: CamoMode) => CamoMode) =>
     onSaveGame({
@@ -298,10 +338,24 @@ export const CamoEditPanel: React.FC<{
                       </Button>
                     </span>
                   </div>
-                  <ImageLinkField
-                    tier={tier}
-                    onSave={(imageUrl) => saveMode((m) => updateTier(m, i, { imageUrl }))}
-                  />
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start">
+                    <div className="min-w-0 flex-1">
+                      <ImageLinkField
+                        tier={tier}
+                        onSave={(imageUrl) => saveMode((m) => updateTier(m, i, { imageUrl }))}
+                      />
+                    </div>
+                    {tierGroup(tier.kind) === 'mastery' ? (
+                      <GoalField
+                        tier={tier}
+                        previousName={
+                          mode.tiers.slice(0, i).filter((t) => tierGroup(t.kind) === 'mastery').pop()?.name
+                        }
+                        weaponCount={weaponCount}
+                        onSave={(goal) => saveMode((m) => updateTier(m, i, { goal }))}
+                      />
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>
@@ -388,7 +442,8 @@ export const CamoEditPanel: React.FC<{
             <div className="space-y-2">
               {cls.weapons.map((weapon) => (
                 <div key={weapon.id} className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
+                  <WeaponIcon url={weapon.iconUrl} className="hidden h-8 w-16 rounded-sm sm:block" />
+                  <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                     <CommitInput
                       value={weapon.name}
                       aria-label={`Name of ${weapon.name}`}
@@ -398,6 +453,26 @@ export const CamoEditPanel: React.FC<{
                           weapons: c.weapons.map((w) => (w.id === weapon.id ? { ...w, name } : w)),
                         }))
                       }
+                    />
+                    <CommitInput
+                      value={weapon.iconUrl ?? ''}
+                      allowEmpty
+                      placeholder="Icon link (https://…)"
+                      aria-label={`Icon link for ${weapon.name}`}
+                      onCommit={(raw) => {
+                        const link = checkImageLink(raw);
+                        if (raw && !link.ok) return;
+                        saveClass((c) => ({
+                          ...c,
+                          weapons: c.weapons.map((w) => {
+                            if (w.id !== weapon.id) return w;
+                            const next = { ...w };
+                            if (link.ok) next.iconUrl = link.url;
+                            else delete next.iconUrl;
+                            return next;
+                          }),
+                        }));
+                      }}
                     />
                   </div>
                   <Button

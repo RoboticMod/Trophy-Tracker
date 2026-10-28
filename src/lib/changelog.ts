@@ -21,6 +21,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.0',
+    date: '2026-10-28',
+    title: 'Gun icons, and camo goals that match the game',
+    changes: [
+      'Each gun in the Call of Duty tracker can show its picture beside its name. Add or change it in Weapons, camos & images, or bring them in from a file.',
+      'A mastery camo can have a number needed, the way the game sets it: MWII’s Orion needs Polyatomic on 51 guns. Its tile then counts the camo before it toward that number, so 15 / 51 means 15 guns have Polyatomic.',
+      'Importing a file for a game you already track now updates it instead of adding a copy: it fills in gun pictures and numbers needed, and leaves your ticks alone.',
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-10-22',
     title: 'Import camo games from a file',

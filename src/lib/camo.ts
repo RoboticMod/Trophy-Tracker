@@ -59,6 +59,13 @@ export interface CamoTier {
   kind: CamoTierKind;
   /** A link to the camo's picture, drawn over its swatch. http(s) only. */
   imageUrl?: string;
+  /**
+   * How many weapons need the previous mastery tier before this one unlocks,
+   * when the game sets a number (MWII's Orion: Polyatomic on 51). Its tile
+   * then counts the previous tier toward this. Absent: this tier's own ticks
+   * against every weapon in the mode.
+   */
+  goal?: number;
 }
 
 export interface CamoWeapon {
@@ -68,6 +75,8 @@ export interface CamoWeapon {
   military: number;
   /** One per tier, in the mode's tier order. */
   done: boolean[];
+  /** A link to the gun's picture, shown beside its name. http(s) only. */
+  iconUrl?: string;
 }
 
 export interface CamoClass {
@@ -180,12 +189,75 @@ const withFreshIds = (data: CamoData): CamoData => ({
   })),
 });
 
+/** A name reduced to letters and digits, for matching a file to what is tracked. */
+const matchKey = (name: string) => name.toLowerCase().replace(/call of duty:?/g, '').replace(/[^a-z0-9]/g, '');
+
+export interface CamoImportPlan {
+  /** Games not tracked yet, to add. */
+  added: CamoGame[];
+  /** Tracked games the file also has: their icons and tier goals, filled in. */
+  updated: CamoGame[];
+}
+
+/**
+ * What an import does: a game already tracked (same name) is updated, not
+ * added twice — its weapons get the file's icons and its tiers the file's
+ * goals, matched by name. Ticks, military counts, weapons and tiers are never
+ * added, removed or changed. Every other game in the file is added.
+ */
+export function planCamoImport(incoming: CamoImportGame[], existing: CamoGame[]): CamoImportPlan {
+  const added: CamoGame[] = [];
+  const updated: CamoGame[] = [];
+  for (const game of incoming) {
+    const target = existing.find((g) => matchKey(g.name) === matchKey(game.name));
+    if (!target) {
+      if (!game.updateOnly) {
+        const { updateOnly: _skip, ...fresh } = game;
+        void _skip;
+        added.push(fresh);
+      }
+      continue;
+    }
+    const icons = new Map<string, string>();
+    const goals = new Map<string, number>();
+    for (const mode of game.data.modes) {
+      for (const tier of mode.tiers) if (tier.goal) goals.set(matchKey(tier.name), tier.goal);
+      for (const cls of mode.classes)
+        for (const weapon of cls.weapons) if (weapon.iconUrl) icons.set(matchKey(weapon.name), weapon.iconUrl);
+    }
+    let changed = false;
+    const modes = target.data.modes.map((mode) => ({
+      ...mode,
+      tiers: mode.tiers.map((tier) => {
+        const goal = goals.get(matchKey(tier.name));
+        if (!goal || goal === tier.goal) return tier;
+        changed = true;
+        return { ...tier, goal };
+      }),
+      classes: mode.classes.map((cls) => ({
+        ...cls,
+        weapons: cls.weapons.map((weapon) => {
+          const iconUrl = icons.get(matchKey(weapon.name));
+          if (!iconUrl || iconUrl === weapon.iconUrl) return weapon;
+          changed = true;
+          return { ...weapon, iconUrl };
+        }),
+      })),
+    }));
+    if (changed) updated.push({ ...target, data: { modes } });
+  }
+  return { added, updated };
+}
+
 /**
  * The games in an import file, ready to add beside the ones already tracked.
  * Takes a backup (its `camoGames`), a bare list, or one game; each needs a name
  * and `data`. Every id is new, so an import never overwrites anything.
  */
-export function readCamoImport(raw: unknown, firstSort: number): CamoGame[] {
+/** A game read from a file. `updateOnly`: fill in a tracked game, never add it. */
+export type CamoImportGame = CamoGame & { updateOnly?: boolean };
+
+export function readCamoImport(raw: unknown, firstSort: number): CamoImportGame[] {
   const root = record(raw);
   const items = Array.isArray(raw) ? raw : Array.isArray(root.camoGames) ? root.camoGames : root.data ? [raw] : [];
   return items
@@ -197,6 +269,7 @@ export function readCamoImport(raw: unknown, firstSort: number): CamoGame[] {
       sort: firstSort + i,
       data: withFreshIds(normalizeCamoData(g.data)),
       updatedAt: new Date().toISOString(),
+      ...(g.updateOnly === true ? { updateOnly: true } : {}),
     }));
 }
 
@@ -230,11 +303,13 @@ export function normalizeCamoData(raw: unknown): CamoData {
         ? (tier.kind as CamoTierKind)
         : 'gold';
       const imageUrl = typeof tier.imageUrl === 'string' ? tier.imageUrl : undefined;
+      const goal = count(tier.goal);
       return {
         id: str(tier.id, `tier-${ti}`),
         name: str(tier.name, CAMO_KIND_LABEL[kind]),
         kind,
         ...(imageUrl ? { imageUrl } : {}),
+        ...(goal > 0 ? { goal } : {}),
       };
     }));
     const classes = list(mode.classes).map((c, ci): CamoClass => {
@@ -245,11 +320,13 @@ export function normalizeCamoData(raw: unknown): CamoData {
         weapons: list(cls.weapons).map((w, wi): CamoWeapon => {
           const weapon = record(w);
           const done = list(weapon.done);
+          const icon = typeof weapon.iconUrl === 'string' ? checkImageLink(weapon.iconUrl) : null;
           return {
             id: str(weapon.id, `wpn-${ci}-${wi}`),
             name: str(weapon.name, `Weapon ${wi + 1}`),
             military: Math.min(militaryMax, count(weapon.military)),
             done: tiers.map((_, i) => done[i] === true),
+            ...(icon?.ok ? { iconUrl: icon.url } : {}),
           };
         }),
       };
@@ -364,6 +441,7 @@ export const updateTier = (mode: CamoMode, index: number, patch: Partial<CamoTie
       if (i !== index) return tier;
       const next = { ...tier, ...patch };
       if (!next.imageUrl) delete next.imageUrl;
+      if (!next.goal) delete next.goal;
       return next;
     }),
   });
@@ -393,21 +471,27 @@ export interface MasteryTile {
   locked: boolean;
 }
 
-/** One tile per non-special tier, in unlock order. */
+/**
+ * One tile per non-special tier, in unlock order. A tier with a goal counts
+ * the weapons that have the previous mastery tier, toward that goal — how
+ * close it is to unlocking. Any other tier counts its own ticks against every
+ * weapon.
+ */
 export function masteryTiles(mode: CamoMode): MasteryTile[] {
   const weapons = modeWeapons(mode);
   const tiles: MasteryTile[] = [];
   mode.tiers.forEach((tier, index) => {
     if (tier.kind === 'special') return;
-    const done = weapons.filter((w) => w.done[index]).length;
-    const total = weapons.length;
     const previous = tiles[tiles.length - 1];
+    const counted = tier.goal && previous ? previous.index : index;
+    const done = weapons.filter((w) => w.done[counted]).length;
+    const total = tier.goal ?? weapons.length;
     tiles.push({
       tier,
       index,
       done,
       total,
-      complete: total > 0 && done === total,
+      complete: total > 0 && done >= total,
       locked: previous !== undefined && !previous.complete && done === 0,
     });
   });

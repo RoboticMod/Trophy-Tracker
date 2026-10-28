@@ -93,6 +93,28 @@ export const TierCell: React.FC<{
   );
 };
 
+/**
+ * A gun's picture beside its name, when it has one. A fixed box so names line
+ * up whatever the picture's shape; a link that fails to load leaves the box
+ * empty rather than a broken-image mark.
+ */
+export const WeaponIcon: React.FC<{ url?: string; className?: string }> = ({ url, className }) => {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [url]);
+  const link = checkImageLink(url);
+  if (!link.ok || failed) return null;
+  return (
+    <img
+      src={link.url}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className={cn('shrink-0 object-contain', className)}
+    />
+  );
+};
+
 /** "Locked", in place of a figure, for a tier not open yet. */
 export const LockedLabel: React.FC = () => (
   <span className="inline-flex items-center gap-1 text-75 font-bold text-gray-600">

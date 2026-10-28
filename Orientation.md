@@ -70,7 +70,8 @@ one `camo_games` row per tracked game, `data` jsonb holding modes → tiers
 rule: a tick ticks every earlier tier, a clear clears every later one; military
 is separate. Nothing seeded; only Edit mode changes cells. Undo
 (`useCamoHistory`): 25 snapshots, session only, per account, cleared by a
-restore. View per device (`camo-view`). Add a game › From a file: `readCamoImport`.
+restore. `planCamoImport` adds new games, fills icons/goals into tracked ones;
+a tier `goal` makes its tile count the previous tier. View per device (`camo-view`).
 
 **Award lists** ([`lib/awards.ts`](src/lib/awards.ts)): game details' Trophies
 section, cached in `game_awards` with the counts at fetch time and refetched on
@@ -89,11 +90,10 @@ UI  →  GameContext  →  optimistic setState (+ latest ref)
 [`GameContext`](src/context/GameContext.tsx) is the only writer, the camo
 tracker included (`saveCamoGame`, queue kind `camo`).
 
-- **Optimistic, always**; a failed write keeps the change and queues. A
-  `latest` ref sits beside state for anything read across an await.
+- **Optimistic, always**; a failed write queues. A `latest` ref sits beside
+  state for reads across an await. Seeding is outside the load's `try`.
 - **`localCache` snapshot** paints the last library first; a `CACHE_VERSION`
   mismatch returns `null` rather than painting an old model.
-- **Seeding sits outside the load's `try`**; an empty server is `needsSetup`.
 - **Later tables load on their own** (`platform_accounts`, `camo_games`,
   `game_awards`): a project missing one keeps its library; the tracker says it
   cannot save, award lists fetch live.

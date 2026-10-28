@@ -13,7 +13,7 @@ import {
 } from '../../lib/camo';
 import { cn } from '../../lib/cn';
 import { Button, Meter } from '../ui';
-import { TierCell, TierSwatch } from './CamoBits';
+import { TierCell, TierSwatch, WeaponIcon } from './CamoBits';
 
 interface GridProps {
   mode: CamoMode;
@@ -171,7 +171,10 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
           {cls.weapons.map((weapon) => (
             <tr key={weapon.id}>
               <th scope="row" className="px-5 py-3 text-left text-150 font-bold text-gray-1000">
-                {weapon.name}
+                <span className="flex items-center gap-3">
+                  <WeaponIcon url={weapon.iconUrl} className="h-8 w-20 rounded-sm" />
+                  {weapon.name}
+                </span>
               </th>
               <td className="px-4 py-3">
                 <span className="flex items-center gap-3">
@@ -284,6 +287,7 @@ export const CamoCards: React.FC<Omit<GridProps, 'onToggleTier'>> = ({ mode, cls
     {cls.weapons.map((weapon) => (
       <section key={weapon.id} className="panel space-y-3 rounded-lg p-3.5">
         <div className="flex items-center gap-3">
+          <WeaponIcon url={weapon.iconUrl} className="h-7 w-16 rounded-sm" />
           <h3 className="min-w-0 flex-1 truncate text-150 font-bold text-gray-1000">{weapon.name}</h3>
           {editable ? <RowActions weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} /> : null}
         </div>
