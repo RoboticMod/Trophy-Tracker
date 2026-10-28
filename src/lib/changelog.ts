@@ -21,6 +21,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.2',
+    date: '2026-10-28',
+    title: 'Gun pictures after the name',
+    changes: ['In the Call of Duty tracker, each gun’s picture now sits after its name, and the pictures line up in a column.'],
+  },
+  {
     version: '0.21.1',
     date: '2026-10-28',
     title: 'Tidier Call of Duty rows',

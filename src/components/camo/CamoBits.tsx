@@ -84,10 +84,9 @@ export const TierCell: React.FC<{
 };
 
 /**
- * A gun's picture before its name. The box is always there, so names line up
- * whether or not a gun has a picture; a link that fails to load leaves it
- * empty rather than a broken-image mark. Mirrored, so the muzzle points at
- * the name.
+ * A gun's picture after its name. The box is always there, so pictures line up
+ * whether or not a gun has one; a link that fails to load leaves it empty
+ * rather than a broken-image mark. Mirrored, as the wiki's face right.
  */
 export const WeaponIcon: React.FC<{ url?: string; className?: string }> = ({ url, className }) => {
   const [failed, setFailed] = useState(false);

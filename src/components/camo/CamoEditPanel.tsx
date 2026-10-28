@@ -441,7 +441,6 @@ export const CamoEditPanel: React.FC<{
             <div className="space-y-2">
               {cls.weapons.map((weapon) => (
                 <div key={weapon.id} className="flex items-center gap-2">
-                  <WeaponIcon url={weapon.iconUrl} className="hidden h-8 w-16 sm:block" />
                   <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                     <CommitInput
                       value={weapon.name}
@@ -474,6 +473,7 @@ export const CamoEditPanel: React.FC<{
                       }}
                     />
                   </div>
+                  <WeaponIcon url={weapon.iconUrl} className="hidden h-8 w-16 sm:block" />
                   <Button
                     iconOnly
                     size="m"

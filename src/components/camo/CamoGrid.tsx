@@ -172,8 +172,8 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
             <tr key={weapon.id}>
               <th scope="row" className="px-5 py-3 text-left text-150 font-bold text-gray-1000">
                 <span className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1">{weapon.name}</span>
                   <WeaponIcon url={weapon.iconUrl} className="h-8 w-20" />
-                  {weapon.name}
                 </span>
               </th>
               <td className="px-4 py-3">
@@ -285,8 +285,8 @@ export const CamoCards: React.FC<Omit<GridProps, 'onToggleTier'>> = ({ mode, cls
     {cls.weapons.map((weapon) => (
       <section key={weapon.id} className="panel space-y-3 rounded-lg p-3.5">
         <div className="flex items-center gap-3">
-          <WeaponIcon url={weapon.iconUrl} className="h-7 w-16" />
           <h3 className="min-w-0 flex-1 truncate text-150 font-bold text-gray-1000">{weapon.name}</h3>
+          <WeaponIcon url={weapon.iconUrl} className="h-7 w-16" />
           {editable ? <RowActions weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} /> : null}
         </div>
         <div className="flex items-center gap-3">
