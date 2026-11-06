@@ -12,7 +12,8 @@ const FILE = 'file';
  * weapons kept, every tick cleared — a blank one with a single mode, a Gold
  * tier and an empty class, or every game in a JSON file (a backup's tracker
  * included), added beside the ones already here. A file game that is already
- * tracked updates it instead: icons and tier goals only, ticks untouched.
+ * tracked updates it instead: icons, tier goals and missing pictures only,
+ * ticks untouched.
  */
 export const AddCamoGameDialog: React.FC<{
   isOpen: boolean;
@@ -21,7 +22,7 @@ export const AddCamoGameDialog: React.FC<{
   /** The game on screen, offered first as the copy. */
   currentId?: string;
   onAdd: (game: CamoGame) => void;
-  /** A tracked game the file filled in (icons, goals). */
+  /** A tracked game the file filled in (icons, goals, pictures). */
   onUpdate: (game: CamoGame) => void;
 }> = ({ isOpen, onClose, games, currentId, onAdd, onUpdate }) => {
   const [name, setName] = useState('');

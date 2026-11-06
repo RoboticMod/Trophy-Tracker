@@ -14,6 +14,7 @@ import {
   newClass,
   newWeapon,
   removeTier,
+  setMilitaryImage,
   setMilitaryMax,
   setTierGroup,
   startsTierGroup,
@@ -35,15 +36,17 @@ const LINK_STATUS_TEXT: Record<LinkStatus, string> = {
 };
 
 /**
- * A tier's image link, with what became of it underneath. Only an http(s)
- * address is kept; anything else stays in the field, marked, and is not saved.
+ * An image link — a tier's, or a military camo's — with what became of it
+ * underneath. Only an http(s) address is kept; anything else stays in the
+ * field, marked, and is not saved.
  */
 const ImageLinkField: React.FC<{
-  tier: CamoTier;
+  value?: string;
+  label: string;
   onSave: (url: string | undefined) => void;
-}> = ({ tier, onSave }) => {
-  const [draft, setDraft] = useState(tier.imageUrl ?? '');
-  useEffect(() => setDraft(tier.imageUrl ?? ''), [tier.imageUrl]);
+}> = ({ value, label, onSave }) => {
+  const [draft, setDraft] = useState(value ?? '');
+  useEffect(() => setDraft(value ?? ''), [value]);
 
   const check = checkImageLink(draft);
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
@@ -66,8 +69,8 @@ const ImageLinkField: React.FC<{
   const status: LinkStatus = check.ok ? loadState : check.reason;
 
   const commit = () => {
-    if (check.ok && check.url !== tier.imageUrl) onSave(check.url);
-    else if (!check.ok && check.reason === 'empty' && tier.imageUrl) onSave(undefined);
+    if (check.ok && check.url !== value) onSave(check.url);
+    else if (!check.ok && check.reason === 'empty' && value) onSave(undefined);
   };
 
   return (
@@ -78,7 +81,7 @@ const ImageLinkField: React.FC<{
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         placeholder="Image link (https://…)"
-        aria-label={`Image link for ${tier.name}`}
+        aria-label={label}
         inputMode="url"
       />
       {status === 'empty' ? null : (
@@ -271,6 +274,33 @@ export const CamoEditPanel: React.FC<{
                 />
               </label>
             </div>
+            {/* Collapsed: most games have no shared military pictures, and
+                Cold War has 35 of them. */}
+            {mode.militaryMax > 0 ? (
+              <details className="group mt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-75 font-bold text-gray-700">
+                  <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+                  Military camo pictures
+                  <span className="font-semibold tabular-nums text-gray-600">
+                    {(mode.militaryImages ?? []).filter(Boolean).length} / {mode.militaryMax}
+                  </span>
+                </summary>
+                <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+                  {Array.from({ length: mode.militaryMax }, (_, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="mt-2.5 w-5 shrink-0 text-75 font-bold tabular-nums text-gray-600">{i + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <ImageLinkField
+                          value={mode.militaryImages?.[i] || undefined}
+                          label={`Picture for military camo ${i + 1}`}
+                          onSave={(url) => saveMode((m) => setMilitaryImage(m, i, url ?? ''))}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </Part>
 
           {/* Tiers ----------------------------------------------------------- */}
@@ -340,7 +370,8 @@ export const CamoEditPanel: React.FC<{
                   <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start">
                     <div className="min-w-0 flex-1">
                       <ImageLinkField
-                        tier={tier}
+                        value={tier.imageUrl}
+                        label={`Image link for ${tier.name}`}
                         onSave={(imageUrl) => saveMode((m) => updateTier(m, i, { imageUrl }))}
                       />
                     </div>

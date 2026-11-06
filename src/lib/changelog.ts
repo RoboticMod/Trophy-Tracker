@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.0',
+    date: '2026-11-06',
+    title: 'Military camo pictures',
+    changes: [
+      'A mode can show its military camos as pictures: each gun lights up as many as it has earned, in place of the bar. Set them under Weapons, camos & images, in Military camo pictures, or bring them in from a file.',
+      'Importing a file for a game you already track now also fills in camo and military pictures it is missing. Pictures you set yourself are kept.',
+    ],
+  },
+  {
     version: '0.21.2',
     date: '2026-10-28',
     title: 'Gun pictures after the name',

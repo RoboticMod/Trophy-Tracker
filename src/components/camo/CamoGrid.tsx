@@ -4,9 +4,11 @@ import {
   CamoClass,
   CamoMode,
   CamoWeapon,
+  checkImageLink,
   classHasTier,
   clearWeapon,
   completeWeapon,
+  cssImage,
   setWeaponMilitary,
   setWeaponTier,
   startsTierGroup,
@@ -53,6 +55,38 @@ const MilitaryFigure: React.FC<{ weapon: CamoWeapon; max: number; large?: boolea
     )}
   </span>
 );
+
+/**
+ * A weapon's military camos as pictures, lit up to its count, for a mode that
+ * has them; otherwise a meter. A camo without a picture shows a plain square.
+ */
+const MilitaryProgress: React.FC<{ weapon: CamoWeapon; mode: CamoMode; large?: boolean }> = ({
+  weapon,
+  mode,
+  large = false,
+}) => {
+  if (!mode.militaryImages?.length || mode.militaryMax === 0) {
+    return <Meter value={militaryPercent(weapon, mode.militaryMax)} label={`${weapon.name} military`} />;
+  }
+  return (
+    <span role="img" aria-label={`${weapon.name} military: ${weapon.military} of ${mode.militaryMax}`} className="flex flex-wrap gap-1">
+      {Array.from({ length: mode.militaryMax }, (_, i) => {
+        const link = checkImageLink(mode.militaryImages?.[i]);
+        return (
+          <span
+            key={i}
+            className={cn(
+              'block shrink-0 rounded-sm border bg-gray-300 bg-cover bg-center transition-all',
+              large ? 'h-6 w-6' : 'h-5 w-5',
+              i < weapon.military ? 'border-gray-1000/40' : 'border-gray-400 opacity-25 grayscale',
+            )}
+            style={link.ok ? { backgroundImage: cssImage(link.url) } : undefined}
+          />
+        );
+      })}
+    </span>
+  );
+};
 
 /** − and + for one weapon's military count, Edit mode only. */
 const MilitaryStepper: React.FC<{
@@ -124,7 +158,15 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
             <th scope="col" className="eyebrow min-w-48 px-5 py-4 text-left align-bottom text-gray-600">
               Weapon
             </th>
-            <th scope="col" className="eyebrow w-64 min-w-56 px-4 py-4 text-left align-bottom text-gray-600">
+            {/* Wider while editing, so eight military pictures still fit on
+                one line beside − and +. */}
+            <th
+              scope="col"
+              className={cn(
+                'eyebrow px-4 py-4 text-left align-bottom text-gray-600',
+                editable ? 'w-88 min-w-80' : 'w-64 min-w-56',
+              )}
+            >
               Military
             </th>
             {mode.tiers.map((tier, i) => {
@@ -180,7 +222,7 @@ export const CamoTable: React.FC<GridProps> = ({ mode, cls, editable, onWeapon, 
                 <span className="flex items-center gap-3">
                   <span className="min-w-0 flex-1 space-y-2">
                     <MilitaryFigure weapon={weapon} max={mode.militaryMax} large />
-                    <Meter value={militaryPercent(weapon, mode.militaryMax)} label={`${weapon.name} military`} />
+                    <MilitaryProgress weapon={weapon} mode={mode} large />
                   </span>
                   {editable && mode.militaryMax > 0 ? (
                     <MilitaryStepper weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} large />
@@ -293,7 +335,7 @@ export const CamoCards: React.FC<Omit<GridProps, 'onToggleTier'>> = ({ mode, cls
           <span className="eyebrow shrink-0 text-gray-600">Military</span>
           <span className="min-w-0 flex-1 space-y-1.5">
             <MilitaryFigure weapon={weapon} max={mode.militaryMax} />
-            <Meter value={militaryPercent(weapon, mode.militaryMax)} label={`${weapon.name} military`} />
+            <MilitaryProgress weapon={weapon} mode={mode} />
           </span>
           {editable && mode.militaryMax > 0 ? (
             <MilitaryStepper weapon={weapon} max={mode.militaryMax} onWeapon={onWeapon} />

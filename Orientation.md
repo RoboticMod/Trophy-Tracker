@@ -66,11 +66,11 @@ put, and an explicit `collections` in the same edit wins.
 **The camo tracker** ([`lib/camo.ts`](src/lib/camo.ts), all rules, no React):
 one `camo_games` row per tracked game, `data` jsonb holding modes → tiers
 (Special or Mastery; a mastery tier's colour — gold, diamond, then dark — follows its order; optional image link) and classes → weapons
-(`military`, `done[]` per tier), repaired on read (`normalizeCamoData`). Chain
+(`military`, `done[]` per tier; a mode may hold `militaryImages`, shown lit to the count), repaired on read (`normalizeCamoData`). Chain
 rule: a tick ticks every earlier tier, a clear clears every later one; military
 is separate. Nothing seeded; only Edit mode changes cells. Undo
 (`useCamoHistory`): 25 snapshots, session only, per account, cleared by a
-restore. `planCamoImport` adds new games, fills icons/goals into tracked ones;
+restore. `planCamoImport` adds new games, fills icons, goals and missing pictures into tracked ones;
 a tier `goal` makes its tile count the previous tier. View per device (`camo-view`).
 
 **Award lists** ([`lib/awards.ts`](src/lib/awards.ts)): game details' Trophies
