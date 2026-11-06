@@ -21,6 +21,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.0',
+    date: '2026-11-06',
+    title: 'Camo pictures, challenges and real unlock numbers',
+    changes: [
+      'Military camos show as pictures for every Call of Duty game, lit up to your count. Tap one to set your count to it.',
+      'Ticks no longer need Edit: tap a camo to tick it, with Undo beside Edit. Edit is for games, weapons, camos and the bulk tools.',
+      'Camo names are gone from the page. Hover over a camo, or press and hold on a phone, to see its name, what unlocks it and its challenge for that gun.',
+      'Each mastery bar fills at the number of guns the game asks for: MWII’s Gold, Platinum and Polyatomic at 51, MWIII’s at 36, Harmonic Break at 33. Camos every gun gets at once, such as Orion, read Unlocked.',
+      'A game whose last mastery camo is unlocked turns gold, like a game with every achievement.',
+      'In Lists, each Call of Duty game shows the furthest mastery camo you have finished, with a tick.',
+    ],
+  },
+  {
     version: '0.22.1',
     date: '2026-11-06',
     title: 'Delete a Call of Duty game in one place',

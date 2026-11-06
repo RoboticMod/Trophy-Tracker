@@ -53,19 +53,41 @@ export const withMasteryKinds = <T extends { kind: CamoTierKind }>(tiers: T[]): 
 export const startsTierGroup = (tiers: { kind: CamoTierKind }[], i: number): boolean =>
   i > 0 && tierGroup(tiers[i].kind) !== tierGroup(tiers[i - 1].kind);
 
-export interface CamoTier {
+/**
+ * What it takes to earn a camo, for its hover card. `challenges` holds the
+ * game's variants, keyed by `challengeKey` of a weapon's or a class's name —
+ * the weapon's wins — and `challenge` is the text for everything else.
+ */
+export interface CamoChallenge {
+  challenge?: string;
+  challenges?: Record<string, string>;
+}
+
+export interface CamoTier extends CamoChallenge {
   id: string;
   name: string;
   kind: CamoTierKind;
   /** A link to the camo's picture, drawn over its swatch. http(s) only. */
   imageUrl?: string;
+  /** What opens this tier's challenge ("Unlock Platinum on 51 weapons"). */
+  unlock?: string;
   /**
-   * How many weapons need the previous mastery tier before this one unlocks,
-   * when the game sets a number (MWII's Orion: Polyatomic on 51). Its tile
-   * then counts the previous tier toward this. Absent: this tier's own ticks
-   * against every weapon in the mode.
+   * How many weapons need this tier, when the game sets a number — the count
+   * the next tier asks for (MWII's Platinum: 51, for Polyatomic). Its tile is
+   * full there. Absent: every weapon in the mode.
    */
-  goal?: number;
+  need?: number;
+  /**
+   * Earned by every weapon at once when the tier before it is full (MWII's
+   * Orion). Its tile reads Unlocked then, or once any weapon is ticked.
+   */
+  auto?: boolean;
+}
+
+/** One military camo: its name, picture and challenge. */
+export interface MilitaryCamo extends CamoChallenge {
+  name: string;
+  imageUrl?: string;
 }
 
 export interface CamoWeapon {
@@ -77,12 +99,16 @@ export interface CamoWeapon {
   done: boolean[];
   /** A link to the gun's picture, shown beside its name. http(s) only. */
   iconUrl?: string;
+  /** This weapon's own military camos, in unlock order (MWII, MWIII). */
+  militaryCamos?: MilitaryCamo[];
 }
 
 export interface CamoClass {
   id: string;
   name: string;
   weapons: CamoWeapon[];
+  /** Military camos every weapon in the class shares (MW2019). */
+  militaryCamos?: MilitaryCamo[];
 }
 
 export interface CamoMode {
@@ -91,11 +117,11 @@ export interface CamoMode {
   /** Military camos per weapon in this mode. 0 until set. */
   militaryMax: number;
   /**
-   * A picture per military camo, in unlock order, when the game uses the same
-   * ones on every weapon (MW4). '' for one without a picture. Absent: the
-   * military count shows as a meter.
+   * Military camos every weapon in the mode shares (Cold War, MW4), in unlock
+   * order. A class's or weapon's own list wins over this. With none at all,
+   * the military count shows as a meter.
    */
-  militaryImages?: string[];
+  militaryCamos?: MilitaryCamo[];
   /** In unlock order. */
   tiers: CamoTier[];
   classes: CamoClass[];
@@ -198,21 +224,38 @@ const withFreshIds = (data: CamoData): CamoData => ({
 /** A name reduced to letters and digits, for matching a file to what is tracked. */
 const matchKey = (name: string) => name.toLowerCase().replace(/call of duty:?/g, '').replace(/[^a-z0-9]/g, '');
 
+/** The key a `challenges` entry is stored under: a weapon's or a class's name, reduced. */
+export const challengeKey = matchKey;
+
 export interface CamoImportPlan {
   /** Games not tracked yet, to add. */
   added: CamoGame[];
-  /** Tracked games the file also has: icons, tier goals and missing pictures, filled in. */
+  /** Tracked games the file also has, with what it adds filled in. */
   updated: CamoGame[];
 }
 
+const has = (list: unknown[] | undefined) => Boolean(list && list.length);
+
+/** A tier with the file's numbers, and whatever of its words and picture it lacks. */
+const fillTier = (tier: CamoTier, from: CamoTier | undefined): CamoTier => {
+  if (!from) return tier;
+  return {
+    ...tier,
+    ...(from.need ? { need: from.need } : {}),
+    ...(from.auto ? { auto: true } : {}),
+    ...(!tier.imageUrl && from.imageUrl ? { imageUrl: from.imageUrl } : {}),
+    ...(!tier.unlock && from.unlock ? { unlock: from.unlock } : {}),
+    ...(!tier.challenge && from.challenge ? { challenge: from.challenge } : {}),
+    ...(!tier.challenges && from.challenges ? { challenges: from.challenges } : {}),
+  };
+};
+
 /**
  * What an import does: a game already tracked (same name) is updated, not
- * added twice — its weapons get the file's icons and its tiers the file's
- * goals, matched by name. A tier with no image gets the file's, and a mode
- * with no military pictures the file's; ones already set are kept, as they
- * may be the user's own. Ticks, military counts, weapons
- * and tiers are never added, removed or changed. Every other game in the file
- * is added.
+ * added twice. Matched by name: weapons get the file's icons, tiers its
+ * numbers needed. Pictures, challenges and military camos fill only what is
+ * missing, so the user's own stay. Ticks, military counts, weapons and tiers
+ * are never added, removed or changed. Every other game in the file is added.
  */
 export function planCamoImport(incoming: CamoImportGame[], existing: CamoGame[]): CamoImportPlan {
   const added: CamoGame[] = [];
@@ -227,51 +270,43 @@ export function planCamoImport(incoming: CamoImportGame[], existing: CamoGame[])
       }
       continue;
     }
-    const icons = new Map<string, string>();
-    const goals = new Map<string, number>();
-    const images = new Map<string, string>();
+    const tiers = new Map<string, CamoTier>();
+    const weapons = new Map<string, CamoWeapon>();
     for (const mode of game.data.modes) {
-      for (const tier of mode.tiers) {
-        if (tier.goal) goals.set(matchKey(tier.name), tier.goal);
-        if (tier.imageUrl) images.set(matchKey(tier.name), tier.imageUrl);
-      }
-      for (const cls of mode.classes)
-        for (const weapon of cls.weapons) if (weapon.iconUrl) icons.set(matchKey(weapon.name), weapon.iconUrl);
+      for (const tier of mode.tiers) if (!tiers.has(matchKey(tier.name))) tiers.set(matchKey(tier.name), tier);
+      for (const cls of mode.classes) for (const weapon of cls.weapons) weapons.set(matchKey(weapon.name), weapon);
     }
-    let changed = false;
-    // Military pictures go to the mode of the same name, only if it has none.
-    const military = (mode: CamoMode) => {
-      if (mode.militaryImages?.length) return {};
-      const from = game.data.modes.find((m) => matchKey(m.name) === matchKey(mode.name));
-      const militaryImages = cleanMilitaryImages(from?.militaryImages ?? [], mode.militaryMax);
-      if (!militaryImages) return {};
-      changed = true;
-      return { militaryImages };
-    };
-    const modes = target.data.modes.map((mode) => ({
-      ...mode,
-      ...military(mode),
-      tiers: mode.tiers.map((tier) => {
-        const next = { ...tier };
-        const goal = goals.get(matchKey(tier.name));
-        if (goal && goal !== tier.goal) next.goal = goal;
-        const imageUrl = images.get(matchKey(tier.name));
-        if (imageUrl && !tier.imageUrl) next.imageUrl = imageUrl;
-        if (next.goal === tier.goal && next.imageUrl === tier.imageUrl) return tier;
-        changed = true;
-        return next;
-      }),
-      classes: mode.classes.map((cls) => ({
-        ...cls,
-        weapons: cls.weapons.map((weapon) => {
-          const iconUrl = icons.get(matchKey(weapon.name));
-          if (!iconUrl || iconUrl === weapon.iconUrl) return weapon;
-          changed = true;
-          return { ...weapon, iconUrl };
+    // A mode, and its classes, take their shared military camos from the
+    // file's mode of the same name — or its only mode, when each has one.
+    const sameMode = (mode: CamoMode) =>
+      game.data.modes.find((m) => matchKey(m.name) === matchKey(mode.name)) ??
+      (game.data.modes.length === 1 && target.data.modes.length === 1 ? game.data.modes[0] : undefined);
+    const modes = target.data.modes.map((mode): CamoMode => {
+      const from = sameMode(mode);
+      return {
+        ...mode,
+        ...(!has(mode.militaryCamos) && has(from?.militaryCamos) ? { militaryCamos: from!.militaryCamos } : {}),
+        tiers: mode.tiers.map((tier) => fillTier(tier, tiers.get(matchKey(tier.name)))),
+        classes: mode.classes.map((cls) => {
+          const fromClass = from?.classes.find((c) => matchKey(c.name) === matchKey(cls.name));
+          return {
+            ...cls,
+            ...(!has(cls.militaryCamos) && has(fromClass?.militaryCamos) ? { militaryCamos: fromClass!.militaryCamos } : {}),
+            weapons: cls.weapons.map((weapon) => {
+              const file = weapons.get(matchKey(weapon.name));
+              if (!file) return weapon;
+              return {
+                ...weapon,
+                ...(file.iconUrl ? { iconUrl: file.iconUrl } : {}),
+                ...(!has(weapon.militaryCamos) && has(file.militaryCamos) ? { militaryCamos: file.militaryCamos } : {}),
+              };
+            }),
+          };
         }),
-      })),
-    }));
-    if (changed) updated.push({ ...target, data: { modes } });
+      };
+    });
+    const next = { ...target, data: { modes } };
+    if (JSON.stringify(next.data) !== JSON.stringify(target.data)) updated.push(next);
   }
   return { added, updated };
 }
@@ -315,71 +350,108 @@ const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
-/**
- * Military pictures kept to http(s) links, at most one per military camo, with
- * no empty ones trailing. Undefined when none is left.
- */
-export const cleanMilitaryImages = (images: string[], max: number): string[] | undefined => {
-  const kept = images.slice(0, max).map((u) => {
-    const link = checkImageLink(u);
-    return link.ok ? link.url : '';
+const text = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+const link = (value: unknown): string | undefined => {
+  const checked = typeof value === 'string' ? checkImageLink(value) : null;
+  return checked?.ok ? checked.url : undefined;
+};
+
+const readChallenge = (raw: Record<string, unknown>): CamoChallenge => {
+  const challenge = text(raw.challenge);
+  const challenges = Object.fromEntries(
+    Object.entries(record(raw.challenges)).flatMap(([k, v]) => (text(v) ? [[k, text(v)!]] : [])),
+  );
+  return {
+    ...(challenge ? { challenge } : {}),
+    ...(Object.keys(challenges).length ? { challenges } : {}),
+  };
+};
+
+const readMilitaryCamos = (value: unknown): MilitaryCamo[] | undefined => {
+  const camos = list(value).map((c, i): MilitaryCamo => {
+    const camo = record(c);
+    const imageUrl = link(camo.imageUrl);
+    return { name: str(camo.name, `Military camo ${i + 1}`), ...(imageUrl ? { imageUrl } : {}), ...readChallenge(camo) };
   });
-  while (kept.length && !kept[kept.length - 1]) kept.pop();
-  return kept.length ? kept : undefined;
+  return camos.length ? camos : undefined;
 };
 
 /**
  * Whatever came out of the jsonb column or a backup, made into a document the
  * page can trust: every array an array, every weapon holding exactly one tick
  * per tier, every military count inside its range. Never throws.
+ *
+ * Two older shapes are read forward. A tier's `goal` once meant "this many
+ * weapons need the tier before me", so it becomes that tier's `need`, and a
+ * last mastery tier that had one is earned by every weapon at once. A mode's
+ * `militaryImages` (pictures only) becomes its `militaryCamos`.
  */
 export function normalizeCamoData(raw: unknown): CamoData {
   const modes = list(record(raw).modes).map((m, mi): CamoMode => {
     const mode = record(m);
     const militaryMax = count(mode.militaryMax);
-    const tiers = withMasteryKinds(list(mode.tiers).map((t, ti): CamoTier => {
+    const read = list(mode.tiers).map((t, ti) => {
       const tier = record(t);
       const kind = CAMO_TIER_KINDS.includes(tier.kind as CamoTierKind)
         ? (tier.kind as CamoTierKind)
         : 'gold';
       const imageUrl = typeof tier.imageUrl === 'string' ? tier.imageUrl : undefined;
-      const goal = count(tier.goal);
+      const need = count(tier.need);
+      const unlock = text(tier.unlock);
       return {
-        id: str(tier.id, `tier-${ti}`),
-        name: str(tier.name, CAMO_KIND_LABEL[kind]),
-        kind,
-        ...(imageUrl ? { imageUrl } : {}),
-        ...(goal > 0 ? { goal } : {}),
+        legacyGoal: count(tier.goal),
+        tier: {
+          id: str(tier.id, `tier-${ti}`),
+          name: str(tier.name, CAMO_KIND_LABEL[kind]),
+          kind,
+          ...(imageUrl ? { imageUrl } : {}),
+          ...(unlock ? { unlock } : {}),
+          ...(need > 0 ? { need } : {}),
+          ...(tier.auto === true ? { auto: true } : {}),
+          ...readChallenge(tier),
+        } as CamoTier,
       };
-    }));
+    });
+    const mastery = read.filter((r) => r.tier.kind !== 'special');
+    mastery.forEach((r, i) => {
+      if (!r.legacyGoal) return;
+      const previous = mastery[i - 1];
+      if (previous && !previous.tier.need) previous.tier.need = r.legacyGoal;
+      if (i === mastery.length - 1) r.tier.auto = true;
+    });
+    const tiers = withMasteryKinds(read.map((r) => r.tier));
     const classes = list(mode.classes).map((c, ci): CamoClass => {
       const cls = record(c);
+      const classMilitary = readMilitaryCamos(cls.militaryCamos);
       return {
         id: str(cls.id, `cls-${ci}`),
         name: str(cls.name, `Class ${ci + 1}`),
+        ...(classMilitary ? { militaryCamos: classMilitary } : {}),
         weapons: list(cls.weapons).map((w, wi): CamoWeapon => {
           const weapon = record(w);
           const done = list(weapon.done);
-          const icon = typeof weapon.iconUrl === 'string' ? checkImageLink(weapon.iconUrl) : null;
+          const iconUrl = link(weapon.iconUrl);
+          const militaryCamos = readMilitaryCamos(weapon.militaryCamos);
           return {
             id: str(weapon.id, `wpn-${ci}-${wi}`),
             name: str(weapon.name, `Weapon ${wi + 1}`),
             military: Math.min(militaryMax, count(weapon.military)),
             done: tiers.map((_, i) => done[i] === true),
-            ...(icon?.ok ? { iconUrl: icon.url } : {}),
+            ...(iconUrl ? { iconUrl } : {}),
+            ...(militaryCamos ? { militaryCamos } : {}),
           };
         }),
       };
     });
-    const militaryImages = cleanMilitaryImages(
-      list(mode.militaryImages).map((u) => (typeof u === 'string' ? u : '')),
-      militaryMax,
-    );
+    const legacyImages = list(mode.militaryImages).map((u, i) => ({ name: `Military camo ${i + 1}`, imageUrl: u }));
+    const militaryCamos = readMilitaryCamos(has(list(mode.militaryCamos)) ? mode.militaryCamos : legacyImages);
     return {
       id: str(mode.id, `mode-${mi}`),
       name: str(mode.name, `Mode ${mi + 1}`),
       militaryMax,
-      ...(militaryImages ? { militaryImages } : {}),
+      ...(militaryCamos ? { militaryCamos } : {}),
       tiers,
       classes: classes.length ? classes : [newClass('Class 1')],
     };
@@ -430,25 +502,31 @@ const everyWeapon = (mode: CamoMode, fn: (weapon: CamoWeapon) => CamoWeapon): Ca
 /** Lowering the count caps every weapon's existing value to it. */
 export const setMilitaryMax = (mode: CamoMode, max: number): CamoMode => {
   const next = Math.max(0, Math.floor(max));
-  const { militaryImages: _old, ...rest } = mode;
-  void _old;
-  const militaryImages = cleanMilitaryImages(mode.militaryImages ?? [], next);
-  return everyWeapon(
-    { ...rest, militaryMax: next, ...(militaryImages ? { militaryImages } : {}) },
-    (w) => ({ ...w, military: Math.min(w.military, next) }),
-  );
+  return everyWeapon({ ...mode, militaryMax: next }, (w) => ({ ...w, military: Math.min(w.military, next) }));
 };
 
-/** One military camo's picture set, or cleared with ''. */
+/**
+ * One shared military camo's picture set, or cleared with ''. The list grows
+ * to reach it; a camo left with no picture keeps its name and challenge.
+ */
 export const setMilitaryImage = (mode: CamoMode, index: number, url: string): CamoMode => {
-  const images = [...(mode.militaryImages ?? [])];
-  while (images.length <= index) images.push('');
-  images[index] = url;
-  const { militaryImages: _old, ...rest } = mode;
+  const camos = [...(mode.militaryCamos ?? [])];
+  while (camos.length <= index) camos.push({ name: `Military camo ${camos.length + 1}` });
+  const { imageUrl: _old, ...camo } = camos[index];
   void _old;
-  const militaryImages = cleanMilitaryImages(images, mode.militaryMax);
-  return { ...rest, ...(militaryImages ? { militaryImages } : {}) };
+  camos[index] = url ? { ...camo, imageUrl: url } : camo;
+  return { ...mode, militaryCamos: camos };
 };
+
+/** The military camos a weapon shows: its own, else its class's, else the mode's. */
+export const militaryCamosFor = (mode: CamoMode, cls: CamoClass, weapon: CamoWeapon): MilitaryCamo[] =>
+  weapon.militaryCamos ?? cls.militaryCamos ?? mode.militaryCamos ?? [];
+
+/** A camo's challenge for this weapon: its own variant, else its class's, else the general one. */
+export const challengeFor = (item: CamoChallenge, weapon?: { name: string }, cls?: { name: string }): string | undefined =>
+  (weapon && item.challenges?.[challengeKey(weapon.name)]) ||
+  (cls && item.challenges?.[challengeKey(cls.name)]) ||
+  item.challenge;
 
 /** Re-derives every mastery tier's kind after a change to the order. */
 const ordered = (mode: CamoMode): CamoMode => ({ ...mode, tiers: withMasteryKinds(mode.tiers) });
@@ -503,7 +581,8 @@ export const updateTier = (mode: CamoMode, index: number, patch: Partial<CamoTie
       if (i !== index) return tier;
       const next = { ...tier, ...patch };
       if (!next.imageUrl) delete next.imageUrl;
-      if (!next.goal) delete next.goal;
+      if (!next.need) delete next.need;
+      if (!next.auto) delete next.auto;
       return next;
     }),
   });
@@ -534,10 +613,10 @@ export interface MasteryTile {
 }
 
 /**
- * One tile per non-special tier, in unlock order. A tier with a goal counts
- * the weapons that have the previous mastery tier, toward that goal — how
- * close it is to unlocking. Any other tier counts its own ticks against every
- * weapon.
+ * One tile per non-special tier, in unlock order. A tier counts the weapons
+ * that have it, and is full at its `need` — the number the next tier asks
+ * for — or at every weapon. An `auto` tier is 0 or 1: unlocked once the
+ * tier before it is full, or once any weapon is ticked.
  */
 export function masteryTiles(mode: CamoMode): MasteryTile[] {
   const weapons = modeWeapons(mode);
@@ -545,20 +624,36 @@ export function masteryTiles(mode: CamoMode): MasteryTile[] {
   mode.tiers.forEach((tier, index) => {
     if (tier.kind === 'special') return;
     const previous = tiles[tiles.length - 1];
-    const counted = tier.goal && previous ? previous.index : index;
-    const done = weapons.filter((w) => w.done[counted]).length;
-    const total = tier.goal ?? weapons.length;
+    const ticked = weapons.filter((w) => w.done[index]).length;
+    if (tier.auto) {
+      const complete = Boolean(previous?.complete) || ticked > 0;
+      tiles.push({ tier, index, done: complete ? 1 : 0, total: 1, complete, locked: !complete && Boolean(previous) });
+      return;
+    }
+    const total = tier.need ? Math.min(tier.need, weapons.length) : weapons.length;
     tiles.push({
       tier,
       index,
-      done,
+      done: Math.min(ticked, total),
       total,
-      complete: total > 0 && done >= total,
-      locked: previous !== undefined && !previous.complete && done === 0,
+      complete: total > 0 && ticked >= total,
+      locked: previous !== undefined && !previous.complete && ticked === 0,
     });
   });
   return tiles;
 }
+
+/** A mode whose last mastery tier is earned: the game's gold, like a 100% game. */
+export const modeMastered = (mode: CamoMode): boolean => {
+  const tiles = masteryTiles(mode);
+  return tiles.length > 0 && tiles[tiles.length - 1].complete;
+};
+
+export const gameMastered = (game: CamoGame): boolean => game.data.modes.some(modeMastered);
+
+/** The furthest mastery tier earned in full, for a tick on the game's cover. */
+export const topMastery = (mode: CamoMode): MasteryTile | null =>
+  [...masteryTiles(mode)].reverse().find((tile) => tile.complete) ?? null;
 
 /**
  * The tier being worked on: the first mastery tier not yet complete, or the
@@ -695,7 +790,7 @@ export const libraryMatch = <G extends { title: string }>(name: string, library:
   return key ? library.find((g) => titleKey(g.title) === key) : undefined;
 };
 
-/** The Lists entry's line: "2 games · 5 modes · Game Gold 3 / 12". */
+/** The Lists entry's line: "2 games · 5 modes · Game 3 / 12" — camos show as pictures, not names. */
 export const camoListLine = (games: CamoGame[], view: CamoView): string => {
   if (games.length === 0) return 'No games yet';
   const modes = games.reduce((n, g) => n + g.data.modes.length, 0);
@@ -704,7 +799,7 @@ export const camoListLine = (games: CamoGame[], view: CamoView): string => {
   return [
     `${games.length} ${games.length === 1 ? 'game' : 'games'}`,
     `${modes} ${modes === 1 ? 'mode' : 'modes'}`,
-    tile ? `${focus.name} ${tile.tier.name} ${tile.done} / ${tile.total}` : focus.name,
+    tile ? `${focus.name} ${tile.done} / ${tile.total}` : focus.name,
   ].join(' · ');
 };
 

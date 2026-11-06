@@ -22,7 +22,7 @@ import {
   updateTier,
 } from '../../lib/camo';
 import { cn } from '../../lib/cn';
-import { Button, Dialog, Select, TextInput } from '../ui';
+import { Button, Dialog, Select, Switch, TextInput } from '../ui';
 import { CommitInput, ConfirmDialog, TierSwatch, WeaponIcon } from './CamoBits';
 
 type LinkStatus = 'empty' | 'not-url' | 'loading' | 'loaded' | 'failed';
@@ -103,40 +103,51 @@ const ImageLinkField: React.FC<{
 };
 
 /**
- * How many weapons need the previous mastery tier before this one unlocks,
- * when the game sets a number (MWII's Orion: Polyatomic on 51). Empty means
- * this tier on every weapon in the mode.
+ * How many weapons need this tier — the number the next tier asks for (MWII's
+ * Platinum: 51, for Polyatomic). Empty means every weapon in the mode. Or the
+ * tier is earned by every weapon at once when the one before it is full.
  */
-const GoalField: React.FC<{
+const NeedField: React.FC<{
   tier: CamoTier;
-  previousName?: string;
   weaponCount: number;
-  onSave: (goal: number | undefined) => void;
-}> = ({ tier, previousName, weaponCount, onSave }) => {
-  const [draft, setDraft] = useState(tier.goal ? String(tier.goal) : '');
-  useEffect(() => setDraft(tier.goal ? String(tier.goal) : ''), [tier.goal]);
+  onSave: (patch: Pick<CamoTier, 'need' | 'auto'>) => void;
+}> = ({ tier, weaponCount, onSave }) => {
+  const [draft, setDraft] = useState(tier.need ? String(tier.need) : '');
+  useEffect(() => setDraft(tier.need ? String(tier.need) : ''), [tier.need]);
   const commit = () => {
     const value = Number.parseInt(draft, 10);
     const next = Number.isFinite(value) && value > 0 ? value : undefined;
-    if (next !== tier.goal) onSave(next);
+    if (next !== tier.need) onSave({ need: next, auto: tier.auto });
     if (!next) setDraft('');
   };
   return (
-    <label className="flex shrink-0 items-center gap-2.5">
-      <span className="text-75 text-gray-700">{previousName ? `${previousName} needed on` : 'Weapons needed'}</span>
-      <TextInput
-        type="number"
-        min={1}
-        inputMode="numeric"
-        value={draft}
-        placeholder={`All ${weaponCount}`}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-        aria-label={`Weapons needed for ${tier.name}`}
-        className="w-24"
-      />
-    </label>
+    <div className="flex shrink-0 flex-col gap-2">
+      {tier.auto ? null : (
+        <label className="flex items-center gap-2.5">
+          <span className="text-75 text-gray-700">Needed on</span>
+          <TextInput
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={draft}
+            placeholder={`All ${weaponCount}`}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            aria-label={`Weapons needed with ${tier.name}`}
+            className="w-24"
+          />
+        </label>
+      )}
+      <span className="flex items-center gap-2.5">
+        <Switch
+          checked={Boolean(tier.auto)}
+          onChange={(auto) => onSave({ need: auto ? undefined : tier.need, auto })}
+          label={`Every weapon gets ${tier.name} at once`}
+        />
+        <span className="text-75 text-gray-700">Every weapon at once</span>
+      </span>
+    </div>
   );
 };
 
@@ -282,7 +293,7 @@ export const CamoEditPanel: React.FC<{
                   <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
                   Military camo pictures
                   <span className="font-semibold tabular-nums text-gray-600">
-                    {(mode.militaryImages ?? []).filter(Boolean).length} / {mode.militaryMax}
+                    {(mode.militaryCamos ?? []).filter((c) => c.imageUrl).length} / {mode.militaryMax}
                   </span>
                 </summary>
                 <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
@@ -291,7 +302,7 @@ export const CamoEditPanel: React.FC<{
                       <span className="mt-2.5 w-5 shrink-0 text-75 font-bold tabular-nums text-gray-600">{i + 1}</span>
                       <div className="min-w-0 flex-1">
                         <ImageLinkField
-                          value={mode.militaryImages?.[i] || undefined}
+                          value={mode.militaryCamos?.[i]?.imageUrl}
                           label={`Picture for military camo ${i + 1}`}
                           onSave={(url) => saveMode((m) => setMilitaryImage(m, i, url ?? ''))}
                         />
@@ -376,13 +387,10 @@ export const CamoEditPanel: React.FC<{
                       />
                     </div>
                     {tierGroup(tier.kind) === 'mastery' ? (
-                      <GoalField
+                      <NeedField
                         tier={tier}
-                        previousName={
-                          mode.tiers.slice(0, i).filter((t) => tierGroup(t.kind) === 'mastery').pop()?.name
-                        }
                         weaponCount={weaponCount}
-                        onSave={(goal) => saveMode((m) => updateTier(m, i, { goal }))}
+                        onSave={(patch) => saveMode((m) => updateTier(m, i, patch))}
                       />
                     ) : null}
                   </div>

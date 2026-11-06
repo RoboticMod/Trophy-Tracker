@@ -65,13 +65,12 @@ put, and an explicit `collections` in the same edit wins.
 
 **The camo tracker** ([`lib/camo.ts`](src/lib/camo.ts), all rules, no React):
 one `camo_games` row per tracked game, `data` jsonb holding modes → tiers
-(Special or Mastery; a mastery tier's colour — gold, diamond, then dark — follows its order; optional image link) and classes → weapons
-(`military`, `done[]` per tier; a mode may hold `militaryImages`, shown lit to the count), repaired on read (`normalizeCamoData`). Chain
+(Special or Mastery; a mastery tier's colour — gold, diamond, then dark — follows its order; image, `unlock`, challenges) and classes → weapons
+(`military`, `done[]` per tier). `militaryCamos` (name, picture, challenge) sit on a weapon, class or mode, nearest wins. Repaired on read (`normalizeCamoData`, which also reads old `goal`/`militaryImages` forward). Chain
 rule: a tick ticks every earlier tier, a clear clears every later one; military
-is separate. Nothing seeded; only Edit mode changes cells. Undo
+is separate. Taps tick without Edit mode; Edit is for structure. Names show only on hover cards (`CamoHover`; a held finger on a phone). A tier's tile is full at its `need` (else every weapon); an `auto` tier is Unlocked once the one before is full. Last tile full = mastered: gold in the switcher and Lists. Undo
 (`useCamoHistory`): 25 snapshots, session only, per account, cleared by a
-restore. `planCamoImport` adds new games, fills icons, goals and missing pictures into tracked ones;
-a tier `goal` makes its tile count the previous tier. View per device (`camo-view`).
+restore. `planCamoImport` adds new games; into tracked ones it writes icons and needs, and fills only missing pictures, challenges and military camos. View per device (`camo-view`).
 
 **Award lists** ([`lib/awards.ts`](src/lib/awards.ts)): game details' Trophies
 section, cached in `game_awards` with the counts at fetch time and refetched on

@@ -21,7 +21,7 @@ import {
 } from '../lib/collections';
 import { CollectionsList, PreviewCover, perfectLabel } from '../components/CollectionsList';
 import { TrophyBadge } from '../components/TrophyBadge';
-import { TierSwatch } from '../components/camo/CamoBits';
+import { MasteryBadge, MasteryRow, TierSwatch } from '../components/camo/CamoBits';
 import {
   CAMO_VIEW_KEY,
   CamoGame,
@@ -30,7 +30,9 @@ import {
   camoFocus,
   camoListLine,
   camoSwatchTiers,
+  gameMastered,
   isCamoView,
+  viewedMode,
   libraryMatch,
 } from '../lib/camo';
 import { oneOf, readPreference } from '../lib/usePersistentState';
@@ -235,21 +237,38 @@ const CamoCard: React.FC<{ camoGames: CamoGame[]; library: UserGame[]; onOpen: (
           const game = shown[index];
           if (!game) return <span key={index} aria-hidden className="block aspect-video bg-gray-100" />;
           const match = libraryMatch(game.name, library);
+          // Gold once the game's last mastery camo is earned, as a 100% game is.
+          const mastered = gameMastered(game);
+          const badge = <MasteryBadge mode={viewedMode(game, view)} className="absolute bottom-2 right-2 h-7 w-7" />;
+          const rim = mastered ? (
+            <span aria-hidden className="absolute inset-0 border-2 border-trophy-700/80" />
+          ) : null;
           return match ? (
-            <PreviewCover key={game.id} game={match} className="w-full" />
+            <PreviewCover key={game.id} game={match} className="w-full">
+              {rim}
+              {badge}
+            </PreviewCover>
           ) : (
-            <span key={game.id} className="flex aspect-video items-center justify-center gap-2 bg-gray-100 px-3">
-              <Crosshair size={16} className="shrink-0 text-gray-600" />
-              <span className="truncate text-90 font-bold text-gray-800">{game.name}</span>
+            <span key={game.id} className="relative flex aspect-video items-center justify-center gap-2 bg-gray-100 px-3">
+              <Crosshair size={16} className={cn('shrink-0', mastered ? 'text-trophy-900' : 'text-gray-600')} />
+              <span className={cn('truncate text-90 font-bold', mastered ? 'text-trophy-900' : 'text-gray-800')}>
+                {game.name}
+              </span>
+              {rim}
+              {badge}
             </span>
           );
         })}
         <span className="flex aspect-video flex-col items-center justify-center gap-2.5 bg-gray-100">
-          <span className="flex gap-1.5">
-            {camoSwatchTiers(focus).map((tier) => (
-              <TierSwatch key={tier.id} tier={tier} className="h-7 w-7 rounded-sm" />
-            ))}
-          </span>
+          {focus ? (
+            <MasteryRow mode={focus.mode} className="gap-1.5 px-2" swatchClassName="h-7 w-7" />
+          ) : (
+            <span className="flex gap-1.5">
+              {camoSwatchTiers(focus).map((tier) => (
+                <TierSwatch key={tier.id} tier={tier} className="h-7 w-7 rounded-sm" />
+              ))}
+            </span>
+          )}
           <span className="eyebrow text-gray-700">Camo tracker</span>
         </span>
       </span>

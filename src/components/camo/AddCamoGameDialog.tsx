@@ -12,8 +12,8 @@ const FILE = 'file';
  * weapons kept, every tick cleared — a blank one with a single mode, a Gold
  * tier and an empty class, or every game in a JSON file (a backup's tracker
  * included), added beside the ones already here. A file game that is already
- * tracked updates it instead: icons, tier goals and missing pictures only,
- * ticks untouched.
+ * tracked updates it instead: icons, numbers needed, and missing pictures,
+ * challenges and military camos — ticks untouched.
  */
 export const AddCamoGameDialog: React.FC<{
   isOpen: boolean;

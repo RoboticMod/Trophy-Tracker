@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Crosshair, Pencil, Check, Plus, Layers, Trash2, Settings2, ListChecks, Undo2 } from 'lucide-react';
+import { Crosshair, Pencil, Check, Plus, Layers, Trash2, Settings2, ListChecks, Trophy, Undo2 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import { useCamoHistory } from '../lib/useCamoHistory';
@@ -14,6 +14,7 @@ import {
   classHasTier,
   clearedMode,
   completeClassMilitary,
+  gameMastered,
   isCamoView,
   markClassThrough,
   toggleClassTier,
@@ -23,48 +24,59 @@ import {
 import { usePersistentState } from '../lib/usePersistentState';
 import { useIsPhone } from '../lib/useMediaQuery';
 import { cn } from '../lib/cn';
-import { CamoCards, CamoTable, TierLegend } from '../components/camo/CamoGrid';
-import { ConfirmDialog, LockedLabel, TierSwatch } from '../components/camo/CamoBits';
+import { CamoCards, CamoTable, TierLegend, needNote } from '../components/camo/CamoGrid';
+import { CamoHover, ConfirmDialog, LockedLabel, TierSwatch, tierInfo } from '../components/camo/CamoBits';
 import { CamoEditPanel } from '../components/camo/CamoEditPanel';
 import { CamoBulkBar } from '../components/camo/CamoBulkBar';
 import { Button, Dialog, EmptyState, FilterChip, Meter, PageHeader } from '../components/ui';
 import { AddCamoGameDialog } from '../components/camo/AddCamoGameDialog';
 
-/** The mastery tiles: one per non-special tier, x / y and a meter in its colour. */
+/**
+ * The mastery tiles: one per non-special tier — its camo's picture (the name
+ * is on the hover card), x / y toward the number the game asks for, and a
+ * meter in its colour. A tier every weapon gets at once reads Unlocked.
+ */
 const MasteryTiles: React.FC<{ mode: CamoMode }> = ({ mode }) => {
   const tiles = masteryTiles(mode);
   if (tiles.length === 0) return null;
   return (
     // A row that scrolls sideways on a phone. Each tile is flex-shrink 0, or
     // the row collapses them to fit instead of scrolling.
-    <div className="scroll-row -mx-4 flex gap-2.5 px-4 md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] md:gap-3 md:px-0">
+    <div className="scroll-row -mx-4 flex gap-2.5 px-4 md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] md:gap-3 md:px-0">
       {tiles.map((tile) => (
-        <div
-          key={tile.tier.id}
-          className={cn(
-            'panel flex w-44 shrink-0 items-center gap-3 rounded-lg p-3 md:w-auto md:gap-4 md:p-4',
-            tile.locked && 'opacity-60',
-          )}
-        >
-          <TierSwatch tier={tile.tier} className="h-10 w-10 shrink-0 rounded-control md:h-12 md:w-12" />
-          <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-90 font-bold text-gray-1000 md:text-150">{tile.tier.name}</span>
-              {tile.locked ? (
-                <LockedLabel />
-              ) : (
-                <span className="shrink-0 text-75 font-bold tabular-nums text-gray-800 md:text-90">
-                  {tile.done} / {tile.total}
-                </span>
+        <CamoHover key={tile.tier.id} tap info={{ ...tierInfo(tile.tier), note: needNote(tile.tier) }}>
+          {(anchor) => (
+            <div
+              {...anchor}
+              tabIndex={0}
+              aria-label={`${tile.tier.name}: ${tile.locked ? 'locked' : tile.tier.auto ? (tile.complete ? 'unlocked' : 'not unlocked') : `${tile.done} of ${tile.total}`}`}
+              className={cn(
+                'panel flex w-36 shrink-0 select-none items-center gap-3 rounded-lg p-3 md:w-auto md:gap-4 md:p-4',
+                tile.locked && 'opacity-60',
               )}
+            >
+              <TierSwatch tier={tile.tier} className="h-10 w-10 shrink-0 rounded-control md:h-12 md:w-12" />
+              <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2">
+                <div className="flex justify-end">
+                  {tile.locked ? (
+                    <LockedLabel />
+                  ) : tile.tier.auto ? (
+                    <span className="text-75 font-bold text-gray-800 md:text-90">{tile.complete ? 'Unlocked' : '—'}</span>
+                  ) : (
+                    <span className="text-75 font-bold tabular-nums text-gray-800 md:text-90">
+                      {tile.done} / {tile.total}
+                    </span>
+                  )}
+                </div>
+                <Meter
+                  value={tile.total > 0 ? (tile.done / tile.total) * 100 : 0}
+                  color={TIER_COLOR[tile.tier.kind]}
+                  label={`${tile.tier.name} progress`}
+                />
+              </div>
             </div>
-            <Meter
-              value={tile.total > 0 ? (tile.done / tile.total) * 100 : 0}
-              color={TIER_COLOR[tile.tier.kind]}
-              label={`${tile.tier.name} progress`}
-            />
-          </div>
-        </div>
+          )}
+        </CamoHover>
       ))}
     </div>
   );
@@ -73,12 +85,11 @@ const MasteryTiles: React.FC<{ mode: CamoMode }> = ({ mode }) => {
 /**
  * The Call of Duty camo tracker.
  *
- * No API exposes camo progress, so all of it is typed and ticked by hand. The
- * page opens read-only: View mode cannot change a cell, so a stray tap on a
- * phone does nothing. Edit unlocks the rest — the cells, military counts,
- * whole-row All / Clear, column headers that mark a tier for the class, the
- * bulk tools, adding games and modes, and the panel for weapons, camos and
- * images.
+ * No API exposes camo progress, so all of it is typed and ticked by hand. A
+ * tap ticks a cell or sets a military count straight away, with Undo beside
+ * Edit. Edit holds the rest — whole-row All / Clear, column headers that mark
+ * a tier for the class, the bulk tools, adding and deleting games and modes,
+ * and the panel for weapons, camos and images.
  *
  * Every write goes through `writeGame` / `removeGame`, which record the game as
  * it was first — that is all Undo needs.
@@ -194,17 +205,34 @@ export const CallOfDutyView: React.FC = () => {
     [mode],
   );
 
+  // Ticks change without Edit mode, so Undo sits beside it — Edit mode has
+  // its own in the bulk tools.
   const editToggle = camoGames.length > 0 ? (
-    <Button
-      variant={editing ? 'accent' : 'secondary'}
-      buttonStyle={editing ? 'fill' : 'outline'}
-      size={phone ? 'l' : 'm'}
-      aria-pressed={editing}
-      onClick={() => setEditing((on) => !on)}
-    >
-      {editing ? <Check size={15} /> : <Pencil size={14} />}
-      {editing ? 'Done' : 'Edit'}
-    </Button>
+    <span className="flex items-center gap-2">
+      {!editing && history.canUndo ? (
+        <Button
+          buttonStyle="outline"
+          size={phone ? 'l' : 'm'}
+          iconOnly={phone}
+          aria-label={history.lastAction ? `Undo: ${history.lastAction}` : 'Undo'}
+          title={history.lastAction ? `Undo: ${history.lastAction}` : 'Undo'}
+          onClick={undo}
+        >
+          <Undo2 size={phone ? 16 : 14} />
+          {phone ? null : 'Undo'}
+        </Button>
+      ) : null}
+      <Button
+        variant={editing ? 'accent' : 'secondary'}
+        buttonStyle={editing ? 'fill' : 'outline'}
+        size={phone ? 'l' : 'm'}
+        aria-pressed={editing}
+        onClick={() => setEditing((on) => !on)}
+      >
+        {editing ? <Check size={15} /> : <Pencil size={14} />}
+        {editing ? 'Done' : 'Edit'}
+      </Button>
+    </span>
   ) : undefined;
 
   return (
@@ -241,11 +269,22 @@ export const CallOfDutyView: React.FC = () => {
         <>
           {/* Game switcher -------------------------------------------------- */}
           <div className="scroll-row -mx-4 flex items-center gap-2 px-4 md:mx-0 md:flex-wrap md:px-0">
-            {camoGames.map((g) => (
-              <FilterChip key={g.id} selected={g.id === game.id} onClick={() => show({ gameId: g.id })}>
-                {g.name}
-              </FilterChip>
-            ))}
+            {camoGames.map((g) => {
+              // A game whose last mastery camo is earned is gold, as a 100% game is.
+              const mastered = gameMastered(g);
+              return (
+                <FilterChip
+                  key={g.id}
+                  tone={mastered ? 'trophy' : 'accent'}
+                  selected={g.id === game.id}
+                  onClick={() => show({ gameId: g.id })}
+                  className={mastered && g.id !== game.id ? 'border-trophy-700/50 text-trophy-900' : undefined}
+                >
+                  {mastered ? <Trophy size={13} /> : null}
+                  {g.name}
+                </FilterChip>
+              );
+            })}
             {editing ? (
               <>
                 <Button size="s" buttonStyle="outline" className="shrink-0" onClick={() => setAdding(true)}>
