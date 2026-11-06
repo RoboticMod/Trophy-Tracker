@@ -230,7 +230,7 @@ export const CamoEditPanel: React.FC<{
                 onClick={() =>
                   setConfirm({
                     title: `Delete ${game.name}?`,
-                    message: 'Every mode, weapon and tick in it goes too. This can’t be undone.',
+                    message: 'Every mode, weapon and tick in it goes too. Undo brings it back.',
                     label: 'Delete game',
                     run: () => {
                       onDeleteGame();

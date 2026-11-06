@@ -21,6 +21,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.1',
+    date: '2026-11-06',
+    title: 'Delete a Call of Duty game in one place',
+    changes: ['In Edit mode, Delete game sits beside + Game above the tracker. Undo brings a deleted game back.'],
+  },
+  {
     version: '0.22.0',
     date: '2026-11-06',
     title: 'Military camo pictures',

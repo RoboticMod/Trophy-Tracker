@@ -94,6 +94,7 @@ export const CallOfDutyView: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [removingMode, setRemovingMode] = useState(false);
+  const [removingGame, setRemovingGame] = useState(false);
   const [view, setView] = usePersistentState<CamoView>(CAMO_VIEW_KEY, EMPTY_CAMO_VIEW, isCamoView);
 
   // What is on screen, falling back to the first of each when what was last
@@ -246,10 +247,22 @@ export const CallOfDutyView: React.FC = () => {
               </FilterChip>
             ))}
             {editing ? (
-              <Button size="s" buttonStyle="outline" className="shrink-0" onClick={() => setAdding(true)}>
-                <Plus size={13} />
-                Game
-              </Button>
+              <>
+                <Button size="s" buttonStyle="outline" className="shrink-0" onClick={() => setAdding(true)}>
+                  <Plus size={13} />
+                  Game
+                </Button>
+                <Button
+                  size="s"
+                  buttonStyle="subtle"
+                  variant="negative"
+                  className="shrink-0"
+                  onClick={() => setRemovingGame(true)}
+                >
+                  <Trash2 size={13} />
+                  Delete game
+                </Button>
+              </>
             ) : null}
           </div>
 
@@ -403,6 +416,15 @@ export const CallOfDutyView: React.FC = () => {
             confirmLabel="Remove mode"
             onConfirm={removeMode}
             onClose={() => setRemovingMode(false)}
+          />
+
+          <ConfirmDialog
+            isOpen={removingGame}
+            title={`Delete ${game.name}?`}
+            message="Every mode, weapon and tick in it goes too. Undo brings it back."
+            confirmLabel="Delete game"
+            onConfirm={() => removeGame(game, `Deleted ${game.name}`)}
+            onClose={() => setRemovingGame(false)}
           />
         </>
       )}
